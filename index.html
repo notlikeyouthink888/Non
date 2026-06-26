@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شطرنج حي - Chessee Bot</title>
+    <!-- استدعاء ستايل الرقعة الاحترافي -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            background-color: #161512;
+            color: #ffffff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 10px;
+            height: 100vh;
+            overflow: hidden;
+        }
+        h3 { margin-bottom: 10px; font-weight: normal; color: #bababa; }
+        #board {
+            width: 95vw;
+            max-width: 400px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .status-container {
+            margin-top: 15px;
+            font-size: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h3>🎮 مباراة شطرنج حية باللمس</h3>
+    <div id="board"></div>
+    
+    <div class="status-container">
+        <span id="status">الدور الآن على: الأبيض ⚪</span>
+    </div>
+
+    <!-- استدعاء مكتبات الجافاسكريبت لإدارة القواعد والقطع -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script>
+        // تهيئة قواعد اللعبة والرقعة مرئياً
+        var board = null;
+        var game = new Chess();
+        var $status = $('#status');
+
+        function onDragStart (source, piece, position, orientation) {
+            // منع تحريك القطع إذا انتهت اللعبة أو إذا كان الدور ليس للقطعة المختارة
+            if (game.game_over()) return false;
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop (source, target) {
+            // التحقق من قانونية النقلة
+            var move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q' // ترقية تلقائية لوزير للتسهيل على الموبايل
+            });
+
+            // إذا كانت النقلة غير قانونية، أعد القطعة لمكانها
+            if (move === null) return 'snapback';
+
+            updateStatus();
+        }
+
+        function onSnapEnd () {
+            board.position(game.fen());
+        }
+
+        function updateStatus () {
+            var status = '';
+            var moveColor = (game.turn() === 'b') ? 'الأسود ⚫' : 'الأبيض ⚪';
+
+            if (game.in_checkmate()) {
+                status = '🏁 كش مات! انتهت المباراة وفاز ' + (game.turn() === 'w' ? 'الأسود ⚫' : 'الأبيض ⚪');
+            } else if (game.in_draw()) {
+                status = '🏁 انتهت المباراة بالتعادل!';
+            } else {
+                status = 'الدور الآن على: ' + moveColor;
+                if (game.in_check()) {
+                    status += ' (⚠️ كش ملك!)';
+                }
+            }
+            $status.html(status);
+        }
+
+        var config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png' // شكل القطع الرسمية والمريحة للعين
+        };
+        board = Chessboard('board', config);
+        updateStatus();
+    </script>
+</body>
+</html>
