@@ -168,6 +168,8 @@ export default {
       zoning.api.paintCircle(-620, -60, 90, ZONE.PARK);
       sim?.api.setDensityFromBuildings();
       zoning.api.generateLots();
+      terrain.api.rebuild();     // بعد تسوية الأرض تحت القطع
+      roads.api.rebuild();
     }
     mark('zoning', tt);
 

@@ -36,7 +36,7 @@ export default {
     this.renderPass = new RenderPass(scene, camera);
     this.composer.addPass(this.renderPass);
 
-    if (quality.ssao) {
+    if (quality.ssao && params.get('nossao') !== '1') {
       this.ssao = new SSAOPass(scene, camera, size.x * dpr, size.y * dpr);
       this.ssao.kernelRadius = 10;
       this.ssao.minDistance = 0.0012;
@@ -44,19 +44,21 @@ export default {
       this.ssao.output = SSAOPass.OUTPUT.Default;
       this.composer.addPass(this.ssao);
     }
-    if (quality.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.09, 0.40, 2.30);
+    if (quality.bloom && params.get('nobloom') !== '1') {
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.028, 0.30, 3.20);
       this.composer.addPass(this.bloom);
     }
     // OutputPass أولًا: يحوّل HDR الخطّي إلى فضاء العرض، ثم تعمل SMAA والتدرّج على قيم 0..1
     this.output = new OutputPass();
     this.composer.addPass(this.output);
 
-    if (quality.smaa) {
+    if (quality.smaa && params.get('nosmaa') !== '1') {
       this.smaa = new SMAAPass();
       this.composer.addPass(this.smaa);
     }
+    this.gradeOff = params.get('nograde') === '1';
     this.grade = new ShaderPass(GradeShader);
+    this.grade.enabled = !this.gradeOff;
     this.grade.uniforms.uResolution.value.set(size.x * dpr, size.y * dpr);
     this.grade.uniforms.uGrain.value = quality.grain ? 0.030 : 0.0;
     this.grade.uniforms.uTilt.value = quality.dof ? 0.55 : 0.0;
@@ -76,13 +78,16 @@ export default {
 
     ctx.bus.on('time:changed:done', ({ night }) => {
       if (this.bloom) {
-        // القيم هنا في فضاء HDR خطّي قبل التعيين اللوني ⇒ عتبة أعلى من 1
-        this.bloom.strength = lerp(0.085, 0.40, smoothstep(0.15, 0.8, night));
-        this.bloom.threshold = lerp(2.35, 0.72, smoothstep(0.15, 0.8, night));
-        this.bloom.radius = lerp(0.42, 0.62, smoothstep(0.15, 0.8, night));
+        // ⚠️ القيم في فضاء HDR خطّي قبل التعيين اللوني. السماء نهارًا شديدة السطوع،
+        // لذا أي توهّج ملموس نهارًا يتحوّل إلى ضباب لبني على كل الصورة (تم قياسه).
+        // ⇒ توهّج نهاري شبه معدوم، وتوهّج ليلي قوي لنوافذ المدينة.
+        const n = smoothstep(0.25, 0.82, night);
+        this.bloom.strength = lerp(0.026, 0.34, n);
+        this.bloom.threshold = lerp(3.20, 0.55, n);
+        this.bloom.radius = lerp(0.26, 0.58, n);
       }
-      this.grade.uniforms.uSaturation.value = lerp(1.07, 1.16, smoothstep(0.2, 0.8, night));
-      this.grade.uniforms.uVignette.value = lerp(0.32, 0.44, smoothstep(0.2, 0.8, night));
+      this.grade.uniforms.uSaturation.value = lerp(1.12, 1.20, smoothstep(0.2, 0.8, night));
+      this.grade.uniforms.uVignette.value = lerp(0.30, 0.42, smoothstep(0.2, 0.8, night));
     });
 
     this.api = {

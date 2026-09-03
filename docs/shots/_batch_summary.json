@@ -4,33 +4,53 @@
   "consoleErrors": [],
   "results": [
     {
-      "out": "docs/shots/d_shadow.png",
-      "label": "فحص الظلال والطرق",
-      "fps": 1.8,
-      "frameMs": 564.01,
-      "drawCalls": 801,
-      "triangles": 4670865,
-      "programs": 64,
+      "out": "docs/shots/r5_street.png",
+      "label": "الشارع — ظهرًا",
+      "fps": 1.4,
+      "frameMs": 691.7,
+      "drawCalls": 761,
+      "triangles": 3571121,
+      "programs": 65,
       "errors": 0
     },
     {
-      "out": "docs/shots/d_street.png",
-      "label": "الشارع",
-      "fps": 1.1,
-      "frameMs": 927.69,
-      "drawCalls": 755,
-      "triangles": 4569101,
-      "programs": 64,
-      "errors": 0
-    },
-    {
-      "out": "docs/shots/d_overview.png",
+      "out": "docs/shots/r5_overview.png",
       "label": "منظر عام",
-      "fps": 0.3,
-      "frameMs": 3851.9,
-      "drawCalls": 865,
-      "triangles": 4816233,
-      "programs": 64,
+      "fps": 1.4,
+      "frameMs": 701.06,
+      "drawCalls": 859,
+      "triangles": 3732641,
+      "programs": 65,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/r5_closeup.png",
+      "label": "حي سكني قريب",
+      "fps": 0.9,
+      "frameMs": 1059.11,
+      "drawCalls": 799,
+      "triangles": 3634753,
+      "programs": 65,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/r5_skyline.png",
+      "label": "أفق المدينة",
+      "fps": 2.3,
+      "frameMs": 718.17,
+      "drawCalls": 851,
+      "triangles": 3713897,
+      "programs": 65,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/r5_night.png",
+      "label": "ليل",
+      "fps": 3.6,
+      "frameMs": 276.06,
+      "drawCalls": 779,
+      "triangles": 3647985,
+      "programs": 65,
       "errors": 0
     }
   ],
@@ -52,7 +72,7 @@
   "pageLogs": [
     "[boot] تهيئة الوحدات",
     "[boot] تهيئة: terrain",
-    "[terrain] gen=166ms bake=1218ms mesh=259ms chunks=64 segs=56",
+    "[terrain] gen=211ms bake=1750ms mesh=126ms chunks=64 segs=44",
     "[boot] تهيئة: environment",
     "[boot] تهيئة: roads",
     "[boot] تهيئة: zoning",
@@ -66,13 +86,14 @@
     "[boot] تهيئة: ui",
     "[boot] تهيئة: audio",
     "[boot] تهيئة: democity",
-    "[roads] rebuild 765 edges, 507 nodes in 253ms, 8 meshes",
-    "[zoning] 490 lots in 113ms",
-    "[buildings] 476 buildings / 31 instanced meshes in 9ms",
-    "[props] 2565 trees + furniture in 33ms (41 meshes)",
+    "[roads] rebuild 765 edges, 507 nodes in 118ms, 8 meshes",
+    "[zoning] 490 lots in 119ms",
+    "[roads] rebuild 765 edges, 507 nodes in 84ms, 8 meshes",
+    "[buildings] 476 buildings / 35 instanced meshes in 37ms",
+    "[props] 4073 trees + furniture in 34ms (40 meshes)",
     "[traffic] 280 vehicles across 9 batches",
-    "[democity] built in 737ms {\"roads\":168,\"rebuild\":373,\"zoning\":146,\"buildings\":10,\"props\":36,\"traffic\":3}",
-    "[app] ready in 10958ms — quality=high showcase=-"
+    "[democity] built in 685ms {\"roads\":132,\"rebuild\":202,\"zoning\":274,\"buildings\":39,\"props\":35,\"traffic\":3}",
+    "[app] ready in 12998ms — quality=high showcase=-"
   ],
-  "elapsedS": 362.4
+  "elapsedS": 677.6
 }

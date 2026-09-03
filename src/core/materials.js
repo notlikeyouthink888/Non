@@ -64,7 +64,7 @@ export class MaterialLibrary {
     if (this.cache.has(ck)) return this.cache.get(ck);
     const m = new THREE.MeshPhysicalMaterial({
       color, roughness: rough, metalness: metal, transparent: opacity < 1, opacity,
-      envMapIntensity: 1.6, clearcoat: 0.5, clearcoatRoughness: 0.08, reflectivity: 0.6,
+      envMapIntensity: 0.9, clearcoat: 0.35, clearcoatRoughness: 0.12, reflectivity: 0.45,
       side: THREE.FrontSide, depthWrite: opacity > 0.95,
     });
     this.cache.set(ck, m); return m;

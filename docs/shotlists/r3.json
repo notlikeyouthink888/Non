@@ -1,0 +1,5 @@
+[
+  { "out": "docs/shots/r3_street.png",   "preset": "street",   "time": 10.5, "label": "الشارع" },
+  { "out": "docs/shots/r3_overview.png", "preset": "overview", "time": 14.0, "label": "منظر عام" },
+  { "out": "docs/shots/r3_golden.png",   "preset": "skyline",  "time": 18.2, "label": "الساعة الذهبية" }
+]

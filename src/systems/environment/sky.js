@@ -109,8 +109,8 @@ void main() {
 
   // قرص الشمس + هالة
   float sunDisk = smoothstep( 0.99965, 0.99992, mu ) * sunE;
-  float sunHalo = pow( max( mu, 0.0 ), 340.0 ) * 0.55 * sunE + pow( max( mu, 0.0 ), 12.0 ) * 0.10 * sunE;
-  dayCol += sunColor * ( sunDisk * 11.0 + sunHalo );
+  float sunHalo = pow( max( mu, 0.0 ), 420.0 ) * 0.30 * sunE + pow( max( mu, 0.0 ), 16.0 ) * 0.045 * sunE;
+  dayCol += sunColor * ( sunDisk * 7.0 + sunHalo );
 
   // شفق: شريط دافئ قرب الأفق عند الغروب/الشروق
   float horizonBand = exp( - abs( up ) * 9.0 );
@@ -154,6 +154,8 @@ void main() {
   col = mix( col, uGroundColor * ( 0.35 + 0.65 * ( 1.0 - uNight ) ), smoothstep( -0.005, -0.09, up ) );
 
   col *= uExposure;
+  // حدّ أقصى: يمنع هروب التوهّج (bloom) من قرص الشمس والأفق
+  col = min( col, vec3( 6.0 ) );
   gl_FragColor = vec4( col, 1.0 );
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

@@ -3,18 +3,33 @@
  * إضاءة نوافذ ليلية فريدة لكل مبنى عبر إزاحة UV لكل نسخة.
  */
 import * as THREE from 'three';
+import * as BGU from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ZONE } from '../../core/config.js';
 import { clamp, lerp, smoothstep } from '../../core/math.js';
 import { buildPrototype, KIND_BY_ZONE } from './prototypes.js';
 
 // ألوان واجهات هادئة ومتنوّعة (طوب، جص، حجر، خرسانة) — لا ألوان مسطّحة
 const FACADE_TINTS = [
-  [0.52, 0.47, 0.42], [0.60, 0.55, 0.47], [0.44, 0.41, 0.39], [0.56, 0.46, 0.38],
-  [0.38, 0.35, 0.33], [0.49, 0.45, 0.46], [0.54, 0.44, 0.35], [0.36, 0.38, 0.40],
-  [0.62, 0.58, 0.50], [0.46, 0.42, 0.34],
+  [0.55, 0.49, 0.42],  // جص رملي
+  [0.42, 0.26, 0.21],  // طوب أحمر داكن
+  [0.44, 0.41, 0.39],  // خرسانة رمادية
+  [0.58, 0.47, 0.36],  // جص دافئ
+  [0.34, 0.31, 0.30],  // حجر داكن
+  [0.49, 0.46, 0.47],  // خرسانة باردة
+  [0.51, 0.33, 0.26],  // طوب فاتح
+  [0.36, 0.39, 0.41],  // إسمنت مزرق
+  [0.63, 0.59, 0.50],  // حجر جيري
+  [0.40, 0.44, 0.40],  // جص مخضرّ
+  [0.47, 0.42, 0.33],  // طيني
+  [0.30, 0.33, 0.36],  // رمادي داكن
 ];
 const TOWER_TINTS = [
-  [0.26, 0.30, 0.34], [0.18, 0.23, 0.29], [0.32, 0.34, 0.36], [0.22, 0.28, 0.33],
+  [0.26, 0.30, 0.34],  // زجاج أزرق رمادي
+  [0.30, 0.28, 0.24],  // زجاج برونزي
+  [0.36, 0.38, 0.38],  // زجاج فضّي فاتح
+  [0.20, 0.25, 0.30],  // أزرق داكن
+  [0.32, 0.33, 0.28],  // زيتوني/ذهبي خافت
+  [0.40, 0.41, 0.42],  // فاتح جدًا
 ];
 
 export default {
@@ -87,7 +102,7 @@ export default {
     this.glassMats = TOWER_TINTS.map((tint, i) => {
       const set = T.facadeWindows(171 + i * 5, { cols: 8, rows: 8, tint, glass: [0.040, 0.062, 0.098], style: 'curtain' });
       const m = ctx.materials.fromSet('glassfac' + i, set, {
-        roughness: 0.28, metalness: 0.55, envMapIntensity: 1.5,
+        roughness: 0.30, metalness: 0.42, envMapIntensity: 1.0,
         emissiveMap: winLightsC[i % 3], emissive: 0xffffff, emissiveIntensity: 0,
       });
       m.emissiveMap = winLightsC[i % 3];
@@ -104,10 +119,20 @@ export default {
     ];
     this.roofMat = ctx.materials.roofGravel([1.5, 1.5]);
     this.tileRoofMat = ctx.materials.roofTile([0.42, 0.17, 0.12], [1, 1]);
-    this.shopGlass = ctx.materials.glass(0x11181f, { rough: 0.10, metal: 0.35, opacity: 1 });
+    this.shopGlass = ctx.materials.glass(0x151c23, { rough: 0.26, metal: 0.18, opacity: 1 });
     this.shopGlass.emissive = new THREE.Color(0xffd9a0);
     this.shopGlass.emissiveIntensity = 0;
     this.metalMat = ctx.materials.metalPanel([0.55, 0.57, 0.60], [1.2, 1.2]);
+
+    // أرضيات القطع (تمنع «المباني الطافية على العشب»)
+    const padOpts = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 };
+    this.padMats = {
+      [ZONE.RESIDENTIAL]: Object.assign(ctx.materials.dirt([0.22, 0.22]), padOpts, { color: new THREE.Color(0x8c8468) }),
+      [ZONE.COMMERCIAL]:  Object.assign(ctx.materials.pavement([0.28, 0.28]), padOpts, { color: new THREE.Color(0x7c7c78) }),
+      [ZONE.OFFICE]:      Object.assign(ctx.materials.concrete([0.25, 0.25], 0x7e7b74), padOpts),
+      [ZONE.INDUSTRIAL]:  Object.assign(ctx.materials.asphalt([0.30, 0.30]), padOpts),
+    };
+    this.drivewayMat = Object.assign(ctx.materials.concrete([0.5, 0.5], 0x76736c), padOpts);
   },
 
   _matFor(slot, kind, variant) {
@@ -217,11 +242,65 @@ export default {
       this.meshes.push(im);
     }
 
+    this._buildPads();
+
     this.buildMs = Math.round(performance.now() - t0);
     ctx.log.info(`[buildings] ${world.buildings.length} buildings / ${this.meshes.length} instanced meshes in ${this.buildMs}ms`);
     ctx.bus.emit('buildings:spawned', { count: world.buildings.length });
     this._setNight(ctx.module('environment')?.night || 0);
     return world.buildings.length;
+  },
+
+  /** أرضية لكل قطعة + ممر إلى الرصيف — واحدة من أقوى إشارات «المدينة المكتملة» */
+  _buildPads() {
+    const ctx = this.ctx, { world } = ctx;
+    const terrain = ctx.module('terrain');
+    if (!terrain?.api) return;
+    const byMat = new Map();
+    const drive = [];
+
+    const quad = (cx, cz, w, d, rot, yOff, uvS, seg = 3) => {
+      const g = new THREE.PlaneGeometry(w, d, seg, seg);
+      g.rotateX(-Math.PI / 2);
+      g.rotateY(rot);
+      const pos = g.attributes.position, uv = g.attributes.uv;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i) + cx, z = pos.getZ(i) + cz;
+        pos.setXYZ(i, x, terrain.api.heightAt(x, z) + yOff, z);
+        uv.setXY(i, uv.getX(i) * w * uvS, uv.getY(i) * d * uvS);
+      }
+      pos.needsUpdate = true; uv.needsUpdate = true;
+      g.computeVertexNormals();
+      return g;
+    };
+
+    for (const lot of world.lots) {
+      const mat = this.padMats[lot.zone];
+      if (!mat) continue;
+      const pw = lot.w * 0.97, pd = lot.d * 0.97;
+      if (!byMat.has(lot.zone)) byMat.set(lot.zone, []);
+      byMat.get(lot.zone).push(quad(lot.cx, lot.cz, pw, pd, lot.rot, 0.075, 0.14, 4));
+
+      // ممر من واجهة القطعة نحو الرصيف
+      const fx = Math.sin(lot.rot), fz = Math.cos(lot.rot);
+      const dw = lot.zone === ZONE.INDUSTRIAL ? 7 : lot.zone === ZONE.RESIDENTIAL ? 3.2 : 5;
+      const len = 4.5;
+      drive.push(quad(lot.cx + fx * (pd / 2 + len / 2 - 0.4), lot.cz + fz * (pd / 2 + len / 2 - 0.4), dw, len, lot.rot, 0.09, 0.3, 2));
+    }
+
+    const add = (list, mat, name) => {
+      if (!list.length) return;
+      const g = BGU.mergeGeometries(list, false);
+      list.forEach((x) => x.dispose());
+      if (!g) return;
+      g.computeBoundingSphere();
+      const m = new THREE.Mesh(g, mat);
+      m.receiveShadow = true; m.castShadow = false;
+      m.name = name;
+      this.group.add(m); this.meshes.push(m);
+    };
+    for (const [zone, list] of byMat) add(list, this.padMats[zone], 'lotPad_' + zone);
+    add(drive, this.drivewayMat, 'driveways');
   },
 
   _setNight(night) {

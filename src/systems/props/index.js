@@ -173,7 +173,7 @@ export default {
     if (roads?.api) {
       for (const e of roads.api.edges()) {
         if (e.type === 3 || e.sidewalk <= 0) continue;
-        const step = 15;
+        const step = 11;
         const n = Math.floor(e.length / step);
         for (let i = 1; i < n; i++) {
           const t = i / n;
@@ -186,7 +186,7 @@ export default {
             const y = H(x, z);
             if (y < world.waterLevel + 0.5) continue;
             const r = rng.next();
-            if (r < 0.52) {
+            if (r < 0.62) {
               const ti = rng.int(0, 5);
               treeLists[ti].push({ x, y: y - 0.1, z, rot: rng.range(0, 6.28), s: rng.range(0.72, 1.0), c: rng.next() });
             } else if (r < 0.62) {

@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "error": null,
+  "consoleErrors": [],
+  "results": [
+    {
+      "out": "docs/shots/_nofx.png",
+      "label": "",
+      "fps": 2.4,
+      "frameMs": 412.59,
+      "drawCalls": 389,
+      "triangles": 1817366,
+      "programs": 46,
+      "errors": 0
+    }
+  ],
+  "modules": {
+    "terrain": "ready",
+    "environment": "ready",
+    "roads": "ready",
+    "zoning": "ready",
+    "buildings": "ready",
+    "props": "ready",
+    "traffic": "ready",
+    "effects": "ready",
+    "simulation": "ready",
+    "tools": "ready",
+    "ui": "ready",
+    "audio": "ready",
+    "democity": "ready"
+  },
+  "pageLogs": [
+    "[boot] تهيئة الوحدات",
+    "[boot] تهيئة: terrain",
+    "[terrain] gen=186ms bake=1727ms mesh=149ms chunks=64 segs=44",
+    "[boot] تهيئة: environment",
+    "[boot] تهيئة: roads",
+    "[boot] تهيئة: zoning",
+    "[boot] تهيئة: buildings",
+    "[buildings] 40 prototypes",
+    "[boot] تهيئة: props",
+    "[boot] تهيئة: traffic",
+    "[boot] تهيئة: effects",
+    "[boot] تهيئة: simulation",
+    "[boot] تهيئة: tools",
+    "[boot] تهيئة: ui",
+    "[boot] تهيئة: audio",
+    "[boot] تهيئة: democity",
+    "[roads] rebuild 765 edges, 507 nodes in 164ms, 8 meshes",
+    "[zoning] 490 lots in 123ms",
+    "[roads] rebuild 765 edges, 507 nodes in 98ms, 8 meshes",
+    "[buildings] 476 buildings / 35 instanced meshes in 43ms",
+    "[props] 4073 trees + furniture in 27ms (40 meshes)",
+    "[traffic] 280 vehicles across 9 batches",
+    "[democity] built in 762ms {\"roads\":129,\"rebuild\":254,\"zoning\":299,\"buildings\":46,\"props\":28,\"traffic\":5}",
+    "[app] ready in 13412ms — quality=high showcase=-"
+  ],
+  "elapsedS": 123.3
+}

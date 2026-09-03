@@ -100,6 +100,7 @@ export default {
     this.pedMats = [0xd8d2c8, 0x35507a, 0x7a3535, 0x2f4034, 0x584a6e, 0x9a8460].map((c) => M2.simple(c, { roughness: 0.85 }));
 
     this._makeProtos();
+    this._makeHeadlightGlow();
 
     this.api = {
       spawn: (n) => this.spawn(n),
@@ -109,6 +110,30 @@ export default {
       carCount: () => this.cars.length,
     };
     ctx.bus.on('time:changed:done', ({ night }) => { this.night = night; this._setNight(night); });
+  },
+
+  /** هالة إضاءة أمامية مضافة (additive) تُرسم أمام كل مركبة ليلًا */
+  _makeHeadlightGlow() {
+    const size = 128;
+    const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(size, size)
+      : Object.assign(document.createElement('canvas'), { width: size, height: size });
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(size / 2, size * 0.78, 2, size / 2, size * 0.5, size * 0.5);
+    grad.addColorStop(0, 'rgba(255,238,205,0.95)');
+    grad.addColorStop(0.35, 'rgba(255,228,180,0.32)');
+    grad.addColorStop(1, 'rgba(255,220,170,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.moveTo(size / 2, size); g.lineTo(size * 0.03, 0); g.lineTo(size * 0.97, 0); g.closePath(); g.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.glowTex = tex;
+    this.glowMat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      opacity: 0, toneMapped: false, side: THREE.DoubleSide,
+    });
+    this.glowGeo = new THREE.PlaneGeometry(1, 1);
+    this.glowGeo.rotateX(-Math.PI / 2);
+    this.glowGeo.translate(0, 0, 0.5);
   },
 
   _makeProtos() {
@@ -192,6 +217,14 @@ export default {
       im.instanceColor.needsUpdate = true;
       this.group.add(im); this.meshes.push(im); this.carMeshes.push(im);
     });
+    // هالات المصابيح الأمامية (نسخة لكل مركبة)
+    this.cars.forEach((c, i) => { c.gidx = i; });
+    this.glowMesh = new THREE.InstancedMesh(this.glowGeo, this.glowMat, this.cars.length);
+    this.glowMesh.frustumCulled = false;
+    this.glowMesh.renderOrder = 6;
+    this.group.add(this.glowMesh);
+    this.meshes.push(this.glowMesh);
+
     ctx.world.agents.cars = this.cars;
     ctx.log.info(`[traffic] ${this.cars.length} vehicles across ${this.carMeshes.length} batches`);
     this._setNight(this.night);
@@ -289,8 +322,17 @@ export default {
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
       c.mesh?.setMatrixAt(c.idx, dummy.matrix);
+      if (this.glowMesh && this.night > 0.2) {
+        const L = this.protos[c.proto].len;
+        dummy.position.set(p.x + p.dx * (L * 0.5 + 5.5), p.y + 0.14, p.z + p.dz * (L * 0.5 + 5.5));
+        dummy.rotation.set(0, c.rot, 0);
+        dummy.scale.set(4.5, 1, 12);
+        dummy.updateMatrix();
+        this.glowMesh.setMatrixAt(c.gidx, dummy.matrix);
+      }
     }
     for (const m of this.carMeshes || []) m.instanceMatrix.needsUpdate = true;
+    if (this.glowMesh && this.night > 0.2) this.glowMesh.instanceMatrix.needsUpdate = true;
 
     for (const p of this.peds) {
       const e = p.edge;
@@ -319,6 +361,8 @@ export default {
     const on = smoothstep(0.25, 0.7, night ?? 0);
     this.headMat.emissiveIntensity = 0.12 + on * 5.5;
     this.tailMat.emissiveIntensity = 0.3 + on * 3.0;
+    if (this.glowMat) this.glowMat.opacity = on * 0.55;
+    if (this.glowMesh) this.glowMesh.visible = on > 0.02;
   },
 
   showcase(ctx) {
@@ -334,6 +378,7 @@ export default {
     this.clear();
     this.protos?.forEach((p) => p.geometry.dispose());
     this.pedGeo?.dispose();
+    this.glowGeo?.dispose(); this.glowTex?.dispose(); this.glowMat?.dispose();
     this.group?.removeFromParent();
   },
 };

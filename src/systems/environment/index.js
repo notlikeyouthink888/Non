@@ -9,9 +9,9 @@ import { clamp, lerp, smoothstep } from '../../core/math.js';
 const DAY = {
   //                    sun color            intensity  ambient sky      ambient ground  fogDensity  exposure
   night:   { sun: 0x9fb6d8, i: 0.16, skyC: 0x223047, gndC: 0x0c1016, fog: 0.00030, exp: 1.10 },
-  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00030, exp: 0.86 },
-  day:     { sun: 0xfff2dc, i: 2.70, skyC: 0x9dbfe8, gndC: 0x605c48, fog: 0.00017, exp: 0.82 },
-  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00034, exp: 0.88 },
+  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00017, exp: 0.68 },
+  day:     { sun: 0xfff0d2, i: 2.60, skyC: 0xa6c6ea, gndC: 0x6a6450, fog: 0.00016, exp: 0.95 },
+  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00019, exp: 0.66 },
 };
 
 export default {
@@ -127,7 +127,7 @@ export default {
     const gndC = mixC(DAY.night.gndC, twi.gndC, clamp(twiW * 1.8, 0, 1)).lerp(new THREE.Color(DAY.day.gndC), dayW);
     this.hemi.color.copy(skyC);
     this.hemi.groundColor.copy(gndC);
-    this.hemi.intensity = lerp(0.22, 0.62, dayW) + twiW * 0.16;
+    this.hemi.intensity = lerp(0.38, 0.95, dayW) + twiW * 0.20;
 
     this.fill.color.copy(skyC);
     this.fill.intensity = lerp(0.05, 0.22, dayW);
@@ -140,7 +140,7 @@ export default {
     this.fogColor = horizon;
     scene.fog.color.copy(horizon);
     scene.fog.density = lerp(lerp(DAY.night.fog, twi.fog, clamp(twiW * 1.6, 0, 1)), DAY.day.fog, dayW)
-      * lerp(0.85, 1.9, world.weather.humidity);
+      * lerp(0.9, 1.45, world.weather.humidity);
 
     ctx.renderer.toneMappingExposure = lerp(lerp(DAY.night.exp, twi.exp, twiW), DAY.day.exp, dayW);
 
@@ -188,7 +188,7 @@ export default {
     const prev = this._envTarget;
     this._envTarget = this.pmrem.fromScene(this.envScene, 0, 1, 1200);
     ctx.scene.environment = this._envTarget.texture;
-    ctx.scene.environmentIntensity = lerp(0.45, 0.72, 1 - this.night);
+    ctx.scene.environmentIntensity = lerp(0.62, 0.95, 1 - this.night);
     prev?.dispose();
     this._lastEnvHour = ctx.time.hour;
     this._envDirty = false;

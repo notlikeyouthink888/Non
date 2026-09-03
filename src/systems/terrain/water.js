@@ -60,8 +60,8 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
   const nrm = waveNormalTexture(seed);
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, transparent: true,
-    roughness: 0.30, metalness: 0.02, normalMap: nrm,
-    normalScale: new THREE.Vector2(0.30, 0.30),
+    roughness: 0.36, metalness: 0.02, normalMap: nrm,
+    normalScale: new THREE.Vector2(0.22, 0.22),
     envMapIntensity: 0.62, depthWrite: false, side: THREE.FrontSide,
   });
   const uni = { uTime: { value: 0 }, uWave: { value: 0.30 }, uWaterNormal: { value: nrm } };
@@ -73,10 +73,12 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
       .replace('#include <normal_fragment_maps>', `
         vec2 wuv = vNormalMapUv * 22.0;
         vec3 nA = texture2D( uWaterNormal, wuv + vec2( uTime * 0.010, uTime * 0.014 ) ).xyz * 2.0 - 1.0;
-        vec3 nB = texture2D( uWaterNormal, wuv * 2.7 + vec2( -uTime * 0.021, uTime * 0.008 ) ).xyz * 2.0 - 1.0;
+        vec3 nB = texture2D( uWaterNormal, wuv * 2.2 + vec2( -uTime * 0.021, uTime * 0.008 ) ).xyz * 2.0 - 1.0;
         vec3 nC = texture2D( uWaterNormal, wuv * 0.35 + vec2( uTime * 0.004, -uTime * 0.003 ) ).xyz * 2.0 - 1.0;
-        vec3 mapN = normalize( vec3( nA.xy * 0.9 + nB.xy * 0.35 + nC.xy * 0.75, 1.0 ) );
-        mapN.xy *= uWave * ( 0.55 + 0.9 * vColor.a );
+        vec3 mapN = normalize( vec3( nA.xy * 0.75 + nB.xy * 0.18 + nC.xy * 0.85, 1.0 ) );
+        // تلاشي تفاصيل الموج مع المسافة: يمنع «برش» الانعكاسات المشوّش بعيدًا
+        float wFade = 1.0 - smoothstep( 160.0, 1300.0, length( vViewPosition ) );
+        mapN.xy *= uWave * ( 0.45 + 0.85 * vColor.a ) * ( 0.18 + 0.82 * wFade );
         mat3 tbnW = getTangentFrame( - vViewPosition, normal, wuv );
         normal = normalize( tbnW * mapN );
       `);

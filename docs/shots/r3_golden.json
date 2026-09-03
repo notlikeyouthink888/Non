@@ -1,13 +1,13 @@
 {
   "ok": true,
-  "shot": "/home/user/Non/docs/shots/d_shadow.png",
+  "shot": "/home/user/Non/docs/shots/r3_golden.png",
   "requested": {
-    "out": "/home/user/Non/docs/shots/d_shadow.png",
-    "preset": "closeup",
-    "time": 9,
+    "out": "/home/user/Non/docs/shots/r3_golden.png",
+    "preset": "skyline",
+    "time": 18.2,
     "cam": null,
     "settle": 1700,
-    "label": "فحص الظلال والطرق"
+    "label": "الساعة الذهبية"
   },
   "viewport": {
     "w": 900,
@@ -20,35 +20,35 @@
     "seed": 20260903,
     "showcase": null,
     "fps": 1.6,
-    "frameMs": 613.5,
-    "frameMsP95": 3875.3,
-    "drawCalls": 813,
-    "triangles": 3104825,
-    "programs": 64,
-    "geometries": 142,
-    "textures": 117,
-    "textureMB": 101.2,
-    "initMs": 10979,
-    "timeOfDay": 9,
+    "frameMs": 623.65,
+    "frameMsP95": 3932.9,
+    "drawCalls": 803,
+    "triangles": 3139569,
+    "programs": 66,
+    "geometries": 153,
+    "textures": 123,
+    "textureMB": 109.2,
+    "initMs": 12170,
+    "timeOfDay": 18.2,
     "camera": {
-      "x": -200,
-      "z": -250,
-      "dist": 150,
-      "yaw": 2.05,
-      "pitch": 0.3,
-      "fov": 48
+      "x": 120,
+      "z": 190,
+      "dist": 560,
+      "yaw": 2.42,
+      "pitch": 0.15,
+      "fov": 36
     },
     "modules": {
       "terrain": {
         "state": "ready",
         "errors": [],
-        "initMs": 1989,
+        "initMs": 2592,
         "stats": {
           "chunks": 64,
           "timings": {
-            "gen": 196,
-            "bake": 1141,
-            "mesh": 128
+            "gen": 174,
+            "bake": 1712,
+            "mesh": 136
           }
         }
       },
@@ -58,20 +58,20 @@
         "initMs": 7,
         "stats": {
           "night": 0,
-          "sunY": 0.726,
-          "exposure": 0.82
+          "sunY": 0.094,
+          "exposure": 0.9
         }
       },
       "roads": {
         "state": "ready",
         "errors": [],
-        "initMs": 3048,
+        "initMs": 2996,
         "stats": {
           "edges": 765,
           "nodes": 507,
           "meshes": 8,
           "lamps": 519,
-          "buildMs": 174
+          "buildMs": 116
         }
       },
       "zoning": {
@@ -81,24 +81,24 @@
         "stats": {
           "lots": 490,
           "zonedCells": 60860,
-          "genMs": 118
+          "genMs": 98
         }
       },
       "buildings": {
         "state": "ready",
         "errors": [],
-        "initMs": 4255,
+        "initMs": 4541,
         "stats": {
           "buildings": 476,
           "meshes": 31,
           "prototypes": 40,
-          "buildMs": 5
+          "buildMs": 15
         }
       },
       "props": {
         "state": "ready",
         "errors": [],
-        "initMs": 847,
+        "initMs": 823,
         "stats": {
           "meshes": 41,
           "trees": 2432,
@@ -113,13 +113,13 @@
           "rock": 61,
           "planter": 110,
           "billboard": 0,
-          "scatterMs": 29
+          "scatterMs": 45
         }
       },
       "traffic": {
         "state": "ready",
         "errors": [],
-        "initMs": 6,
+        "initMs": 10,
         "stats": {
           "cars": 280,
           "peds": 200,
@@ -129,7 +129,7 @@
       "effects": {
         "state": "ready",
         "errors": [],
-        "initMs": 6,
+        "initMs": 10,
         "stats": {
           "passes": 6,
           "enabled": true
@@ -142,12 +142,12 @@
         "stats": {
           "population": 8025,
           "jobs": 2202,
-          "happiness": 0.72,
-          "funds": 252372,
+          "happiness": 0.73,
+          "funds": 261859,
           "demand": [
-            0.84,
-            0.56,
-            0.51
+            0.81,
+            0.58,
+            0.53
           ]
         }
       },
@@ -182,17 +182,17 @@
       "democity": {
         "state": "ready",
         "errors": [],
-        "initMs": 546,
+        "initMs": 547,
         "stats": {
           "built": true,
-          "totalMs": 545,
+          "totalMs": 546,
           "timings": {
-            "roads": 107,
-            "rebuild": 257,
-            "zoning": 138,
-            "buildings": 7,
-            "props": 30,
-            "traffic": 5
+            "roads": 124,
+            "rebuild": 225,
+            "zoning": 129,
+            "buildings": 17,
+            "props": 46,
+            "traffic": 4
           },
           "roads": 765,
           "lots": 490,
@@ -212,5 +212,5 @@
     "cars": 280
   },
   "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
-  "at": "2026-09-03T12:55:56.594Z"
+  "at": "2026-09-03T13:08:08.173Z"
 }

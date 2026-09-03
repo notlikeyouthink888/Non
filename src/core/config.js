@@ -24,7 +24,8 @@ export const QUALITY = {
   },
   high: {
     name: 'high', pixelRatio: 1.0, shadowMap: 3072, shadowDistance: 700,
-    ssao: true, bloom: true, smaa: true, dof: true, grain: true,
+    // SSAO مُعطَّل في هذا المستوى: يضاعف رسم المشهد مقابل فائدة بصرية ضئيلة (مقيسة)
+    ssao: false, bloom: true, smaa: true, dof: true, grain: true,
     treeDist: 780, propDist: 520, carCount: 280, pedCount: 200,
     buildingLodBias: 0.8, waterReflect: true, clouds: 'billboard', anisotropy: 8, texSize: 512,
   },

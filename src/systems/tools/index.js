@@ -176,6 +176,8 @@ export default {
   _afterBuild() {
     const ctx = this.ctx;
     ctx.module('zoning')?.api.generateLots();
+    ctx.module('terrain')?.api.rebuild();
+    ctx.module('roads')?.api.rebuild();
     ctx.module('simulation')?.api.setDensityFromBuildings();
     ctx.module('buildings')?.api.buildAll();
     ctx.module('props')?.api.scatterAll();

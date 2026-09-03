@@ -10,10 +10,10 @@ export const GradeShader = {
     uTilt: { value: 0.55 },        // شدة عمق الميدان
     uFocus: { value: 0.56 },       // موضع شريط التركيز (0..1 من أعلى)
     uBand: { value: 0.30 },        // عرض الشريط
-    uVignette: { value: 0.34 },
+    uVignette: { value: 0.30 },
     uGrain: { value: 0.030 },
-    uSaturation: { value: 1.07 },
-    uContrast: { value: 1.045 },
+    uSaturation: { value: 1.12 },
+    uContrast: { value: 1.065 },
     uLift: { value: new THREE.Vector3(0.004, 0.006, 0.012) },
     uCA: { value: 0.55 },
   },

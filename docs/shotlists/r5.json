@@ -1,0 +1,7 @@
+[
+  { "out": "docs/shots/r5_street.png",   "preset": "street",   "time": 12.0, "label": "الشارع — ظهرًا" },
+  { "out": "docs/shots/r5_overview.png", "preset": "overview", "time": 14.0, "label": "منظر عام" },
+  { "out": "docs/shots/r5_closeup.png",  "preset": "closeup",  "time": 9.5,  "label": "حي سكني قريب" },
+  { "out": "docs/shots/r5_skyline.png",  "preset": "skyline",  "time": 17.4, "label": "أفق المدينة" },
+  { "out": "docs/shots/r5_night.png",    "preset": "downtown", "time": 21.5, "label": "ليل" }
+]

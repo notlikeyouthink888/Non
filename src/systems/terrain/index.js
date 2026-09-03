@@ -84,12 +84,17 @@ export default {
           {
             float dCam = length( vViewPosition );
             float fade = 1.0 - smoothstep( uNear, uFar, dCam );
-            vec2 duv = vWPosT.xz * 0.26;
-            vec3 dG = texture2D( uDetail, duv ).rgb;
+            // طبقتان: قريبة (3.8م) ومتوسطة (26م) — المتوسطة تنجو من الـmipmap عن بُعد
+            vec3 dGnear = texture2D( uDetail, vWPosT.xz * 0.26 ).rgb;
+            vec3 dGmid  = texture2D( uDetail, vWPosT.xz * 0.038 ).rgb;
             vec3 dR = texture2D( uDetailRock, vWPosT.xz * 0.085 ).rgb;
             float rockW = smoothstep( 0.18, 0.46, vSlopeT );
-            vec3 det = mix( dG, dR, rockW );
+            vec3 detNear = mix( dGnear, dR, rockW );
+            vec3 det = mix( detNear, dGmid, 0.45 );
+            float lumMid = dot( dGmid, vec3( 0.3333 ) );
             float lum = dot( det, vec3( 0.3333 ) );
+            // تباين متوسط المدى مستقل عن التلاشي القريب
+            diffuseColor.rgb *= 0.72 + 1.45 * lumMid;
             // طبقة تفاصيل تُضاعف السطوع دون تغيير الصبغة الكبرى
             diffuseColor.rgb *= mix( 1.0, 0.48 + 1.20 * lum, fade );
             diffuseColor.rgb *= mix( vec3(1.0), det / max( lum, 0.001 ), fade * 0.45 );

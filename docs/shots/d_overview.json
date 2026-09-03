@@ -19,16 +19,16 @@
     "quality": "high",
     "seed": 20260903,
     "showcase": null,
-    "fps": 0.3,
-    "frameMs": 3851.9,
-    "frameMsP95": 3851.9,
+    "fps": 2.4,
+    "frameMs": 409.62,
+    "frameMsP95": 2694.5,
     "drawCalls": 865,
-    "triangles": 4816233,
+    "triangles": 3181769,
     "programs": 64,
     "geometries": 142,
     "textures": 117,
     "textureMB": 101.2,
-    "initMs": 10958,
+    "initMs": 10979,
     "timeOfDay": 14,
     "camera": {
       "x": -140,
@@ -42,13 +42,13 @@
       "terrain": {
         "state": "ready",
         "errors": [],
-        "initMs": 2283,
+        "initMs": 1989,
         "stats": {
           "chunks": 64,
           "timings": {
-            "gen": 166,
-            "bake": 1218,
-            "mesh": 259
+            "gen": 196,
+            "bake": 1141,
+            "mesh": 128
           }
         }
       },
@@ -59,19 +59,19 @@
         "stats": {
           "night": 0,
           "sunY": 0.859,
-          "exposure": 0.66
+          "exposure": 0.82
         }
       },
       "roads": {
         "state": "ready",
         "errors": [],
-        "initMs": 3022,
+        "initMs": 3048,
         "stats": {
           "edges": 765,
           "nodes": 507,
           "meshes": 8,
           "lamps": 519,
-          "buildMs": 253
+          "buildMs": 174
         }
       },
       "zoning": {
@@ -81,39 +81,39 @@
         "stats": {
           "lots": 490,
           "zonedCells": 60860,
-          "genMs": 113
+          "genMs": 118
         }
       },
       "buildings": {
         "state": "ready",
         "errors": [],
-        "initMs": 4285,
+        "initMs": 4255,
         "stats": {
           "buildings": 476,
           "meshes": 31,
           "prototypes": 40,
-          "buildMs": 9
+          "buildMs": 5
         }
       },
       "props": {
         "state": "ready",
         "errors": [],
-        "initMs": 278,
+        "initMs": 847,
         "stats": {
           "meshes": 41,
-          "trees": 2565,
-          "bench": 376,
-          "bin": 299,
-          "hydrant": 155,
-          "busStop": 99,
+          "trees": 2432,
+          "bench": 414,
+          "bin": 284,
+          "hydrant": 177,
+          "busStop": 71,
           "tlPole": 1350,
           "tlLamps": 1350,
-          "sign": 78,
+          "sign": 74,
           "fence": 0,
-          "rock": 50,
-          "planter": 119,
+          "rock": 61,
+          "planter": 110,
           "billboard": 0,
-          "scatterMs": 33
+          "scatterMs": 29
         }
       },
       "traffic": {
@@ -129,7 +129,7 @@
       "effects": {
         "state": "ready",
         "errors": [],
-        "initMs": 8,
+        "initMs": 6,
         "stats": {
           "passes": 6,
           "enabled": true
@@ -143,11 +143,11 @@
           "population": 8025,
           "jobs": 2202,
           "happiness": 0.73,
-          "funds": 261859,
+          "funds": 259487,
           "demand": [
             0.81,
-            0.58,
-            0.53
+            0.57,
+            0.52
           ]
         }
       },
@@ -164,7 +164,7 @@
       "ui": {
         "state": "ready",
         "errors": [],
-        "initMs": 4,
+        "initMs": 1,
         "stats": {
           "visible": true
         }
@@ -182,17 +182,17 @@
       "democity": {
         "state": "ready",
         "errors": [],
-        "initMs": 739,
+        "initMs": 546,
         "stats": {
           "built": true,
-          "totalMs": 737,
+          "totalMs": 545,
           "timings": {
-            "roads": 168,
-            "rebuild": 373,
-            "zoning": 146,
-            "buildings": 10,
-            "props": 36,
-            "traffic": 3
+            "roads": 107,
+            "rebuild": 257,
+            "zoning": 138,
+            "buildings": 7,
+            "props": 30,
+            "traffic": 5
           },
           "roads": 765,
           "lots": 490,
@@ -212,5 +212,5 @@
     "cars": 280
   },
   "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
-  "at": "2026-09-03T12:51:38.303Z"
+  "at": "2026-09-03T12:59:25.830Z"
 }

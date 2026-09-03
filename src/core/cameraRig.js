@@ -10,10 +10,10 @@ const PRESETS = {
   downtown:  { x: -60,  z: -70,  dist: 300, yaw: 2.35, pitch: 0.44, fov: 40 },
   street:    { x: -230, z: -300, dist: 105, yaw: 1.15, pitch: 0.22, fov: 46 },
   aerial:    { x: -200, z: -200, dist: 1150,yaw: 0.45, pitch: 1.02, fov: 38 },
-  waterfront:{ x: 40,   z: 60,   dist: 340, yaw: 2.60, pitch: 0.28, fov: 44 },
+  waterfront:{ x: -30,  z: 30,   dist: 320, yaw: 0.60, pitch: 0.26, fov: 44 },
   suburb:    { x: -640, z: -520, dist: 250, yaw: 0.95, pitch: 0.36, fov: 44 },
   closeup:   { x: -200, z: -250, dist: 150, yaw: 2.05, pitch: 0.30, fov: 48 },
-  skyline:   { x: 120,  z: 190,  dist: 560, yaw: 2.42, pitch: 0.15, fov: 36 },
+  skyline:   { x: -60,  z: -40,  dist: 470, yaw: 0.95, pitch: 0.17, fov: 38 },
   industrial:{ x: -740, z: -430, dist: 330, yaw: 1.60, pitch: 0.34, fov: 42 },
   park:      { x: -300, z: 60,   dist: 180, yaw: 0.30, pitch: 0.30, fov: 46 },
 };

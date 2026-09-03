@@ -179,6 +179,14 @@ export default {
         }
       }
     }
+    // تسوية الأرض تحت كل قطعة (تمنع المباني الطافية والأرضيات المقطوعة)
+    for (const lot of world.lots) {
+      const ca = Math.abs(Math.cos(lot.rot)), sa = Math.abs(Math.sin(lot.rot));
+      const hw = (lot.w * ca + lot.d * sa) / 2, hd = (lot.w * sa + lot.d * ca) / 2;
+      lot.y = terrain.api.heightAt(lot.cx, lot.cz);
+      terrain.api.flatten(lot.cx, lot.cz, hw * 0.92, hd * 0.92, lot.y, 4.5);
+    }
+
     this.computeLandValue();
     for (const lot of world.lots) lot.value = world.landValue[world.cellIndex(lot.cx, lot.cz)];
     this.genMs = Math.round(performance.now() - t0);

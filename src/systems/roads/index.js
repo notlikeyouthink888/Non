@@ -434,7 +434,8 @@ export default {
     this.poolTex = tex;
     this.poolMat = new THREE.MeshBasicMaterial({
       map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
-      opacity: 0, toneMapped: false,
+      opacity: 0, toneMapped: false, depthTest: true,
+      polygonOffset: true, polygonOffsetFactor: -12, polygonOffsetUnits: -12,
     });
     this.poolGeo = new THREE.PlaneGeometry(1, 1);
     this.poolGeo.rotateX(-Math.PI / 2);
@@ -482,8 +483,8 @@ export default {
     const d = new THREE.Object3D();
     spots.forEach((s, i) => {
       const nx = Math.sin(s.rot) * 1.4, nz = Math.cos(s.rot) * 1.4;
-      d.position.set(s.x + nx, s.y + 0.09, s.z + nz);
-      d.rotation.set(0, 0, 0); d.scale.setScalar(19);
+      d.position.set(s.x + nx * 2.2, s.y + 0.35, s.z + nz * 2.2);
+      d.rotation.set(0, 0, 0); d.scale.setScalar(26);
       d.updateMatrix(); pools.setMatrixAt(i, d.matrix);
     });
     pools.instanceMatrix.needsUpdate = true;
@@ -497,7 +498,7 @@ export default {
   _setNight(night) {
     const on = smoothstep(0.28, 0.72, night ?? 0);
     if (this.lampHeadMat) this.lampHeadMat.emissiveIntensity = on * 7.5;
-    if (this.poolMat) this.poolMat.opacity = on * 1.0;
+    if (this.poolMat) this.poolMat.opacity = on * 1.25;
   },
 
   update(dt, ctx) {},

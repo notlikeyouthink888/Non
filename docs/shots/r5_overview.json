@@ -1,17 +1,17 @@
 {
   "ok": true,
-  "shot": "/home/user/Non/docs/shots/d_shadow.png",
+  "shot": "/home/user/Non/docs/shots/r5_overview.png",
   "requested": {
-    "out": "/home/user/Non/docs/shots/d_shadow.png",
-    "preset": "closeup",
-    "time": 9,
+    "out": "/home/user/Non/docs/shots/r5_overview.png",
+    "preset": "overview",
+    "time": 14,
     "cam": null,
     "settle": 1700,
-    "label": "فحص الظلال والطرق"
+    "label": "منظر عام"
   },
   "viewport": {
-    "w": 900,
-    "h": 506
+    "w": 1024,
+    "h": 576
   },
   "consoleErrors": [],
   "stats": {
@@ -19,36 +19,36 @@
     "quality": "high",
     "seed": 20260903,
     "showcase": null,
-    "fps": 1.6,
-    "frameMs": 613.5,
-    "frameMsP95": 3875.3,
-    "drawCalls": 813,
-    "triangles": 3104825,
-    "programs": 64,
-    "geometries": 142,
-    "textures": 117,
-    "textureMB": 101.2,
-    "initMs": 10979,
-    "timeOfDay": 9,
+    "fps": 1.4,
+    "frameMs": 701.06,
+    "frameMsP95": 4233.8,
+    "drawCalls": 859,
+    "triangles": 3732641,
+    "programs": 65,
+    "geometries": 138,
+    "textures": 122,
+    "textureMB": 121.3,
+    "initMs": 12998,
+    "timeOfDay": 14,
     "camera": {
-      "x": -200,
-      "z": -250,
-      "dist": 150,
-      "yaw": 2.05,
-      "pitch": 0.3,
-      "fov": 48
+      "x": -140,
+      "z": -140,
+      "dist": 720,
+      "yaw": 0.72,
+      "pitch": 0.6,
+      "fov": 42
     },
     "modules": {
       "terrain": {
         "state": "ready",
         "errors": [],
-        "initMs": 1989,
+        "initMs": 2621,
         "stats": {
           "chunks": 64,
           "timings": {
-            "gen": 196,
-            "bake": 1141,
-            "mesh": 128
+            "gen": 211,
+            "bake": 1750,
+            "mesh": 126
           }
         }
       },
@@ -58,20 +58,20 @@
         "initMs": 7,
         "stats": {
           "night": 0,
-          "sunY": 0.726,
-          "exposure": 0.82
+          "sunY": 0.859,
+          "exposure": 0.86
         }
       },
       "roads": {
         "state": "ready",
         "errors": [],
-        "initMs": 3048,
+        "initMs": 3073,
         "stats": {
           "edges": 765,
           "nodes": 507,
           "meshes": 8,
           "lamps": 519,
-          "buildMs": 174
+          "buildMs": 84
         }
       },
       "zoning": {
@@ -81,45 +81,45 @@
         "stats": {
           "lots": 490,
           "zonedCells": 60860,
-          "genMs": 118
+          "genMs": 119
         }
       },
       "buildings": {
         "state": "ready",
         "errors": [],
-        "initMs": 4255,
+        "initMs": 5346,
         "stats": {
           "buildings": 476,
-          "meshes": 31,
+          "meshes": 35,
           "prototypes": 40,
-          "buildMs": 5
+          "buildMs": 37
         }
       },
       "props": {
         "state": "ready",
         "errors": [],
-        "initMs": 847,
+        "initMs": 833,
         "stats": {
-          "meshes": 41,
-          "trees": 2432,
-          "bench": 414,
-          "bin": 284,
-          "hydrant": 177,
-          "busStop": 71,
+          "meshes": 40,
+          "trees": 4073,
+          "bench": 0,
+          "bin": 460,
+          "hydrant": 250,
+          "busStop": 115,
           "tlPole": 1350,
           "tlLamps": 1350,
-          "sign": 74,
+          "sign": 119,
           "fence": 0,
-          "rock": 61,
-          "planter": 110,
+          "rock": 72,
+          "planter": 179,
           "billboard": 0,
-          "scatterMs": 29
+          "scatterMs": 34
         }
       },
       "traffic": {
         "state": "ready",
         "errors": [],
-        "initMs": 6,
+        "initMs": 7,
         "stats": {
           "cars": 280,
           "peds": 200,
@@ -129,7 +129,7 @@
       "effects": {
         "state": "ready",
         "errors": [],
-        "initMs": 6,
+        "initMs": 7,
         "stats": {
           "passes": 6,
           "enabled": true
@@ -140,14 +140,14 @@
         "errors": [],
         "initMs": 0,
         "stats": {
-          "population": 8025,
-          "jobs": 2202,
+          "population": 8475,
+          "jobs": 2215,
           "happiness": 0.72,
-          "funds": 252372,
+          "funds": 257571,
           "demand": [
-            0.84,
-            0.56,
-            0.51
+            0.82,
+            0.57,
+            0.52
           ]
         }
       },
@@ -182,17 +182,17 @@
       "democity": {
         "state": "ready",
         "errors": [],
-        "initMs": 546,
+        "initMs": 687,
         "stats": {
           "built": true,
-          "totalMs": 545,
+          "totalMs": 685,
           "timings": {
-            "roads": 107,
-            "rebuild": 257,
-            "zoning": 138,
-            "buildings": 7,
-            "props": 30,
-            "traffic": 5
+            "roads": 132,
+            "rebuild": 202,
+            "zoning": 274,
+            "buildings": 39,
+            "props": 35,
+            "traffic": 3
           },
           "roads": 765,
           "lots": 490,
@@ -206,11 +206,11 @@
       "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
       "maxTexture": 8192
     },
-    "population": 8025,
+    "population": 8475,
     "buildings": 476,
     "roads": 765,
     "cars": 280
   },
   "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
-  "at": "2026-09-03T12:55:56.594Z"
+  "at": "2026-09-03T13:26:26.546Z"
 }

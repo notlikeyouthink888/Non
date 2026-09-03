@@ -35,6 +35,10 @@ export function bakeMacro(world, seed, size = 1024) {
       const varA = n1.fbm(u * 2.6, v * 2.6, 4) * 0.5 + 0.5;
       const varB = n2.fbm(u * 9.0, v * 9.0, 4) * 0.5 + 0.5;
       const varC = n1.fbm(u * 0.8 + 7, v * 0.8, 3) * 0.5 + 0.5;
+      // ترددات أعلى: بقع بمقياس 25م و9م تمنع «اللون المسطّح» عند التقريب المتوسط
+      const varD = n2.fbm(u * 28, v * 28, 3) * 0.5 + 0.5;
+      const varE = n1.fbm(u * 78 + 3, v * 78, 2) * 0.5 + 0.5;
+      const varF = n2.fbm(u * 160 + 11, v * 160, 2) * 0.5 + 0.5;
 
       // أوزان الطبقات
       const wSand = smoothstep(5.5, 0.4, h) * smoothstep(0.55, 0.18, slope) * smoothstep(-9, -1.5, h);
@@ -46,13 +50,16 @@ export function bakeMacro(world, seed, size = 1024) {
       let r = 0, g = 0, b = 0, rough = 0, wsum = 0;
       const add = (L, w) => { if (w <= 0) return; r += L.c[0] * w; g += L.c[1] * w; b += L.c[2] * w; rough += L.r * w; wsum += w; };
 
+      // إضاءة/عتمة البقع: طبقات متعددة الترددات (مثل المروج الحقيقية)
+      const patchK = (0.74 + varA * 0.34) * (0.86 + varD * 0.28) * (0.92 + varE * 0.16) * (0.95 + varF * 0.10);
+      const localDry = clamp(dryness + (varD - 0.5) * 0.55 + (varE - 0.5) * 0.28, 0, 1);
       const gCol = {
-        c: [lerp(LAYERS.grass.c[0], LAYERS.grassDry.c[0], dryness) * (0.8 + varA * 0.45),
-            lerp(LAYERS.grass.c[1], LAYERS.grassDry.c[1], dryness) * (0.8 + varA * 0.45),
-            lerp(LAYERS.grass.c[2], LAYERS.grassDry.c[2], dryness) * (0.8 + varA * 0.45)],
+        c: [lerp(LAYERS.grass.c[0], LAYERS.grassDry.c[0], localDry) * patchK,
+            lerp(LAYERS.grass.c[1], LAYERS.grassDry.c[1], localDry) * patchK,
+            lerp(LAYERS.grass.c[2], LAYERS.grassDry.c[2], localDry) * patchK],
         r: 0.93,
       };
-      const dirtMix = smoothstep(0.55, 0.85, varB) * 0.5;
+      const dirtMix = smoothstep(0.52, 0.86, varB * 0.6 + varD * 0.4) * 0.55;
       const gFinal = {
         c: [lerp(gCol.c[0], LAYERS.dirt.c[0], dirtMix), lerp(gCol.c[1], LAYERS.dirt.c[1], dirtMix), lerp(gCol.c[2], LAYERS.dirt.c[2], dirtMix)],
         r: 0.94,
@@ -69,7 +76,7 @@ export function bakeMacro(world, seed, size = 1024) {
       const hN = T.sampleHeight(wx, wz - step * 3), hS = T.sampleHeight(wx, wz + step * 3);
       const hE = T.sampleHeight(wx + step * 3, wz), hW = T.sampleHeight(wx - step * 3, wz);
       const curv = (hN + hS + hE + hW) * 0.25 - h;    // موجب = مقعّر
-      const ao = clamp(1 - clamp(curv, 0, 8) * 0.055 - slope * 0.14, 0.45, 1);
+      const ao = clamp(1 - clamp(curv, 0, 8) * 0.055 - slope * 0.14 - (1 - varE) * 0.05, 0.45, 1);
 
       // ظل ذاتي مبسّط باتجاه الشمس المتوسطة (يعطي عمقًا للجبال حتى دون ظلال)
       const i = (y * size + x) * 4;
