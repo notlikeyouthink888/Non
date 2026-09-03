@@ -1,0 +1,156 @@
+{
+  "ok": false,
+  "shot": "/home/user/Non/docs/shots/r0_terrain_day.png",
+  "url": "http://127.0.0.1:5173/?shot=1&time=15",
+  "viewport": {
+    "w": 1280,
+    "h": 720
+  },
+  "requested": {
+    "preset": "overview",
+    "time": 15,
+    "showcase": null,
+    "quality": null,
+    "seed": null,
+    "cam": null
+  },
+  "elapsedMs": 325818,
+  "error": "page.evaluate: Target page, context or browser has been closed",
+  "consoleErrors": [
+    "THREE.WebGLProgram: Shader Error 0 - VALIDATE_STATUS false\n\nMaterial Name: \nMaterial Type: ShaderMaterial\n\nProgram Info Log: Fragment shader is not compiled.\n\u0000\n\nFRAGMENT\n\nERROR: 0:230: 'LinearTransferOETF' : function already has a body\nERROR: 0:233: 'sRGBTransferEOTF' : function already has a body\nERROR: 0:236: 'sRGBTransferOETF' : function already has a body\n\u0000\n\n  225: \tcolor *= newPeak / peak;\n  226: \tfloat g = 1. - 1. / ( Desaturation * ( peak - newPeak ) + 1. );\n  227: \treturn mix( color, vec3( newPeak ), g );\n  228: }\n  229: vec3 CustomToneMapping( vec3 color ) { return color; }\n> 230: vec4 LinearTransferOETF( in vec4 value ) {\n  231: \treturn value;\n  232: }\n  233: vec4 sRGBTransferEOTF( in vec4 value ) {\n  234: \treturn vec4( mix( pow( value.rgb * 0.9478672986 + vec3( 0.0521327014 ), vec3( 2.4 ) ), value.rgb * 0.0773993808, vec3( lessThanEqual( value.rgb, vec3( 0.04045 ) ) ) ), value.a );\n  235: }\n  236: vec4 sRGBTransferOETF( in vec4 value ) {",
+    "THREE.WebGLProgram: Shader Error 1282 - VALIDATE_STATUS false\n\nMaterial Name: \nMaterial Type: ShaderMaterial\n\nProgram Info Log: Fragment shader is not compiled.\n\u0000\n\nFRAGMENT\n\nERROR: 0:237: 'toneMappingExposure' : redefinition\nERROR: 0:238: 'LinearToneMapping' : function already has a body\nERROR: 0:241: 'ReinhardToneMapping' : function already has a body\nERROR: 0:245: 'CineonToneMapping' : function already has a body\nERROR: 0:250: 'RRTAndODTFit' : function already has a body\nERROR: 0:255: 'ACESFilmicToneMapping' : function already has a body\nERROR: 0:270: 'LINEAR_REC2020_TO_LINEAR_SRGB' : redefinition\nERROR: 0:275: 'LINEAR_SRGB_TO_LINEAR_REC2020' : redefinition\nERROR: 0:280: 'agxDefaultContrastApprox' : function already has a body\nERROR: 0:291: 'AgXToneMapping' : function already has a body\nERROR: 0:316: 'NeutralToneMapping' : function already has a body\nERROR: 0:331: 'CustomToneMapping' : function already has a body\nERROR: 0:332: 'LinearTransferOETF' : function already has a body\nERROR: 0:335: 'sRGBTransferEOTF' : function already has a body\nERROR: 0:338: 'sRGBTransferOETF' : function already has a body\n\u0000\n\n  232: \treturn f0 * ( 1.0 - fresnel ) + ( f90 * fresnel );\n  233: } // validated\n  234: #ifndef saturate\n  235: #define saturate( a ) clamp( a, 0.0, 1.0 )\n  236: #endif\n> 237: uniform float toneMappingExposure;\n  238: vec3 LinearToneMapping( vec3 color ) {\n  239: \treturn saturate( toneMappingExposure * color );\n  240: }\n  241: vec3 ReinhardToneMapping( vec3 color ) {\n  242: \tcolor *= toneMappingExposure;\n  243: \treturn saturate( color / ( vec3( 1.0 ) + color ) );"
+  ],
+  "stats": {
+    "ready": true,
+    "quality": "high",
+    "seed": 20260903,
+    "showcase": null,
+    "fps": 1778.7,
+    "frameMs": 244.03,
+    "frameMsP95": 0.9,
+    "drawCalls": 32,
+    "triangles": 246920,
+    "programs": 6,
+    "geometries": 43,
+    "textures": 11,
+    "textureMB": 20.1,
+    "initMs": 5415,
+    "timeOfDay": 15,
+    "camera": {
+      "x": 0,
+      "z": 0,
+      "dist": 620,
+      "yaw": 0.72,
+      "pitch": 0.62,
+      "fov": 42
+    },
+    "modules": {
+      "terrain": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 2020,
+        "stats": {
+          "chunks": 64,
+          "timings": {
+            "gen": 175,
+            "bake": 1141,
+            "mesh": 163
+          }
+        }
+      },
+      "environment": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 7,
+        "stats": {
+          "night": 0,
+          "sunY": 0.726,
+          "exposure": 1
+        }
+      },
+      "roads": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 3041,
+        "stats": {
+          "edges": 0,
+          "nodes": 0,
+          "meshes": 0,
+          "lamps": 0
+        }
+      },
+      "zoning": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "buildings": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "props": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "traffic": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "effects": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "simulation": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "tools": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "ui": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "audio": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      },
+      "democity": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": null
+      }
+    },
+    "consoleErrors": [],
+    "gl": {
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "maxTexture": 8192
+    },
+    "population": 0,
+    "buildings": 0,
+    "roads": 0,
+    "cars": 0
+  },
+  "note": "FPS مقاسة على SwiftShader (رسم برمجي بلا GPU) — غير ممثلة لأداء العتاد الحقيقي. اعتمد drawCalls/triangles.",
+  "at": "2026-09-03T01:45:54.016Z"
+}

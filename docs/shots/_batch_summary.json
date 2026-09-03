@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "error": null,
+  "consoleErrors": [],
+  "results": [
+    {
+      "out": "docs/shots/d_shadow.png",
+      "label": "فحص الظلال والطرق",
+      "fps": 1.8,
+      "frameMs": 564.01,
+      "drawCalls": 801,
+      "triangles": 4670865,
+      "programs": 64,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/d_street.png",
+      "label": "الشارع",
+      "fps": 1.1,
+      "frameMs": 927.69,
+      "drawCalls": 755,
+      "triangles": 4569101,
+      "programs": 64,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/d_overview.png",
+      "label": "منظر عام",
+      "fps": 0.3,
+      "frameMs": 3851.9,
+      "drawCalls": 865,
+      "triangles": 4816233,
+      "programs": 64,
+      "errors": 0
+    }
+  ],
+  "modules": {
+    "terrain": "ready",
+    "environment": "ready",
+    "roads": "ready",
+    "zoning": "ready",
+    "buildings": "ready",
+    "props": "ready",
+    "traffic": "ready",
+    "effects": "ready",
+    "simulation": "ready",
+    "tools": "ready",
+    "ui": "ready",
+    "audio": "ready",
+    "democity": "ready"
+  },
+  "pageLogs": [
+    "[boot] تهيئة الوحدات",
+    "[boot] تهيئة: terrain",
+    "[terrain] gen=166ms bake=1218ms mesh=259ms chunks=64 segs=56",
+    "[boot] تهيئة: environment",
+    "[boot] تهيئة: roads",
+    "[boot] تهيئة: zoning",
+    "[boot] تهيئة: buildings",
+    "[buildings] 40 prototypes",
+    "[boot] تهيئة: props",
+    "[boot] تهيئة: traffic",
+    "[boot] تهيئة: effects",
+    "[boot] تهيئة: simulation",
+    "[boot] تهيئة: tools",
+    "[boot] تهيئة: ui",
+    "[boot] تهيئة: audio",
+    "[boot] تهيئة: democity",
+    "[roads] rebuild 765 edges, 507 nodes in 253ms, 8 meshes",
+    "[zoning] 490 lots in 113ms",
+    "[buildings] 476 buildings / 31 instanced meshes in 9ms",
+    "[props] 2565 trees + furniture in 33ms (41 meshes)",
+    "[traffic] 280 vehicles across 9 batches",
+    "[democity] built in 737ms {\"roads\":168,\"rebuild\":373,\"zoning\":146,\"buildings\":10,\"props\":36,\"traffic\":3}",
+    "[app] ready in 10958ms — quality=high showcase=-"
+  ],
+  "elapsedS": 362.4
+}

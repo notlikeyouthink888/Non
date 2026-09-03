@@ -1,0 +1,45 @@
+{
+  "project": "مدينتي — Madinati",
+  "updatedAt": "2026-09-03",
+  "round": 1,
+  "environment": {
+    "gpu": false,
+    "renderer": "SwiftShader (ANGLE) — عرض برمجي بلا GPU",
+    "note": "أرقام fps في السجلات غير ممثِّلة للعتاد الحقيقي. المقاييس المعتمدة للأداء: drawCalls / triangles / programs / أخطاء وحدة التحكم."
+  },
+  "budget": { "fpsTarget": 50, "drawCallsMax": 1500, "trianglesMax": 3500000 },
+  "measured": {
+    "drawCalls": 499,
+    "triangles": 2226917,
+    "programs": 62,
+    "initMs": 10596,
+    "consoleErrors": 0,
+    "softwareFps": 3.1
+  },
+  "modules": {
+    "terrain":     { "state": "ready", "score": null, "notes": "حقل ارتفاعات ساحلي + خريطة كبرى مخبوزة + تفاصيل مبلّطة + ماء متحرك" },
+    "environment": { "state": "ready", "score": null, "notes": "سماء تشتت إجرائية + دورة يوم + خريطة بيئة PMREM ديناميكية" },
+    "roads":       { "state": "ready", "score": null, "notes": "رسم بياني كامل بتقاطعات وأرصفة ومعابر وأعمدة إنارة" },
+    "zoning":      { "state": "ready", "score": null, "notes": "فرشاة مناطق + اشتقاق قطع من واجهات الطرق + قيمة أرض" },
+    "buildings":   { "state": "ready", "score": null, "notes": "40 نموذجًا إجرائيًا + نسخ مُجمَّع + إضاءة نوافذ فريدة لكل مبنى" },
+    "props":       { "state": "ready", "score": null, "notes": "أشجار ونخيل وصنوبر + أثاث شارع + إشارات مرور" },
+    "traffic":     { "state": "ready", "score": null, "notes": "9 طُرُز مركبات + مشاة + مصابيح ليلية" },
+    "effects":     { "state": "ready", "score": null, "notes": "Composer: Render→SSAO→Bloom→Output→SMAA→Grade" },
+    "simulation":  { "state": "ready", "score": null, "notes": "سكان/وظائف/طلب RCI/ميزانية/سعادة" },
+    "tools":       { "state": "ready", "score": null, "notes": "طريق/منطقة/هدم/تعمير بدعم لمس" },
+    "ui":          { "state": "ready", "score": null, "notes": "HUD عربي RTL كامل + لوحة تشخيص" },
+    "audio":       { "state": "ready", "score": null, "notes": "مشهد صوتي إجرائي WebAudio" },
+    "democity":    { "state": "ready", "score": null, "notes": "مدينة ساحلية حتمية" }
+  },
+  "openIssues": [
+    { "id": 1, "module": "environment", "severity": "عالٍ", "text": "ظلال الشمس غير ظاهرة في اللقطات رغم أن خريطة الظل تُبنى — قيد التشخيص" },
+    { "id": 2, "module": "democity", "severity": "عالٍ", "text": "كثافة المدينة أقل من المرجع؛ فجوات خضراء واسعة بين الكتل" },
+    { "id": 3, "module": "buildings", "severity": "متوسط", "text": "الواجهات تحسّنت لكنها ما زالت متكرّرة الإيقاع؛ تحتاج تنوّع بائكات وارتفاعات أرضية" },
+    { "id": 4, "module": "roads", "severity": "متوسط", "text": "الأرصفة تبدو ساطعة من الأعلى وتطغى على الأسفلت" },
+    { "id": 5, "module": "terrain", "severity": "متوسط", "text": "الماء ما زال يُظهر بريقًا مُشوَّشًا في بعض الزوايا" },
+    { "id": 6, "module": "props", "severity": "متوسط", "text": "بطاقات أوراق الشجر تبدو مسطّحة عن قرب" },
+    { "id": 7, "module": "traffic", "severity": "منخفض", "text": "لا مصابيح أمامية مرئية كأشعة ليلًا (إضاءة مُنبعثة فقط)" }
+  ],
+  "shots": ["docs/shots/q_overview.png", "docs/shots/q_downtown.png", "docs/shots/q_street.png", "docs/shots/q_night.png"],
+  "android": { "packaged": true, "tool": "Capacitor 7", "apkBuilt": false, "reason": "Android SDK غير مثبّت في هذه البيئة — سكربت البناء جاهز في tools/build-apk.sh" }
+}

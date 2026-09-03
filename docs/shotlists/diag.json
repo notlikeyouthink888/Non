@@ -1,0 +1,5 @@
+[
+  { "out": "docs/shots/d_shadow.png",   "preset": "closeup",  "time": 9.0,  "label": "فحص الظلال والطرق" },
+  { "out": "docs/shots/d_street.png",   "preset": "street",   "time": 10.5, "label": "الشارع" },
+  { "out": "docs/shots/d_overview.png", "preset": "overview", "time": 14.0, "label": "منظر عام" }
+]
