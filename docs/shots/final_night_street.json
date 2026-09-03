@@ -1,0 +1,216 @@
+{
+  "ok": true,
+  "shot": "/home/user/Non/docs/shots/final_night_street.png",
+  "requested": {
+    "out": "/home/user/Non/docs/shots/final_night_street.png",
+    "preset": "street",
+    "time": 22,
+    "cam": null,
+    "settle": 1800,
+    "label": "الشارع — ليل"
+  },
+  "viewport": {
+    "w": 1280,
+    "h": 720
+  },
+  "consoleErrors": [],
+  "stats": {
+    "ready": true,
+    "quality": "high",
+    "seed": 20260903,
+    "showcase": null,
+    "fps": 0.3,
+    "frameMs": 3361.3,
+    "frameMsP95": 3361.3,
+    "drawCalls": 392,
+    "triangles": 1792060,
+    "programs": 60,
+    "geometries": 153,
+    "textures": 118,
+    "textureMB": 121.3,
+    "initMs": 13177,
+    "timeOfDay": 22,
+    "camera": {
+      "x": -230,
+      "z": -300,
+      "dist": 105,
+      "yaw": 1.15,
+      "pitch": 0.22,
+      "fov": 46
+    },
+    "modules": {
+      "terrain": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 2466,
+        "stats": {
+          "chunks": 64,
+          "timings": {
+            "gen": 180,
+            "bake": 1629,
+            "mesh": 125
+          }
+        }
+      },
+      "environment": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 7,
+        "stats": {
+          "night": 1,
+          "sunY": -0.583,
+          "exposure": 1.1
+        }
+      },
+      "roads": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 3109,
+        "stats": {
+          "edges": 765,
+          "nodes": 507,
+          "meshes": 8,
+          "lamps": 519,
+          "buildMs": 88
+        }
+      },
+      "zoning": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": {
+          "lots": 490,
+          "zonedCells": 60860,
+          "genMs": 111
+        }
+      },
+      "buildings": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 5289,
+        "stats": {
+          "buildings": 476,
+          "meshes": 35,
+          "prototypes": 40,
+          "buildMs": 33
+        }
+      },
+      "props": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 820,
+        "stats": {
+          "meshes": 40,
+          "trees": 4073,
+          "bench": 0,
+          "bin": 460,
+          "hydrant": 250,
+          "busStop": 115,
+          "tlPole": 1350,
+          "tlLamps": 1350,
+          "sign": 119,
+          "fence": 0,
+          "rock": 72,
+          "planter": 179,
+          "billboard": 0,
+          "scatterMs": 42
+        }
+      },
+      "traffic": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 8,
+        "stats": {
+          "cars": 280,
+          "peds": 200,
+          "batches": 16
+        }
+      },
+      "effects": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 7,
+        "stats": {
+          "passes": 5,
+          "enabled": true
+        }
+      },
+      "simulation": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": {
+          "population": 8475,
+          "jobs": 2215,
+          "happiness": 0.73,
+          "funds": 285332,
+          "demand": [
+            0.73,
+            0.63,
+            0.58
+          ]
+        }
+      },
+      "tools": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 1,
+        "stats": {
+          "tool": "none",
+          "roadType": 1,
+          "zone": 1
+        }
+      },
+      "ui": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 2,
+        "stats": {
+          "visible": true
+        }
+      },
+      "audio": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 0,
+        "stats": {
+          "started": false,
+          "muted": true,
+          "state": "none"
+        }
+      },
+      "democity": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 679,
+        "stats": {
+          "built": true,
+          "totalMs": 678,
+          "timings": {
+            "roads": 122,
+            "rebuild": 187,
+            "zoning": 286,
+            "buildings": 34,
+            "props": 43,
+            "traffic": 5
+          },
+          "roads": 765,
+          "lots": 490,
+          "buildings": 476
+        }
+      }
+    },
+    "consoleErrors": [],
+    "gl": {
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "maxTexture": 8192
+    },
+    "population": 8475,
+    "buildings": 476,
+    "roads": 765,
+    "cars": 280
+  },
+  "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
+  "at": "2026-09-03T14:12:41.775Z"
+}

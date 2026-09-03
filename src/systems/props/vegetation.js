@@ -53,15 +53,15 @@ function trunk(rng, { h = 4.2, r0 = 0.26, r1 = 0.16, bend = 0.1 }) {
 /** يعيد {trunkGeo, leafGeo, height} */
 export function makeTree(kind, rng) {
   if (kind === 'conifer') {
-    const h = rng.range(7, 13);
+    const h = rng.range(6.5, 10.5);
     const t = trunk(rng, { h: h * 0.55, r0: 0.28, r1: 0.14, bend: 0.03 });
     const parts = [];
     const layers = 4;
     for (let i = 0; i < layers; i++) {
       const f = i / (layers - 1);
-      const rr = (1 - f) * rng.range(1.5, 2.3) + 0.35;
+      const rr = (1 - f) * rng.range(1.15, 1.75) + 0.28;
       const y = h * 0.28 + f * h * 0.66;
-      const c = new THREE.ConeGeometry(rr, h * 0.32, 7, 1, true);
+      const c = new THREE.ConeGeometry(rr, h * 0.34, 9, 2, true);
       c.translate(0, y, 0);
       parts.push(c);
     }

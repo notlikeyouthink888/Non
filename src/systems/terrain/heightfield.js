@@ -31,8 +31,9 @@ export function generateHeightfield(world, seed) {
         + base.fbm(px * 3.2, pz * 3.2, 3) * 70;
       const land = coast * -1;   // موجب = يابسة
 
-      // منصّة بنائية شبه مستوية قرب المركز
-      const plateau = smoothstep(-40, 260, land) * 18;
+      // ضفة ساحلية + منصّة بنائية: ترفع أرض المدينة ~6..16م فوق البحر
+      // (بدونها كانت أرض وسط المدينة عند منسوب البحر تقريبًا فيغمرها الماء)
+      const plateau = smoothstep(-30, 200, land) * 21 + smoothstep(-70, 70, land) * 7.5;
 
       // تلال متوسطة تبتعد عن الساحل
       const hills = (base.fbm(px * 1.9, pz * 1.9, 5) * 0.5 + 0.5) * smoothstep(120, 900, land) * 74;
@@ -55,9 +56,9 @@ export function generateHeightfield(world, seed) {
       // تفاصيل دقيقة
       hh += detail.fbm(px * 9.5, pz * 9.5, 4) * lerp(1.2, 9.0, smoothstep(0, 200, Math.abs(hh)));
 
-      // شاطئ مسطح لطيف حول منسوب الماء
-      const beach = smoothstep(9, 0, Math.abs(hh));
-      hh = lerp(hh, hh * 0.35, beach * 0.55);
+      // شاطئ لطيف حول منسوب الماء (تنعيم خفيف فقط حتى لا يُلغي الضفة)
+      const beach = smoothstep(7, 0, Math.abs(hh));
+      hh = lerp(hh, hh * 0.55, beach * 0.35);
 
       // حافة العالم تهبط تدريجيًا لتجنّب الحواف المسطحة
       const edge = Math.max(Math.abs(x), Math.abs(z)) / half;

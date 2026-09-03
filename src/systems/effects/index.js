@@ -82,8 +82,8 @@ export default {
         // لذا أي توهّج ملموس نهارًا يتحوّل إلى ضباب لبني على كل الصورة (تم قياسه).
         // ⇒ توهّج نهاري شبه معدوم، وتوهّج ليلي قوي لنوافذ المدينة.
         const n = smoothstep(0.25, 0.82, night);
-        this.bloom.strength = lerp(0.026, 0.34, n);
-        this.bloom.threshold = lerp(3.20, 0.55, n);
+        this.bloom.strength = lerp(0.026, 0.24, n);
+        this.bloom.threshold = lerp(3.20, 0.72, n);
         this.bloom.radius = lerp(0.26, 0.58, n);
       }
       this.grade.uniforms.uSaturation.value = lerp(1.12, 1.20, smoothstep(0.2, 0.8, night));

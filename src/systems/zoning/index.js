@@ -154,7 +154,7 @@ export default {
           const cx = px + nx * off, cz = pz + nz * off;
 
           const y = terrain.api.heightAt(cx, cz);
-          const ok = world.inBounds(cx, cz) && y > world.waterLevel + 1.0
+          const ok = world.inBounds(cx, cz) && y > world.waterLevel + 2.5
             && terrain.api.slopeAt(cx, cz, 6) < spec.maxSlope
             && world.zones[world.cellIndex(cx, cz)] === zone;
 
@@ -179,12 +179,16 @@ export default {
         }
       }
     }
-    // تسوية الأرض تحت كل قطعة (تمنع المباني الطافية والأرضيات المقطوعة)
+    // تسوية الأرض تحت كل قطعة — على مرحلتين:
+    // 1) نقرأ كل الارتفاعات من الحقل قبل أي تعديل، وإلا تتسلسل التسويات فتنجرف الأرض
+    //    تدريجيًا نحو أخفض قطعة حتى تغرق تحت منسوب البحر (حدث فعلًا وقيس بلقطة).
+    // 2) ثم نطبّق التسوية على بصمة المبنى فقط مع حدّ أدنى فوق الماء.
+    const minLotY = world.waterLevel + 2.2;
+    for (const lot of world.lots) lot.y = Math.max(terrain.api.heightAt(lot.cx, lot.cz), minLotY);
     for (const lot of world.lots) {
       const ca = Math.abs(Math.cos(lot.rot)), sa = Math.abs(Math.sin(lot.rot));
       const hw = (lot.w * ca + lot.d * sa) / 2, hd = (lot.w * sa + lot.d * ca) / 2;
-      lot.y = terrain.api.heightAt(lot.cx, lot.cz);
-      terrain.api.flatten(lot.cx, lot.cz, hw * 0.92, hd * 0.92, lot.y, 4.5);
+      terrain.api.flatten(lot.cx, lot.cz, hw * 0.60, hd * 0.60, lot.y, 7);
     }
 
     this.computeLandValue();

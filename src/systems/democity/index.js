@@ -30,7 +30,7 @@ export default {
     const runs = [];
     let cur = [];
     for (const p of pts) {
-      const ok = ctx.world.inBounds(p.x, p.z) && T && T.heightAt(p.x, p.z) > wl + 1.2 && T.slopeAt(p.x, p.z, 10) < 0.58;
+      const ok = ctx.world.inBounds(p.x, p.z) && T && T.heightAt(p.x, p.z) > wl + 2.2 && T.slopeAt(p.x, p.z, 10) < 0.58;
       if (ok) cur.push(p);
       else { if (cur.length > 1) runs.push(cur); cur = []; }
     }

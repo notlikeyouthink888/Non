@@ -8,11 +8,11 @@ import { clamp, lerp, TAU } from './math.js';
 const PRESETS = {
   overview:  { x: -140, z: -140, dist: 720, yaw: 0.72, pitch: 0.60, fov: 42 },
   downtown:  { x: -60,  z: -70,  dist: 300, yaw: 2.35, pitch: 0.44, fov: 40 },
-  street:    { x: -230, z: -300, dist: 105, yaw: 1.15, pitch: 0.22, fov: 46 },
+  street:    { x: -175, z: -245, dist: 130, yaw: 2.05, pitch: 0.30, fov: 46 },
   aerial:    { x: -200, z: -200, dist: 1150,yaw: 0.45, pitch: 1.02, fov: 38 },
   waterfront:{ x: -30,  z: 30,   dist: 320, yaw: 0.60, pitch: 0.26, fov: 44 },
   suburb:    { x: -640, z: -520, dist: 250, yaw: 0.95, pitch: 0.36, fov: 44 },
-  closeup:   { x: -200, z: -250, dist: 150, yaw: 2.05, pitch: 0.30, fov: 48 },
+  closeup:   { x: -145, z: -195, dist: 95,  yaw: 0.85, pitch: 0.26, fov: 50 },
   skyline:   { x: -60,  z: -40,  dist: 470, yaw: 0.95, pitch: 0.17, fov: 38 },
   industrial:{ x: -740, z: -430, dist: 330, yaw: 1.60, pitch: 0.34, fov: 42 },
   park:      { x: -300, z: 60,   dist: 180, yaw: 0.30, pitch: 0.30, fov: 46 },

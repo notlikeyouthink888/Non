@@ -326,7 +326,7 @@ export default {
         const L = this.protos[c.proto].len;
         dummy.position.set(p.x + p.dx * (L * 0.5 + 5.5), p.y + 0.14, p.z + p.dz * (L * 0.5 + 5.5));
         dummy.rotation.set(0, c.rot, 0);
-        dummy.scale.set(4.5, 1, 12);
+        dummy.scale.set(3.6, 1, 9);
         dummy.updateMatrix();
         this.glowMesh.setMatrixAt(c.gidx, dummy.matrix);
       }
@@ -361,7 +361,7 @@ export default {
     const on = smoothstep(0.25, 0.7, night ?? 0);
     this.headMat.emissiveIntensity = 0.12 + on * 5.5;
     this.tailMat.emissiveIntensity = 0.3 + on * 3.0;
-    if (this.glowMat) this.glowMat.opacity = on * 0.55;
+    if (this.glowMat) this.glowMat.opacity = on * 0.38;
     if (this.glowMesh) this.glowMesh.visible = on > 0.02;
   },
 

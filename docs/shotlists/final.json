@@ -1,0 +1,14 @@
+[
+  { "out": "docs/shots/final_overview_day.png",  "preset": "overview",   "time": 13.5, "label": "منظر عام — نهار" },
+  { "out": "docs/shots/final_street_noon.png",   "preset": "street",     "time": 12.0, "label": "مستوى الشارع — ظهرًا" },
+  { "out": "docs/shots/final_closeup.png",       "preset": "closeup",    "time": 9.5,  "label": "حي سكني قريب" },
+  { "out": "docs/shots/final_downtown.png",      "preset": "downtown",   "time": 11.0, "label": "وسط المدينة" },
+  { "out": "docs/shots/final_skyline_golden.png","preset": "skyline",    "time": 17.3, "label": "أفق المدينة — الساعة الذهبية" },
+  { "out": "docs/shots/final_waterfront.png",    "preset": "waterfront", "time": 15.5, "label": "الواجهة البحرية" },
+  { "out": "docs/shots/final_suburb.png",        "preset": "suburb",     "time": 8.5,  "label": "الضاحية — صباح" },
+  { "out": "docs/shots/final_industrial.png",    "preset": "industrial", "time": 14.5, "label": "المنطقة الصناعية" },
+  { "out": "docs/shots/final_night_downtown.png","preset": "downtown",   "time": 21.5, "label": "وسط المدينة — ليل" },
+  { "out": "docs/shots/final_night_street.png",  "preset": "street",     "time": 22.0, "label": "الشارع — ليل" },
+  { "out": "docs/shots/final_dawn.png",          "preset": "overview",   "time": 6.4,  "label": "الفجر" },
+  { "out": "docs/shots/final_aerial.png",        "preset": "aerial",     "time": 14.0, "label": "منظر جوي" }
+]

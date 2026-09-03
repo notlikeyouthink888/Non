@@ -127,9 +127,10 @@ export default {
     // أرضيات القطع (تمنع «المباني الطافية على العشب»)
     const padOpts = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 };
     this.padMats = {
-      [ZONE.RESIDENTIAL]: Object.assign(ctx.materials.dirt([0.22, 0.22]), padOpts, { color: new THREE.Color(0x8c8468) }),
-      [ZONE.COMMERCIAL]:  Object.assign(ctx.materials.pavement([0.28, 0.28]), padOpts, { color: new THREE.Color(0x7c7c78) }),
-      [ZONE.OFFICE]:      Object.assign(ctx.materials.concrete([0.25, 0.25], 0x7e7b74), padOpts),
+      // حدائق منزلية: نسيج ترابي بصبغة خضراء باهتة ⇒ تُقرأ كأفنية لا كإسفلت
+      [ZONE.RESIDENTIAL]: Object.assign(ctx.materials.dirt([0.30, 0.30]), padOpts, { color: new THREE.Color(0x5d6b3e) }),
+      [ZONE.COMMERCIAL]:  Object.assign(ctx.materials.pavement([0.28, 0.28]), padOpts, { color: new THREE.Color(0x8b8a84) }),
+      [ZONE.OFFICE]:      Object.assign(ctx.materials.concrete([0.25, 0.25], 0x8d8a82), padOpts),
       [ZONE.INDUSTRIAL]:  Object.assign(ctx.materials.asphalt([0.30, 0.30]), padOpts),
     };
     this.drivewayMat = Object.assign(ctx.materials.concrete([0.5, 0.5], 0x76736c), padOpts);
@@ -242,7 +243,7 @@ export default {
       this.meshes.push(im);
     }
 
-    this._buildPads();
+    if (this.ctx.params?.get('nopads') !== '1') this._buildPads();
 
     this.buildMs = Math.round(performance.now() - t0);
     ctx.log.info(`[buildings] ${world.buildings.length} buildings / ${this.meshes.length} instanced meshes in ${this.buildMs}ms`);
@@ -277,7 +278,8 @@ export default {
     for (const lot of world.lots) {
       const mat = this.padMats[lot.zone];
       if (!mat) continue;
-      const pw = lot.w * 0.97, pd = lot.d * 0.97;
+      const shrink = lot.zone === ZONE.RESIDENTIAL ? 0.88 : 0.97;
+      const pw = lot.w * shrink, pd = lot.d * shrink;
       if (!byMat.has(lot.zone)) byMat.set(lot.zone, []);
       byMat.get(lot.zone).push(quad(lot.cx, lot.cz, pw, pd, lot.rot, 0.075, 0.14, 4));
 
@@ -305,9 +307,9 @@ export default {
 
   _setNight(night) {
     const on = smoothstep(0.20, 0.68, night ?? 0);
-    for (const m of this.facadeMats || []) m.emissiveIntensity = on * 1.35;
+    for (const m of this.facadeMats || []) m.emissiveIntensity = on * 1.15;
     for (const m of this.glassMats || []) m.emissiveIntensity = on * 1.15;
-    if (this.shopGlass) this.shopGlass.emissiveIntensity = on * 0.85;
+    if (this.shopGlass) this.shopGlass.emissiveIntensity = on * 0.30;
   },
 
   showcase(ctx) {

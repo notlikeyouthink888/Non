@@ -1,0 +1,5 @@
+[
+  { "out": "docs/shots/c_street.png",   "preset": "street",   "time": 12.0, "label": "الشارع" },
+  { "out": "docs/shots/c_overview.png", "preset": "overview", "time": 13.5, "label": "منظر عام" },
+  { "out": "docs/shots/c_night.png",    "preset": "street",   "time": 21.8, "label": "الشارع ليلًا" }
+]

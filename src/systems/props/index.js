@@ -27,7 +27,7 @@ export default {
       map: leafTex, alphaTest: 0.45, transparent: false, side: THREE.DoubleSide,
       roughness: 0.88, metalness: 0, color: 0xffffff, envMapIntensity: 0.75,
     });
-    this.needleMat = M.simple(0x24401f, { roughness: 0.9, flat: true, side: THREE.DoubleSide });
+    this.needleMat = M.simple(0x2b4526, { roughness: 0.95, flat: false, side: THREE.DoubleSide });
     this.frondMat = new THREE.MeshStandardMaterial({
       map: T.leafCard(147, 256, { hue: 0.35 }), alphaTest: 0.42, side: THREE.DoubleSide, roughness: 0.82, color: 0x9fb977,
     });

@@ -425,8 +425,9 @@ export default {
     const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(128, 128) : Object.assign(document.createElement('canvas'), { width: 128, height: 128 });
     const g2 = c.getContext('2d');
     const grad = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(255,206,140,0.95)');
-    grad.addColorStop(0.35, 'rgba(255,190,120,0.42)');
+    grad.addColorStop(0, 'rgba(255,206,140,0.75)');
+    grad.addColorStop(0.30, 'rgba(255,192,124,0.30)');
+    grad.addColorStop(0.62, 'rgba(255,184,116,0.09)');
     grad.addColorStop(1, 'rgba(255,180,110,0)');
     g2.fillStyle = grad; g2.fillRect(0, 0, 128, 128);
     const tex = new THREE.CanvasTexture(c);
@@ -483,8 +484,8 @@ export default {
     const d = new THREE.Object3D();
     spots.forEach((s, i) => {
       const nx = Math.sin(s.rot) * 1.4, nz = Math.cos(s.rot) * 1.4;
-      d.position.set(s.x + nx * 2.2, s.y + 0.35, s.z + nz * 2.2);
-      d.rotation.set(0, 0, 0); d.scale.setScalar(26);
+      d.position.set(s.x + nx * 1.8, s.y + 0.22, s.z + nz * 1.8);
+      d.rotation.set(0, 0, 0); d.scale.setScalar(13);
       d.updateMatrix(); pools.setMatrixAt(i, d.matrix);
     });
     pools.instanceMatrix.needsUpdate = true;
@@ -498,7 +499,7 @@ export default {
   _setNight(night) {
     const on = smoothstep(0.28, 0.72, night ?? 0);
     if (this.lampHeadMat) this.lampHeadMat.emissiveIntensity = on * 7.5;
-    if (this.poolMat) this.poolMat.opacity = on * 1.25;
+    if (this.poolMat) this.poolMat.opacity = on * 0.70;
   },
 
   update(dt, ctx) {},

@@ -43,7 +43,7 @@ export default {
       normalMap: detail.normalMap,
       normalScale: new THREE.Vector2(1.15, 1.15),
       roughness: 1, metalness: 0,
-      envMapIntensity: 0.85,
+      envMapIntensity: 0.45,
       dithering: true,
     });
     this.macro.ormMap.channel = 0;
@@ -79,28 +79,62 @@ export default {
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform sampler2D uDetail; uniform sampler2D uDetailRock; uniform float uNear; uniform float uFar;
-          varying float vSlopeT; varying vec3 vWPosT;`)
+          varying float vSlopeT; varying vec3 vWPosT;
+
+          // ضوضاء قيمة إجرائية: تبقى مرئية على كل المسافات (لا mipmap) وتكسر «اللون المسطّح»
+          float tHash( vec2 p ) {
+            p = fract( p * vec2( 233.34, 851.73 ) );
+            p += dot( p, p + 23.45 );
+            return fract( p.x * p.y );
+          }
+          float tNoise( vec2 p ) {
+            vec2 i = floor( p ), f = fract( p );
+            f = f * f * ( 3.0 - 2.0 * f );
+            float a = tHash( i ), b = tHash( i + vec2( 1.0, 0.0 ) );
+            float c = tHash( i + vec2( 0.0, 1.0 ) ), d2 = tHash( i + vec2( 1.0, 1.0 ) );
+            return mix( mix( a, b, f.x ), mix( c, d2, f.x ), f.y );
+          }
+          float tFbm( vec2 p ) {
+            float s = 0.0, a = 0.5;
+            for ( int i = 0; i < 4; i++ ) { s += a * tNoise( p ); p *= 2.07; a *= 0.5; }
+            return s;
+          }`)
         .replace('#include <map_fragment>', `#include <map_fragment>
           {
             float dCam = length( vViewPosition );
             float fade = 1.0 - smoothstep( uNear, uFar, dCam );
-            // طبقتان: قريبة (3.8م) ومتوسطة (26م) — المتوسطة تنجو من الـmipmap عن بُعد
+
+            // ---- تفاصيل مبلّطة: قريبة (3.8م) ومتوسطة (26م) ----
             vec3 dGnear = texture2D( uDetail, vWPosT.xz * 0.26 ).rgb;
             vec3 dGmid  = texture2D( uDetail, vWPosT.xz * 0.038 ).rgb;
-            vec3 dR = texture2D( uDetailRock, vWPosT.xz * 0.085 ).rgb;
+            vec3 dR     = texture2D( uDetailRock, vWPosT.xz * 0.085 ).rgb;
             float rockW = smoothstep( 0.18, 0.46, vSlopeT );
-            vec3 detNear = mix( dGnear, dR, rockW );
-            vec3 det = mix( detNear, dGmid, 0.45 );
-            float lumMid = dot( dGmid, vec3( 0.3333 ) );
+            vec3 det = mix( mix( dGnear, dR, rockW ), dGmid, 0.45 );
             float lum = dot( det, vec3( 0.3333 ) );
-            // تباين متوسط المدى مستقل عن التلاشي القريب
-            diffuseColor.rgb *= 0.72 + 1.45 * lumMid;
-            // طبقة تفاصيل تُضاعف السطوع دون تغيير الصبغة الكبرى
-            diffuseColor.rgb *= mix( 1.0, 0.48 + 1.20 * lum, fade );
-            diffuseColor.rgb *= mix( vec3(1.0), det / max( lum, 0.001 ), fade * 0.45 );
+
+            // ---- بقع إجرائية (11م / 3.4م / 1.1م) — لا تتأثر بالـmipmap ----
+            float px = length( vec2( dFdx( vWPosT.x ), dFdy( vWPosT.x ) ) )
+                     + length( vec2( dFdx( vWPosT.z ), dFdy( vWPosT.z ) ) );
+            float kFine = 1.0 - smoothstep( 0.35, 1.6, px );
+            float kMid  = 1.0 - smoothstep( 1.2, 5.0, px );
+            float nBig  = tFbm( vWPosT.xz * 0.090 ) - 0.5;
+            float nMid2 = tNoise( vWPosT.xz * 0.29 ) - 0.5;
+            float nFine = tNoise( vWPosT.xz * 0.92 ) - 0.5;
+
+            // ⚠️ كل المُضاعِفات مُتمركزة حول 1.0 ومُقيَّدة.
+            // (نسخة سابقة ضربت الألبيدو بعامل يصل 2.2 فانفجرت الأرض بيضاء)
+            float kDetail = 1.0 + ( lum - 0.34 ) * 1.05 * fade;
+            float kPatch  = 1.0 + nBig * 0.34 + nMid2 * 0.20 * kMid + nFine * 0.14 * kFine;
+            float k = clamp( kDetail * kPatch, 0.62, 1.28 );
+            diffuseColor.rgb *= k;
+
+            // انزياح صبغة خفيف: بقع جافة أدفأ، بقع ظليلة أبرد
+            diffuseColor.rgb *= vec3( 1.0 + nBig * 0.10, 1.0, 1.0 - nBig * 0.13 );
+            // نقل صبغة التفاصيل القريبة (بلا تغيير في السطوع)
+            diffuseColor.rgb *= mix( vec3( 1.0 ), det / max( lum, 0.001 ), fade * 0.30 );
           }`);
     };
-    mat.customProgramCacheKey = () => 'terrain-v2';
+    mat.customProgramCacheKey = () => 'terrain-v4';
     this.material = mat;
 
     // --- الهندسة المقسّمة ---

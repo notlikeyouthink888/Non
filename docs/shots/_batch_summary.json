@@ -1,56 +1,38 @@
 {
-  "ok": true,
+  "ok": false,
   "error": null,
-  "consoleErrors": [],
+  "consoleErrors": [
+    "THREE.WebGLProgram: Shader Error 0 - VALIDATE_STATUS false\n\nMaterial Name: \nMaterial Type: MeshStandardMaterial\n\nProgram Info Log: Fragment shader is not compiled.\n\u0000\n\nFRAGMENT\n\nERROR: 0:1564: 'patch' : Illegal use of reserved word\nERROR: 0:1564: 'patch' : syntax error\n\u0000\n\n  1559:             float nBig = tFbm( vWPosT.xz * 0.090 );\n  1560:             float nMid2 = tNoise( vWPosT.xz * 0.29 );\n  1561:             float nFine = tNoise( vWPosT.xz * 0.92 );\n  1562:             float kFine = 1.0 - smoo"
+  ],
   "results": [
     {
-      "out": "docs/shots/r5_street.png",
-      "label": "الشارع — ظهرًا",
-      "fps": 1.4,
-      "frameMs": 691.7,
-      "drawCalls": 761,
-      "triangles": 3571121,
-      "programs": 65,
-      "errors": 0
+      "out": "docs/shots/c_street.png",
+      "label": "الشارع",
+      "fps": 2.5,
+      "frameMs": 395.82,
+      "drawCalls": 412,
+      "triangles": 1892324,
+      "programs": 60,
+      "errors": 1
     },
     {
-      "out": "docs/shots/r5_overview.png",
+      "out": "docs/shots/c_overview.png",
       "label": "منظر عام",
-      "fps": 1.4,
-      "frameMs": 701.06,
-      "drawCalls": 859,
-      "triangles": 3732641,
-      "programs": 65,
+      "fps": 3.4,
+      "frameMs": 295.14,
+      "drawCalls": 464,
+      "triangles": 1962364,
+      "programs": 60,
       "errors": 0
     },
     {
-      "out": "docs/shots/r5_closeup.png",
-      "label": "حي سكني قريب",
-      "fps": 0.9,
-      "frameMs": 1059.11,
-      "drawCalls": 799,
-      "triangles": 3634753,
-      "programs": 65,
-      "errors": 0
-    },
-    {
-      "out": "docs/shots/r5_skyline.png",
-      "label": "أفق المدينة",
-      "fps": 2.3,
-      "frameMs": 718.17,
-      "drawCalls": 851,
-      "triangles": 3713897,
-      "programs": 65,
-      "errors": 0
-    },
-    {
-      "out": "docs/shots/r5_night.png",
-      "label": "ليل",
-      "fps": 3.6,
-      "frameMs": 276.06,
-      "drawCalls": 779,
-      "triangles": 3647985,
-      "programs": 65,
+      "out": "docs/shots/c_night.png",
+      "label": "الشارع ليلًا",
+      "fps": 2.6,
+      "frameMs": 386.58,
+      "drawCalls": 414,
+      "triangles": 1893444,
+      "programs": 61,
       "errors": 0
     }
   ],
@@ -72,7 +54,7 @@
   "pageLogs": [
     "[boot] تهيئة الوحدات",
     "[boot] تهيئة: terrain",
-    "[terrain] gen=211ms bake=1750ms mesh=126ms chunks=64 segs=44",
+    "[terrain] gen=171ms bake=1720ms mesh=117ms chunks=64 segs=44",
     "[boot] تهيئة: environment",
     "[boot] تهيئة: roads",
     "[boot] تهيئة: zoning",
@@ -86,14 +68,14 @@
     "[boot] تهيئة: ui",
     "[boot] تهيئة: audio",
     "[boot] تهيئة: democity",
-    "[roads] rebuild 765 edges, 507 nodes in 118ms, 8 meshes",
-    "[zoning] 490 lots in 119ms",
-    "[roads] rebuild 765 edges, 507 nodes in 84ms, 8 meshes",
-    "[buildings] 476 buildings / 35 instanced meshes in 37ms",
-    "[props] 4073 trees + furniture in 34ms (40 meshes)",
+    "[roads] rebuild 829 edges, 548 nodes in 132ms, 8 meshes",
+    "[zoning] 517 lots in 114ms",
+    "[roads] rebuild 829 edges, 548 nodes in 102ms, 8 meshes",
+    "[buildings] 506 buildings / 40 instanced meshes in 34ms",
+    "[props] 4343 trees + furniture in 40ms (40 meshes)",
     "[traffic] 280 vehicles across 9 batches",
-    "[democity] built in 685ms {\"roads\":132,\"rebuild\":202,\"zoning\":274,\"buildings\":39,\"props\":35,\"traffic\":3}",
-    "[app] ready in 12998ms — quality=high showcase=-"
+    "[democity] built in 759ms {\"roads\":150,\"rebuild\":225,\"zoning\":301,\"buildings\":36,\"props\":43,\"traffic\":3}",
+    "[app] ready in 13349ms — quality=high showcase=-"
   ],
-  "elapsedS": 677.6
+  "elapsedS": 278.9
 }
