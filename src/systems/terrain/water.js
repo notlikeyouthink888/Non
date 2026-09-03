@@ -70,6 +70,10 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uTime; uniform float uWave; uniform sampler2D uWaterNormal;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        // خشونة تتزايد مع المسافة: تُذيب «برش» الانعكاسات المشوّش في المدى المتوسط
+        roughnessFactor = mix( roughnessFactor, 0.62, smoothstep( 110.0, 850.0, length( vViewPosition ) ) );
+      `)
       .replace('#include <normal_fragment_maps>', `
         vec2 wuv = vNormalMapUv * 22.0;
         vec3 nA = texture2D( uWaterNormal, wuv + vec2( uTime * 0.010, uTime * 0.014 ) ).xyz * 2.0 - 1.0;
@@ -83,7 +87,7 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
         normal = normalize( tbnW * mapN );
       `);
   };
-  mat.customProgramCacheKey = () => 'water-v1';
+  mat.customProgramCacheKey = () => 'water-v2';
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.y = world.waterLevel;

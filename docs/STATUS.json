@@ -1,45 +1,187 @@
 {
   "project": "مدينتي — Madinati",
   "updatedAt": "2026-09-03",
-  "round": 1,
+  "round": 2,
   "environment": {
     "gpu": false,
     "renderer": "SwiftShader (ANGLE) — عرض برمجي بلا GPU",
-    "note": "أرقام fps في السجلات غير ممثِّلة للعتاد الحقيقي. المقاييس المعتمدة للأداء: drawCalls / triangles / programs / أخطاء وحدة التحكم."
+    "note": "أرقام fps هنا (0.6–2.2) لا تمثّل أي عتاد حقيقي. المقاييس المعتمدة: drawCalls / triangles / programs / أخطاء وحدة التحكم."
   },
-  "budget": { "fpsTarget": 50, "drawCallsMax": 1500, "trianglesMax": 3500000 },
+  "budget": {
+    "fpsTarget": 50,
+    "drawCallsMax": 1500,
+    "trianglesMax": 3500000
+  },
   "measured": {
-    "drawCalls": 499,
-    "triangles": 2226917,
-    "programs": 62,
-    "initMs": 10596,
+    "shots": 12,
+    "drawCalls": {
+      "min": 398,
+      "max": 471,
+      "avg": 439
+    },
+    "triangles": {
+      "min": 1892104,
+      "max": 1995230,
+      "avg": 1948792
+    },
+    "programs": 60,
     "consoleErrors": 0,
-    "softwareFps": 3.1
+    "softwareFps": {
+      "min": 0.6,
+      "max": 2.2
+    },
+    "initMs": 16163,
+    "fpsOnRealGpu": "غير مقيس — لا يوجد GPU في هذه البيئة"
+  },
+  "budgetVerdict": {
+    "drawCalls": "✅ ضمن الميزانية (471 من 1500)",
+    "triangles": "✅ ضمن الميزانية (2.0M من 3.5M)",
+    "consoleErrors": "✅ صفر",
+    "fps50": "❔ غير مُثبت — يتطلّب عتادًا حقيقيًا"
   },
   "modules": {
-    "terrain":     { "state": "ready", "score": null, "notes": "حقل ارتفاعات ساحلي + خريطة كبرى مخبوزة + تفاصيل مبلّطة + ماء متحرك" },
-    "environment": { "state": "ready", "score": null, "notes": "سماء تشتت إجرائية + دورة يوم + خريطة بيئة PMREM ديناميكية" },
-    "roads":       { "state": "ready", "score": null, "notes": "رسم بياني كامل بتقاطعات وأرصفة ومعابر وأعمدة إنارة" },
-    "zoning":      { "state": "ready", "score": null, "notes": "فرشاة مناطق + اشتقاق قطع من واجهات الطرق + قيمة أرض" },
-    "buildings":   { "state": "ready", "score": null, "notes": "40 نموذجًا إجرائيًا + نسخ مُجمَّع + إضاءة نوافذ فريدة لكل مبنى" },
-    "props":       { "state": "ready", "score": null, "notes": "أشجار ونخيل وصنوبر + أثاث شارع + إشارات مرور" },
-    "traffic":     { "state": "ready", "score": null, "notes": "9 طُرُز مركبات + مشاة + مصابيح ليلية" },
-    "effects":     { "state": "ready", "score": null, "notes": "Composer: Render→SSAO→Bloom→Output→SMAA→Grade" },
-    "simulation":  { "state": "ready", "score": null, "notes": "سكان/وظائف/طلب RCI/ميزانية/سعادة" },
-    "tools":       { "state": "ready", "score": null, "notes": "طريق/منطقة/هدم/تعمير بدعم لمس" },
-    "ui":          { "state": "ready", "score": null, "notes": "HUD عربي RTL كامل + لوحة تشخيص" },
-    "audio":       { "state": "ready", "score": null, "notes": "مشهد صوتي إجرائي WebAudio" },
-    "democity":    { "state": "ready", "score": null, "notes": "مدينة ساحلية حتمية" }
+    "terrain": {
+      "state": "ready",
+      "note": ""
+    },
+    "environment": {
+      "state": "ready",
+      "note": ""
+    },
+    "roads": {
+      "state": "ready",
+      "note": ""
+    },
+    "zoning": {
+      "state": "ready",
+      "note": ""
+    },
+    "buildings": {
+      "state": "ready",
+      "note": ""
+    },
+    "props": {
+      "state": "ready",
+      "note": ""
+    },
+    "traffic": {
+      "state": "ready",
+      "note": ""
+    },
+    "effects": {
+      "state": "ready",
+      "note": ""
+    },
+    "simulation": {
+      "state": "ready",
+      "note": ""
+    },
+    "tools": {
+      "state": "ready",
+      "note": ""
+    },
+    "ui": {
+      "state": "ready",
+      "note": ""
+    },
+    "audio": {
+      "state": "ready",
+      "note": ""
+    },
+    "democity": {
+      "state": "ready",
+      "note": ""
+    }
   },
-  "openIssues": [
-    { "id": 1, "module": "environment", "severity": "عالٍ", "text": "ظلال الشمس غير ظاهرة في اللقطات رغم أن خريطة الظل تُبنى — قيد التشخيص" },
-    { "id": 2, "module": "democity", "severity": "عالٍ", "text": "كثافة المدينة أقل من المرجع؛ فجوات خضراء واسعة بين الكتل" },
-    { "id": 3, "module": "buildings", "severity": "متوسط", "text": "الواجهات تحسّنت لكنها ما زالت متكرّرة الإيقاع؛ تحتاج تنوّع بائكات وارتفاعات أرضية" },
-    { "id": 4, "module": "roads", "severity": "متوسط", "text": "الأرصفة تبدو ساطعة من الأعلى وتطغى على الأسفلت" },
-    { "id": 5, "module": "terrain", "severity": "متوسط", "text": "الماء ما زال يُظهر بريقًا مُشوَّشًا في بعض الزوايا" },
-    { "id": 6, "module": "props", "severity": "متوسط", "text": "بطاقات أوراق الشجر تبدو مسطّحة عن قرب" },
-    { "id": 7, "module": "traffic", "severity": "منخفض", "text": "لا مصابيح أمامية مرئية كأشعة ليلًا (إضاءة مُنبعثة فقط)" }
+  "fixedThisRound": [
+    "أسطح الطرق والأرصفة كانت غير مرئية أصلًا (لفّ مضلّعات معكوس) — أهم إصلاح بصري",
+    "الظلال لم تكن تُرسم (تحديث خريطة الظل معطّل) — أُصلح",
+    "انفجار سطوع الأرض بيضاء (مُضاعِفات شادر تتراكم حتى ×2.2) — أُصلح بتقييد [0.62,1.28]",
+    "ضباب لبني يغطي كل المشهد نهارًا (UnrealBloomPass على سماء HDR شديدة السطوع) — عُويِر",
+    "splitEdge كان يحذف عقدتي الطرف فتنكسر شبكة الطرق — أُصلح",
+    "زمن التهيئة من 454 ثانية إلى ~14 ثانية (بحث ثنائي + شبكة تجزئة + مسير مباشر)",
+    "انجراف الأرض تحت منسوب البحر بسبب تسلسل التسويات — أُصلح بمرحلتين + حدّ أدنى"
   ],
-  "shots": ["docs/shots/q_overview.png", "docs/shots/q_downtown.png", "docs/shots/q_street.png", "docs/shots/q_night.png"],
-  "android": { "packaged": true, "tool": "Capacitor 7", "apkBuilt": false, "reason": "Android SDK غير مثبّت في هذه البيئة — سكربت البناء جاهز في tools/build-apk.sh" }
+  "openIssues": [
+    {
+      "id": 1,
+      "module": "terrain",
+      "severity": "عالٍ",
+      "text": "التضاريس تُظهر هضابًا مسطّحة وضفافًا عشبية حادة ناتجة عن تسوية الطرق/القطع — تبدو هندسية لا طبيعية"
+    },
+    {
+      "id": 2,
+      "module": "terrain",
+      "severity": "عالٍ",
+      "text": "الماء ما زال يُظهر «برشًا» أبيض مشوّشًا في المدى المتوسط رغم تلاشي الخشونة مع المسافة"
+    },
+    {
+      "id": 3,
+      "module": "buildings",
+      "severity": "متوسط",
+      "text": "أرضيات القطع تقطع التضاريس على المنحدرات (تُخطّى الآن عند التموّج > 1.6م، لكن الحل الصحيح هو هندسة متوافقة مع السطح)"
+    },
+    {
+      "id": 4,
+      "module": "democity",
+      "severity": "متوسط",
+      "text": "فراغات خضراء واسعة داخل الكتل الحضرية؛ الكثافة أقل من المرجع"
+    },
+    {
+      "id": 5,
+      "module": "buildings",
+      "severity": "متوسط",
+      "text": "الواجهات تحسّنت كثيرًا لكن الإيقاع ما زال منتظمًا؛ تنقص عناصر أرضية (مداخل، لافتات، مظلات) عن قرب"
+    },
+    {
+      "id": 6,
+      "module": "environment",
+      "severity": "متوسط",
+      "text": "ليلًا تبقى الأرض شبه سوداء بين أعمدة الإنارة؛ يحتاج ملء محيطي ليلي أذكى"
+    },
+    {
+      "id": 7,
+      "module": "props",
+      "severity": "منخفض",
+      "text": "الصنوبر ما زال يبدو مبسّطًا عن قرب"
+    },
+    {
+      "id": 8,
+      "module": "effects",
+      "severity": "منخفض",
+      "text": "SSAO مُعطّل في مستوى high لتكلفته؛ يفتقد المشهد انسدادًا محيطيًا حقيقيًا عند التلامس"
+    }
+  ],
+  "shots": [
+    "docs/shots/final_aerial.png",
+    "docs/shots/final_closeup.png",
+    "docs/shots/final_dawn.png",
+    "docs/shots/final_downtown.png",
+    "docs/shots/final_industrial.png",
+    "docs/shots/final_night_downtown.png",
+    "docs/shots/final_night_street.png",
+    "docs/shots/final_overview_day.png",
+    "docs/shots/final_skyline_golden.png",
+    "docs/shots/final_street_noon.png",
+    "docs/shots/final_suburb.png",
+    "docs/shots/final_waterfront.png"
+  ],
+  "android": {
+    "packaged": true,
+    "tool": "Capacitor 7",
+    "apkBuilt": true,
+    "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
+    "sizeMB": 4.33,
+    "appId": "com.madinati.citybuilder",
+    "label": "مدينتي",
+    "minSdk": 23,
+    "targetSdk": 35,
+    "config": "أفقي إجباري، شاشة كاملة غامرة، largeHeap، OpenGL ES 3.0، دعم RTL، يعمل بلا إنترنت",
+    "note": "بُني فعليًا في هذه البيئة بعد تثبيت Android SDK؛ لم يُختبر على جهاز حقيقي (لا جهاز/محاكي متاح)"
+  },
+  "notDone": [
+    "مقارنة عمياء A/B مع لقطات Cities: Skylines II الحقيقية — لا توجد لقطات مرجعية متاحة في هذه البيئة (انظر docs/CRITIC_METHOD.md)",
+    "قياس 50 إطارًا/ثانية على عتاد حقيقي — لا يوجد GPU هنا",
+    "اختبار التطبيق على جهاز أندرويد حقيقي"
+  ]
 }

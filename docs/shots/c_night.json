@@ -19,16 +19,16 @@
     "quality": "high",
     "seed": 20260903,
     "showcase": null,
-    "fps": 2.6,
-    "frameMs": 386.58,
-    "frameMsP95": 423.3,
+    "fps": 2.1,
+    "frameMs": 469.65,
+    "frameMsP95": 416.8,
     "drawCalls": 414,
     "triangles": 1893444,
     "programs": 61,
     "geometries": 142,
-    "textures": 117,
+    "textures": 121,
     "textureMB": 121.3,
-    "initMs": 13349,
+    "initMs": 13109,
     "timeOfDay": 21.8,
     "camera": {
       "x": -230,
@@ -42,20 +42,20 @@
       "terrain": {
         "state": "ready",
         "errors": [],
-        "initMs": 2566,
+        "initMs": 2434,
         "stats": {
           "chunks": 64,
           "timings": {
-            "gen": 171,
-            "bake": 1720,
-            "mesh": 117
+            "gen": 174,
+            "bake": 1628,
+            "mesh": 120
           }
         }
       },
       "environment": {
         "state": "ready",
         "errors": [],
-        "initMs": 7,
+        "initMs": 6,
         "stats": {
           "night": 1,
           "sunY": -0.56,
@@ -65,13 +65,13 @@
       "roads": {
         "state": "ready",
         "errors": [],
-        "initMs": 3009,
+        "initMs": 2960,
         "stats": {
           "edges": 829,
           "nodes": 548,
           "meshes": 8,
           "lamps": 548,
-          "buildMs": 102
+          "buildMs": 93
         }
       },
       "zoning": {
@@ -81,24 +81,24 @@
         "stats": {
           "lots": 517,
           "zonedCells": 60860,
-          "genMs": 114
+          "genMs": 110
         }
       },
       "buildings": {
         "state": "ready",
         "errors": [],
-        "initMs": 5296,
+        "initMs": 5382,
         "stats": {
           "buildings": 506,
           "meshes": 40,
           "prototypes": 40,
-          "buildMs": 34
+          "buildMs": 42
         }
       },
       "props": {
         "state": "ready",
         "errors": [],
-        "initMs": 800,
+        "initMs": 971,
         "stats": {
           "meshes": 40,
           "trees": 4343,
@@ -113,13 +113,13 @@
           "rock": 59,
           "planter": 192,
           "billboard": 0,
-          "scatterMs": 40
+          "scatterMs": 38
         }
       },
       "traffic": {
         "state": "ready",
         "errors": [],
-        "initMs": 7,
+        "initMs": 8,
         "stats": {
           "cars": 280,
           "peds": 200,
@@ -172,7 +172,7 @@
       "audio": {
         "state": "ready",
         "errors": [],
-        "initMs": 0,
+        "initMs": 3,
         "stats": {
           "started": false,
           "muted": true,
@@ -182,16 +182,16 @@
       "democity": {
         "state": "ready",
         "errors": [],
-        "initMs": 760,
+        "initMs": 667,
         "stats": {
           "built": true,
-          "totalMs": 759,
+          "totalMs": 666,
           "timings": {
-            "roads": 150,
-            "rebuild": 225,
-            "zoning": 301,
-            "buildings": 36,
-            "props": 43,
+            "roads": 110,
+            "rebuild": 200,
+            "zoning": 269,
+            "buildings": 43,
+            "props": 39,
             "traffic": 3
           },
           "roads": 829,
@@ -212,5 +212,5 @@
     "cars": 280
   },
   "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
-  "at": "2026-09-03T18:54:37.395Z"
+  "at": "2026-09-03T19:02:52.100Z"
 }

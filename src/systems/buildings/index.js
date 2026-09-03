@@ -280,14 +280,23 @@ export default {
       if (!mat) continue;
       const shrink = lot.zone === ZONE.RESIDENTIAL ? 0.88 : 0.97;
       const pw = lot.w * shrink, pd = lot.d * shrink;
+      // تخطَّ الأرضية إن كانت الأرض تحت القطعة شديدة التموّج (وإلا قطعت المضلّعات التضاريس)
+      const hc = terrain.api.heightAt(lot.cx, lot.cz);
+      let rough = 0;
+      for (const [ox, oz] of [[-pw / 2, -pd / 2], [pw / 2, -pd / 2], [-pw / 2, pd / 2], [pw / 2, pd / 2]]) {
+        const c = Math.cos(lot.rot), sn = Math.sin(lot.rot);
+        const wx = lot.cx + ox * c - oz * sn, wz = lot.cz + ox * sn + oz * c;
+        rough = Math.max(rough, Math.abs(terrain.api.heightAt(wx, wz) - hc));
+      }
+      if (rough > 1.6) continue;
       if (!byMat.has(lot.zone)) byMat.set(lot.zone, []);
-      byMat.get(lot.zone).push(quad(lot.cx, lot.cz, pw, pd, lot.rot, 0.075, 0.14, 4));
+      byMat.get(lot.zone).push(quad(lot.cx, lot.cz, pw, pd, lot.rot, 0.10, 0.14, 6));
 
       // ممر من واجهة القطعة نحو الرصيف
       const fx = Math.sin(lot.rot), fz = Math.cos(lot.rot);
       const dw = lot.zone === ZONE.INDUSTRIAL ? 7 : lot.zone === ZONE.RESIDENTIAL ? 3.2 : 5;
       const len = 4.5;
-      drive.push(quad(lot.cx + fx * (pd / 2 + len / 2 - 0.4), lot.cz + fz * (pd / 2 + len / 2 - 0.4), dw, len, lot.rot, 0.09, 0.3, 2));
+      drive.push(quad(lot.cx + fx * (pd / 2 + len / 2 - 0.4), lot.cz + fz * (pd / 2 + len / 2 - 0.4), dw, len, lot.rot, 0.12, 0.3, 3));
     }
 
     const add = (list, mat, name) => {

@@ -1,37 +1,125 @@
 {
-  "ok": false,
+  "ok": true,
   "error": null,
-  "consoleErrors": [
-    "THREE.WebGLProgram: Shader Error 0 - VALIDATE_STATUS false\n\nMaterial Name: \nMaterial Type: MeshStandardMaterial\n\nProgram Info Log: Fragment shader is not compiled.\n\u0000\n\nFRAGMENT\n\nERROR: 0:1564: 'patch' : Illegal use of reserved word\nERROR: 0:1564: 'patch' : syntax error\n\u0000\n\n  1559:             float nBig = tFbm( vWPosT.xz * 0.090 );\n  1560:             float nMid2 = tNoise( vWPosT.xz * 0.29 );\n  1561:             float nFine = tNoise( vWPosT.xz * 0.92 );\n  1562:             float kFine = 1.0 - smoo"
-  ],
+  "consoleErrors": [],
   "results": [
     {
-      "out": "docs/shots/c_street.png",
-      "label": "الشارع",
-      "fps": 2.5,
-      "frameMs": 395.82,
-      "drawCalls": 412,
-      "triangles": 1892324,
-      "programs": 60,
-      "errors": 1
-    },
-    {
-      "out": "docs/shots/c_overview.png",
-      "label": "منظر عام",
-      "fps": 3.4,
-      "frameMs": 295.14,
+      "out": "docs/shots/final_overview_day.png",
+      "label": "منظر عام — نهار",
+      "fps": 0.6,
+      "frameMs": 1616.52,
       "drawCalls": 464,
-      "triangles": 1962364,
+      "triangles": 1979324,
       "programs": 60,
       "errors": 0
     },
     {
-      "out": "docs/shots/c_night.png",
-      "label": "الشارع ليلًا",
-      "fps": 2.6,
-      "frameMs": 386.58,
-      "drawCalls": 414,
-      "triangles": 1893444,
+      "out": "docs/shots/final_street_noon.png",
+      "label": "مستوى الشارع — ظهرًا",
+      "fps": 1.8,
+      "frameMs": 566.74,
+      "drawCalls": 432,
+      "triangles": 1934530,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_closeup.png",
+      "label": "حي سكني قريب",
+      "fps": 1.7,
+      "frameMs": 601.19,
+      "drawCalls": 427,
+      "triangles": 1922244,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_downtown.png",
+      "label": "وسط المدينة",
+      "fps": 1.6,
+      "frameMs": 610.63,
+      "drawCalls": 426,
+      "triangles": 1952600,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_skyline_golden.png",
+      "label": "أفق المدينة — الساعة الذهبية",
+      "fps": 1.5,
+      "frameMs": 658.25,
+      "drawCalls": 463,
+      "triangles": 1975452,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_waterfront.png",
+      "label": "الواجهة البحرية",
+      "fps": 1.7,
+      "frameMs": 593.21,
+      "drawCalls": 461,
+      "triangles": 1967708,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_suburb.png",
+      "label": "الضاحية — صباح",
+      "fps": 1.9,
+      "frameMs": 515.2,
+      "drawCalls": 400,
+      "triangles": 1892104,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_industrial.png",
+      "label": "المنطقة الصناعية",
+      "fps": 1.7,
+      "frameMs": 583.11,
+      "drawCalls": 398,
+      "triangles": 1896652,
+      "programs": 60,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_night_downtown.png",
+      "label": "وسط المدينة — ليل",
+      "fps": 2.2,
+      "frameMs": 457.76,
+      "drawCalls": 431,
+      "triangles": 1954684,
+      "programs": 61,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_night_street.png",
+      "label": "الشارع — ليل",
+      "fps": 1.6,
+      "frameMs": 624.16,
+      "drawCalls": 434,
+      "triangles": 1935650,
+      "programs": 61,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_dawn.png",
+      "label": "الفجر",
+      "fps": 1.6,
+      "frameMs": 611.01,
+      "drawCalls": 464,
+      "triangles": 1979324,
+      "programs": 61,
+      "errors": 0
+    },
+    {
+      "out": "docs/shots/final_aerial.png",
+      "label": "منظر جوي",
+      "fps": 1.7,
+      "frameMs": 578.17,
+      "drawCalls": 471,
+      "triangles": 1995230,
       "programs": 61,
       "errors": 0
     }
@@ -54,7 +142,7 @@
   "pageLogs": [
     "[boot] تهيئة الوحدات",
     "[boot] تهيئة: terrain",
-    "[terrain] gen=171ms bake=1720ms mesh=117ms chunks=64 segs=44",
+    "[terrain] gen=234ms bake=1687ms mesh=200ms chunks=64 segs=44",
     "[boot] تهيئة: environment",
     "[boot] تهيئة: roads",
     "[boot] تهيئة: zoning",
@@ -68,14 +156,14 @@
     "[boot] تهيئة: ui",
     "[boot] تهيئة: audio",
     "[boot] تهيئة: democity",
-    "[roads] rebuild 829 edges, 548 nodes in 132ms, 8 meshes",
-    "[zoning] 517 lots in 114ms",
-    "[roads] rebuild 829 edges, 548 nodes in 102ms, 8 meshes",
-    "[buildings] 506 buildings / 40 instanced meshes in 34ms",
-    "[props] 4343 trees + furniture in 40ms (40 meshes)",
+    "[roads] rebuild 829 edges, 548 nodes in 154ms, 8 meshes",
+    "[zoning] 517 lots in 447ms",
+    "[roads] rebuild 829 edges, 548 nodes in 205ms, 8 meshes",
+    "[buildings] 506 buildings / 40 instanced meshes in 101ms",
+    "[props] 4343 trees + furniture in 61ms (40 meshes)",
     "[traffic] 280 vehicles across 9 batches",
-    "[democity] built in 759ms {\"roads\":150,\"rebuild\":225,\"zoning\":301,\"buildings\":36,\"props\":43,\"traffic\":3}",
-    "[app] ready in 13349ms — quality=high showcase=-"
+    "[democity] built in 1606ms {\"roads\":251,\"rebuild\":258,\"zoning\":917,\"buildings\":103,\"props\":66,\"traffic\":9}",
+    "[app] ready in 16163ms — quality=high showcase=-"
   ],
-  "elapsedS": 278.9
+  "elapsedS": 1924.3
 }

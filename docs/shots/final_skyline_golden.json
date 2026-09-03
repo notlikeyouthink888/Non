@@ -19,16 +19,16 @@
     "quality": "high",
     "seed": 20260903,
     "showcase": null,
-    "fps": 1.6,
-    "frameMs": 620.75,
-    "frameMsP95": 4089,
-    "drawCalls": 433,
-    "triangles": 1856956,
-    "programs": 59,
-    "geometries": 152,
-    "textures": 117,
+    "fps": 1.5,
+    "frameMs": 658.25,
+    "frameMsP95": 4355.7,
+    "drawCalls": 463,
+    "triangles": 1975452,
+    "programs": 60,
+    "geometries": 157,
+    "textures": 120,
     "textureMB": 121.3,
-    "initMs": 13177,
+    "initMs": 16163,
     "timeOfDay": 17.3,
     "camera": {
       "x": -60,
@@ -42,13 +42,13 @@
       "terrain": {
         "state": "ready",
         "errors": [],
-        "initMs": 2466,
+        "initMs": 2708,
         "stats": {
           "chunks": 64,
           "timings": {
-            "gen": 180,
-            "bake": 1629,
-            "mesh": 125
+            "gen": 234,
+            "bake": 1687,
+            "mesh": 200
           }
         }
       },
@@ -59,19 +59,19 @@
         "stats": {
           "night": 0,
           "sunY": 0.29,
-          "exposure": 0.95
+          "exposure": 0.92
         }
       },
       "roads": {
         "state": "ready",
         "errors": [],
-        "initMs": 3109,
+        "initMs": 3452,
         "stats": {
-          "edges": 765,
-          "nodes": 507,
+          "edges": 829,
+          "nodes": 548,
           "meshes": 8,
-          "lamps": 519,
-          "buildMs": 88
+          "lamps": 548,
+          "buildMs": 205
         }
       },
       "zoning": {
@@ -79,47 +79,47 @@
         "errors": [],
         "initMs": 0,
         "stats": {
-          "lots": 490,
+          "lots": 517,
           "zonedCells": 60860,
-          "genMs": 111
+          "genMs": 447
         }
       },
       "buildings": {
         "state": "ready",
         "errors": [],
-        "initMs": 5289,
+        "initMs": 6010,
         "stats": {
-          "buildings": 476,
-          "meshes": 35,
+          "buildings": 506,
+          "meshes": 40,
           "prototypes": 40,
-          "buildMs": 33
+          "buildMs": 101
         }
       },
       "props": {
         "state": "ready",
         "errors": [],
-        "initMs": 820,
+        "initMs": 987,
         "stats": {
           "meshes": 40,
-          "trees": 4073,
+          "trees": 4343,
           "bench": 0,
-          "bin": 460,
-          "hydrant": 250,
-          "busStop": 115,
-          "tlPole": 1350,
-          "tlLamps": 1350,
-          "sign": 119,
+          "bin": 496,
+          "hydrant": 271,
+          "busStop": 122,
+          "tlPole": 1464,
+          "tlLamps": 1464,
+          "sign": 126,
           "fence": 0,
-          "rock": 72,
-          "planter": 179,
+          "rock": 59,
+          "planter": 192,
           "billboard": 0,
-          "scatterMs": 42
+          "scatterMs": 61
         }
       },
       "traffic": {
         "state": "ready",
         "errors": [],
-        "initMs": 8,
+        "initMs": 11,
         "stats": {
           "cars": 280,
           "peds": 200,
@@ -129,7 +129,7 @@
       "effects": {
         "state": "ready",
         "errors": [],
-        "initMs": 7,
+        "initMs": 10,
         "stats": {
           "passes": 5,
           "enabled": true
@@ -140,14 +140,14 @@
         "errors": [],
         "initMs": 0,
         "stats": {
-          "population": 8475,
+          "population": 8060,
           "jobs": 2215,
           "happiness": 0.73,
-          "funds": 267666,
+          "funds": 268862,
           "demand": [
-            0.79,
-            0.59,
-            0.54
+            0.78,
+            0.6,
+            0.55
           ]
         }
       },
@@ -182,21 +182,21 @@
       "democity": {
         "state": "ready",
         "errors": [],
-        "initMs": 679,
+        "initMs": 1607,
         "stats": {
           "built": true,
-          "totalMs": 678,
+          "totalMs": 1606,
           "timings": {
-            "roads": 122,
-            "rebuild": 187,
-            "zoning": 286,
-            "buildings": 34,
-            "props": 43,
-            "traffic": 5
+            "roads": 251,
+            "rebuild": 258,
+            "zoning": 917,
+            "buildings": 103,
+            "props": 66,
+            "traffic": 9
           },
-          "roads": 765,
-          "lots": 490,
-          "buildings": 476
+          "roads": 829,
+          "lots": 517,
+          "buildings": 506
         }
       }
     },
@@ -206,11 +206,11 @@
       "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
       "maxTexture": 8192
     },
-    "population": 8475,
-    "buildings": 476,
-    "roads": 765,
+    "population": 8060,
+    "buildings": 506,
+    "roads": 829,
     "cars": 280
   },
   "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
-  "at": "2026-09-03T13:59:25.046Z"
+  "at": "2026-09-03T19:14:08.967Z"
 }
