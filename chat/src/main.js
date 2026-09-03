@@ -5,6 +5,7 @@
  */
 import { store, PRESETS, DEFAULT_SETTINGS } from './store.js';
 import { chat, listModels, ApiError } from './api.js';
+import { openSetup, setupDone, markSetupDone } from './setup.js';
 import './style.css';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -82,7 +83,9 @@ document.getElementById('app').innerHTML = `
       <input type="checkbox" id="sStream" class="fit" style="width:20px;height:20px">
     </label>
 
-    <div style="margin-top:18px;display:flex;gap:8px">
+    <button class="btn ghost" id="rerunSetup" style="margin-top:18px">↻ إعادة تشغيل معالج الإعداد</button>
+
+    <div style="margin-top:10px;display:flex;gap:8px">
       <button class="btn" id="saveSettings">حفظ</button>
       <button class="btn ghost fit" id="testConn" style="flex:0 0 auto">اختبار</button>
     </div>
@@ -434,9 +437,27 @@ $('#importFile').onchange = async (e) => {
   e.target.value = '';
 };
 
+$('#rerunSetup').onclick = () => {
+  $('#sheetSettings').classList.remove('open');
+  openSetup({ settings, canSkip: true, onFinish: (cfg) => {
+    if (cfg) { settings = { ...settings, ...cfg }; store.saveSettings(settings); setDot(true); toast('جاهز — ابدأ المحادثة'); }
+    else openSettings();
+    renderMessages();
+  } });
+};
+
 /* ================= الإقلاع ================= */
 if (!store.getConvos().length) { const c = store.newConvo(); activeId = c.id; }
 if (!activeId) activeId = store.getConvos()[0]?.id || null;
 renderMessages();
 autosize();
 document.getElementById('boot')?.remove();
+
+// أول تشغيل: التطبيق عميل بلا نموذج بداخله، فبدون إعداد لا يعمل إطلاقاً.
+if (!setupDone()) {
+  openSetup({ settings, canSkip: true, onFinish: (cfg) => {
+    if (cfg) { settings = { ...settings, ...cfg }; store.saveSettings(settings); setDot(true); toast('جاهز — ابدأ المحادثة'); }
+    else openSettings();
+    renderMessages();
+  } });
+}
