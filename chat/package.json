@@ -1,0 +1,20 @@
+{
+  "name": "muhawara",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "محاورة — عميل محادثة يتصل بأي نموذج ذكاء اصطناعي متوافق مع OpenAI",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5180",
+    "build": "vite build",
+    "preview": "vite preview --port 4180",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:apk": "bash tools/build-apk.sh"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
+  }
+}

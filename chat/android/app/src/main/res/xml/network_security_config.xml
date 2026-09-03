@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  التطبيق عميل يتصل بخادم تحدّده أنت — غالباً خادم محلي على شبكتك (Ollama / LM Studio)
+  بعنوان HTTP صريح مثل http://192.168.1.5:11434. لذلك يُسمح بـ cleartext.
+  الأمان هنا مسؤولية المستخدم: لا ترسل مفاتيح حسّاسة إلى خوادم لا تثق بها.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

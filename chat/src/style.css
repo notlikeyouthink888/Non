@@ -1,0 +1,137 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1116;
+  --bg2: #151a21;
+  --bg3: #1c232c;
+  --line: #2a333f;
+  --fg: #e8eef6;
+  --dim: #93a3b5;
+  --accent: #4d9fff;
+  --accent2: #2b6fc4;
+  --user: #1e3a5f;
+  --ok: #4ade80;
+  --err: #f87171;
+  --warn: #fbbf24;
+  --r: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+  font-family: "Segoe UI", "Noto Sans Arabic", Tahoma, system-ui, sans-serif;
+  overscroll-behavior: none; }
+#app { display: flex; flex-direction: column; height: 100dvh; }
+
+/* ---------- الشريط العلوي ---------- */
+header { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top)); background: var(--bg2);
+  border-bottom: 1px solid var(--line); flex-shrink: 0; }
+header .title { font-weight: 700; font-size: 16px; margin-inline-end: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+header .dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+header .dot.err { background: var(--err); }
+.iconbtn { background: transparent; border: 1px solid var(--line); color: var(--fg);
+  width: 38px; height: 38px; border-radius: 10px; font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: .15s; }
+.iconbtn:active { transform: scale(.93); }
+.iconbtn:hover { background: var(--bg3); }
+
+/* ---------- المحادثة ---------- */
+#messages { flex: 1; overflow-y: auto; padding: 14px 12px 6px; display: flex;
+  flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+.msg { max-width: 88%; padding: 11px 14px; border-radius: var(--r); line-height: 1.75;
+  font-size: 15.5px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; }
+.msg.user { align-self: flex-start; background: var(--user); border: 1px solid #2d5a8f;
+  border-bottom-inline-start-radius: 4px; }
+.msg.bot { align-self: flex-end; background: var(--bg2); border: 1px solid var(--line);
+  border-bottom-inline-end-radius: 4px; }
+.msg.err { align-self: center; background: #2a1618; border: 1px solid #6b2b30; color: #ffd7d7;
+  font-size: 13.5px; max-width: 96%; }
+.msg .who { font-size: 11px; color: var(--dim); margin-bottom: 5px; font-weight: 600; }
+.msg pre { background: #0a0d12; border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px; overflow-x: auto; direction: ltr; text-align: left; font-size: 13px; margin: 8px 0; }
+.msg code { background: #0a0d12; padding: 1px 5px; border-radius: 5px; font-size: 13.5px; direction: ltr;
+  display: inline-block; }
+.msg pre code { background: transparent; padding: 0; }
+.msg .cursor { display: inline-block; width: 7px; height: 15px; background: var(--accent);
+  vertical-align: text-bottom; animation: blink .9s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.msgtools { display: flex; gap: 6px; margin-top: 6px; opacity: .55; }
+.msgtools button { background: transparent; border: 0; color: var(--dim); font-size: 11.5px;
+  cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.msgtools button:hover { background: var(--bg3); color: var(--fg); }
+
+.empty { margin: auto; text-align: center; color: var(--dim); padding: 24px; max-width: 460px; }
+.empty h2 { color: var(--fg); font-size: 21px; margin: 0 0 8px; }
+.empty p { font-size: 14px; line-height: 1.8; margin: 6px 0; }
+.empty .chip { display: inline-block; background: var(--bg2); border: 1px solid var(--line);
+  padding: 7px 13px; border-radius: 999px; margin: 4px 3px; font-size: 13px; cursor: pointer; }
+.empty .chip:hover { border-color: var(--accent); color: var(--fg); }
+
+/* ---------- صندوق الكتابة ---------- */
+#composer { display: flex; gap: 8px; padding: 10px 12px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom)); background: var(--bg2);
+  border-top: 1px solid var(--line); align-items: flex-end; flex-shrink: 0; }
+#input { flex: 1; background: var(--bg3); border: 1px solid var(--line); color: var(--fg);
+  border-radius: 12px; padding: 11px 13px; font: inherit; font-size: 15.5px; resize: none;
+  max-height: 40dvh; min-height: 46px; line-height: 1.6; outline: none; }
+#input:focus { border-color: var(--accent); }
+#send { width: 46px; height: 46px; border-radius: 12px; border: 0; background: var(--accent);
+  color: #04121f; font-size: 19px; cursor: pointer; flex-shrink: 0; font-weight: 700; }
+#send:disabled { background: var(--bg3); color: var(--dim); }
+#send.stop { background: var(--err); color: #fff; }
+
+/* ---------- اللوحات المنزلقة ---------- */
+.sheet { position: fixed; inset: 0; background: rgba(0,0,0,.62); z-index: 50; display: none;
+  backdrop-filter: blur(3px); }
+.sheet.open { display: block; }
+.sheet .panel { position: absolute; inset-inline-start: 0; top: 0; bottom: 0; width: min(430px, 88vw);
+  background: var(--bg); border-inline-end: 1px solid var(--line); overflow-y: auto;
+  padding: 16px; padding-top: max(16px, env(safe-area-inset-top));
+  animation: slide .22s ease; }
+.sheet.right .panel { inset-inline-start: auto; inset-inline-end: 0;
+  border-inline-end: 0; border-inline-start: 1px solid var(--line); animation: slideR .22s ease; }
+@keyframes slide { from { transform: translateX(var(--dir, -100%)); } }
+@keyframes slideR { from { transform: translateX(var(--dirR, 100%)); } }
+html[dir="rtl"] .sheet .panel { --dir: 100%; }
+html[dir="rtl"] .sheet.right .panel { --dirR: -100%; }
+.sheet h3 { margin: 0 0 14px; font-size: 17px; display: flex; align-items: center; }
+.sheet h3 button { margin-inline-start: auto; }
+
+label { display: block; margin: 14px 0 5px; font-size: 12.5px; color: var(--dim); font-weight: 600; }
+input[type=text], input[type=password], input[type=number], select, textarea {
+  width: 100%; background: var(--bg2); border: 1px solid var(--line); color: var(--fg);
+  border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14.5px; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: 1; }
+.row > .fit { flex: 0 0 auto; }
+.btn { background: var(--accent); color: #04121f; border: 0; border-radius: 10px;
+  padding: 11px 15px; font: inherit; font-weight: 700; font-size: 14.5px; cursor: pointer; width: 100%; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--fg); font-weight: 600; }
+.btn.danger { background: transparent; border: 1px solid #6b2b30; color: #ff9b9b; }
+.btn:active { transform: scale(.985); }
+.hint { font-size: 12px; color: var(--dim); line-height: 1.7; margin-top: 7px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; }
+.hint.warn { border-color: #6b5520; color: #ffe0a3; background: #241d0e; }
+.val { font-size: 12px; color: var(--accent); font-weight: 700; }
+
+/* ---------- قائمة المحادثات ---------- */
+.convo { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-radius: 10px;
+  cursor: pointer; border: 1px solid transparent; }
+.convo:hover { background: var(--bg2); }
+.convo.active { background: var(--bg2); border-color: var(--accent2); }
+.convo .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; }
+.convo .d { font-size: 11px; color: var(--dim); }
+.convo .x { opacity: 0; background: transparent; border: 0; color: var(--dim); cursor: pointer;
+  font-size: 15px; padding: 2px 6px; }
+.convo:hover .x, .convo.active .x { opacity: .75; }
+.convo .x:hover { color: var(--err); opacity: 1; }
+
+.toast { position: fixed; bottom: 84px; inset-inline: 0; margin: auto; width: fit-content;
+  max-width: 90vw; background: var(--bg3); border: 1px solid var(--line); color: var(--fg);
+  padding: 10px 16px; border-radius: 10px; font-size: 13.5px; z-index: 100;
+  animation: pop .2s ease; box-shadow: 0 8px 26px rgba(0,0,0,.5); }
+.toast.err { border-color: #6b2b30; }
+@keyframes pop { from { opacity: 0; transform: translateY(10px); } }

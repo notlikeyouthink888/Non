@@ -1,0 +1,11 @@
+{
+  "appId": "com.muhawara.chat",
+  "appName": "محاورة",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "backgroundColor": "#0E1116"
+  },
+  "server": { "androidScheme": "https", "cleartext": true }
+}
