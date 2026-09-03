@@ -7,11 +7,11 @@ import { ZONE, ZONE_COLORS } from '../../core/config.js';
 import { clamp, lerp, smoothstep } from '../../core/math.js';
 
 const LOT_SPEC = {
-  [ZONE.RESIDENTIAL]: { front: [13, 21], depth: [19, 27], setback: 2.6, maxSlope: 0.30 },
-  [ZONE.COMMERCIAL]:  { front: [15, 25], depth: [22, 32], setback: 1.4, maxSlope: 0.26 },
-  [ZONE.INDUSTRIAL]:  { front: [32, 56], depth: [36, 58], setback: 4.0, maxSlope: 0.20 },
-  [ZONE.OFFICE]:      { front: [22, 38], depth: [26, 42], setback: 2.0, maxSlope: 0.24 },
-  [ZONE.PARK]:        { front: [18, 34], depth: [20, 36], setback: 2.0, maxSlope: 0.40 },
+  [ZONE.RESIDENTIAL]: { front: [11, 18], depth: [16, 23], setback: 1.8, maxSlope: 0.34 },
+  [ZONE.COMMERCIAL]:  { front: [13, 22], depth: [19, 28], setback: 0.9, maxSlope: 0.30 },
+  [ZONE.INDUSTRIAL]:  { front: [30, 50], depth: [34, 52], setback: 3.2, maxSlope: 0.22 },
+  [ZONE.OFFICE]:      { front: [19, 33], depth: [23, 38], setback: 1.4, maxSlope: 0.28 },
+  [ZONE.PARK]:        { front: [18, 34], depth: [20, 36], setback: 2.0, maxSlope: 0.42 },
 };
 
 export default {
@@ -110,7 +110,7 @@ export default {
     }
   },
 
-  generateLots({ maxLots = 4000 } = {}) {
+  generateLots({ maxLots = 9000 } = {}) {
     const ctx = this.ctx, { world } = ctx;
     const roads = ctx.module('roads');
     const terrain = ctx.module('terrain');
@@ -145,7 +145,7 @@ export default {
           const probeX = px + nx * (e.width / 2 + e.sidewalk + 6);
           const probeZ = pz + nz * (e.width / 2 + e.sidewalk + 6);
           const zone = world.zones[world.cellIndex(probeX, probeZ)];
-          if (!zone) { nextAt = acc + 10; continue; }
+          if (!zone) { nextAt = acc + 8; continue; }
 
           const spec = LOT_SPEC[zone];
           const front = rng.range(spec.front[0], spec.front[1]);
@@ -159,20 +159,23 @@ export default {
             && world.zones[world.cellIndex(cx, cz)] === zone;
 
           if (ok) {
-            const half = Math.max(front, depth) / 2 - 1;
-            const c0 = world.cellCoord(cx - half, cz - half);
-            const c1 = world.cellCoord(cx + half, cz + half);
+            // صندوق محيط للمستطيل المُدار (أدق بكثير من مربع بالبُعد الأكبر ⇒ كثافة أعلى)
+            const ca = Math.abs(nz), sa = Math.abs(nx);
+            const bw = (front * ca + depth * sa) / 2 - 1.2;
+            const bd = (front * sa + depth * ca) / 2 - 1.2;
+            const c0 = world.cellCoord(cx - bw, cz - bd);
+            const c1 = world.cellCoord(cx + bw, cz + bd);
             if (this._cellsFree(c0.cx, c0.cz, c1.cx, c1.cz)) {
               world.lots.push({
                 id: id++, cx, cz, y, w: front, d: depth, rot: Math.atan2(-nx, -nz), zone,
                 edgeId: e.id, side, t: acc / Math.max(e.length, 1), level: 1, buildingId: null, value: 0,
               });
               this._markCells(c0.cx, c0.cz, c1.cx, c1.cz, 2);
-              nextAt = acc + front + rng.range(0.8, 2.4);
+              nextAt = acc + front + rng.range(0.4, 1.6);
               continue;
             }
           }
-          nextAt = acc + Math.max(7, front * 0.55);
+          nextAt = acc + Math.max(5, front * 0.4);
         }
       }
     }

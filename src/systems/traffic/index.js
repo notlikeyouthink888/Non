@@ -6,9 +6,10 @@ import * as THREE from 'three';
 import * as BGU from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clamp, lerp, smoothstep } from '../../core/math.js';
 
+// لوحة واقعية: غالبها رمادي/أبيض/أسود مع أقلية ملوّنة (كما في الشوارع الحقيقية)
 const CAR_COLORS = [
-  0xd8dade, 0x1c1f24, 0x8b9096, 0x2b4a7a, 0x8c2a2a, 0x24543a, 0xb8b3a8, 0x3a3f45,
-  0xc9a227, 0x5a3f8c, 0xd35400, 0x0f6f7a,
+  0xc9ccd0, 0xdfe1e3, 0x9a9ea3, 0x6d7176, 0x33373c, 0x1b1e22, 0xb3b7bb, 0x7e8489,
+  0x2f4664, 0x5c2b2b, 0x2c463a, 0x8a7a52, 0x6a5a76, 0x8f5a2a,
 ];
 
 function box(w, h, d, x = 0, y = 0, z = 0) { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y + h / 2, z); return g; }

@@ -330,31 +330,71 @@ export class TextureFactory {
     }, { normalStrength: 2.2 });
   }
 
-  /** بطاقة أوراق شجر بقناة شفافية (تُستعمل للأشجار البعيدة) */
-  leafCard(seed = 141, size = 256) {
-    const key = 'leafCard' + seed;
+  /** بطاقة عنقود أوراق بقناة شفافية — تُستعمل لتيجان الأشجار */
+  leafCard(seed = 141, size = 256, { hue = 0 } = {}) {
+    const key = 'leafCard' + seed + hue;
     if (this.cache.has(key)) return this.cache.get(key);
     const n = new Noise(this.seed + seed);
     const w = size, h = size;
     const img = new ImageData(w, h);
     const d = img.data;
     const r = mulberry32(this.seed + seed);
-    // مجموعة كتل أوراق
-    const blobs = [];
-    for (let i = 0; i < 26; i++) blobs.push({ x: 0.5 + (r() - 0.5) * 0.78, y: 0.55 + (r() - 0.5) * 0.72, rr: 0.09 + r() * 0.13, t: r() });
+
+    // عناقيد كبيرة تحدّد الصورة العامة
+    const clumps = [];
+    for (let i = 0; i < 9; i++) {
+      clumps.push({ x: 0.5 + (r() - 0.5) * 0.62, y: 0.55 + (r() - 0.5) * 0.60, rr: 0.16 + r() * 0.16, t: r() });
+    }
+    // أوراق مفردة بيضاوية مائلة
+    const leaves = [];
+    for (let i = 0; i < 190; i++) {
+      const a = r() * Math.PI * 2, rad = Math.pow(r(), 0.6) * 0.42;
+      leaves.push({
+        x: 0.5 + Math.cos(a) * rad, y: 0.53 + Math.sin(a) * rad * 0.94,
+        rx: 0.028 + r() * 0.030, ry: 0.014 + r() * 0.016,
+        rot: r() * Math.PI, t: r(),
+      });
+    }
+
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const u = x / w, v = y / h;
-      let a = 0, shade = 0;
-      for (const b of blobs) {
-        const dd = Math.hypot(u - b.x, (v - b.y) * 1.15) / b.rr;
-        if (dd < 1) { const f = 1 - dd * dd; if (f > a) { a = f; shade = b.t; } }
+      // كثافة العنقود (تُخفّف الحواف)
+      let mass = 0;
+      for (const c of clumps) {
+        const dd = Math.hypot(u - c.x, (v - c.y) * 1.08) / c.rr;
+        if (dd < 1) mass = Math.max(mass, (1 - dd * dd) * (0.7 + c.t * 0.4));
       }
-      const grain = n.fbm(u * 60, v * 60, 3) * 0.5 + 0.5;
-      const alpha = a > 0.02 ? clamp((a * 1.8) * (0.55 + grain * 0.75), 0, 1) : 0;
-      const g = 0.16 + shade * 0.22 + grain * 0.10;
+      if (mass <= 0.002) { const i0 = (y * w + x) * 4; d[i0 + 3] = 0; continue; }
+
+      // أوراق مفردة
+      let leafA = 0, shade = 0.5, depth = 0;
+      for (const L of leaves) {
+        const dx = u - L.x, dy = v - L.y;
+        const ca = Math.cos(L.rot), sa = Math.sin(L.rot);
+        const px = (dx * ca + dy * sa) / L.rx, py = (-dx * sa + dy * ca) / L.ry;
+        const q = px * px + py * py;
+        if (q < 1) {
+          const f = 1 - q;
+          if (f > leafA) { leafA = f; shade = L.t; depth = 1 - Math.min(1, Math.hypot(dx, dy) * 3.2); }
+        }
+      }
+      const grain = n.fbm(u * 55, v * 55, 3) * 0.5 + 0.5;
+      const alpha = clamp((leafA * 2.6) * (0.5 + mass * 0.9) * (0.72 + grain * 0.5), 0, 1);
+
+      // لون: أخضر متفاوت + تعتيم في العمق + حواف أفتح (نفاذية الضوء)
+      const base = 0.10 + shade * 0.17 + grain * 0.07;
+      const litEdge = smoothstep(0.55, 0.05, leafA) * 0.22;      // الحواف الرقيقة تنفذ الضوء
+      const occl = 1 - depth * 0.42;
+      let R = (base * 0.44 + litEdge * 0.55) * occl;
+      let G = (base * 1.05 + litEdge * 0.85) * occl;
+      let B = (base * 0.26 + litEdge * 0.28) * occl;
+      if (hue) { R += hue * 0.10; G -= hue * 0.03; }
+
       const i2 = (y * w + x) * 4;
-      d[i2] = (g * 0.48) * 255; d[i2 + 1] = g * 255; d[i2 + 2] = (g * 0.32) * 255;
-      d[i2 + 3] = (alpha > 0.35 ? alpha : 0) * 255;
+      d[i2] = clamp(R, 0, 1) * 255;
+      d[i2 + 1] = clamp(G, 0, 1) * 255;
+      d[i2 + 2] = clamp(B, 0, 1) * 255;
+      d[i2 + 3] = (alpha > 0.40 ? alpha : 0) * 255;
     }
     const tex = this._fromImageData(img, w, h, { srgb: true });
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -362,56 +402,179 @@ export class TextureFactory {
     return tex;
   }
 
-  /** واجهة نوافذ: أطلس يُستعمل كـ emissive + albedo للمباني */
-  facadeWindows(seed = 151, { cols = 8, rows = 8, tint = [0.55, 0.57, 0.60], glass = [0.10, 0.13, 0.17] } = {}) {
+  /**
+   * واجهة معمارية: خلية واحدة = طابق × بائكة (3.2م × 3.4م).
+   * style='curtain' جدار ستائري زجاجي للأبراج، style='punched' نوافذ مثقوبة بإطار وعتبة للسكني.
+   */
+  facadeWindows(seed = 151, {
+    cols = 8, rows = 8, tint = [0.55, 0.57, 0.60], glass = [0.10, 0.13, 0.17], style = 'punched',
+  } = {}) {
     const n = new Noise(this.seed + seed);
-    return this.generate('facade' + seed + tint.join() + cols + rows, (u, v) => {
-      const cu = (u * cols) % 1, cv = (v * rows) % 1;
-      // نافذة داخل الخلية
-      const inW = smoothstep(0.16, 0.20, cu) * smoothstep(0.84, 0.80, cu) * smoothstep(0.20, 0.24, cv) * smoothstep(0.80, 0.76, cv);
-      const frame = smoothstep(0.10, 0.15, cu) * smoothstep(0.90, 0.85, cu) * smoothstep(0.14, 0.19, cv) * smoothstep(0.86, 0.81, cv) - inW;
-      const mullion = inW * (smoothstep(0.49, 0.50, cu) * smoothstep(0.51, 0.50, cu) > 0 ? 0 : 0);
-      const grain = n.fbm(u * 130, v * 130, 3) * 0.5 + 0.5;
-      const dirt = n.fbm(u * 7, v * 7, 4) * 0.5 + 0.5;
-      const wallK = 0.88 + dirt * 0.22 + grain * 0.05;
+    const rnd = mulberry32(this.seed + seed + 991);
+    // خصائص لكل خلية (بلايند، صبغة، اتساخ)
+    const cell = [];
+    for (let i = 0; i < cols * rows; i++) cell.push({ blind: rnd(), tintV: rnd(), dirt: rnd(), open: rnd() });
+
+    const curtain = style === 'curtain';
+    // هندسة النافذة داخل الخلية (نِسَب)
+    const W0 = curtain ? 0.045 : 0.235, W1 = curtain ? 0.955 : 0.765;
+    const H0 = curtain ? 0.300 : 0.250, H1 = curtain ? 0.945 : 0.800;
+
+    return this.generate('facade' + seed + tint.join() + cols + rows + style, (u, v) => {
+      const ci = Math.min(cols - 1, Math.floor(u * cols));
+      const ri = Math.min(rows - 1, Math.floor(v * rows));
+      const C = cell[ri * cols + ci];
+      const cu = (u * cols) % 1;
+      const cvRaw = (v * rows) % 1;
+      const cv = 1 - cvRaw;                       // 0 أسفل الخلية، 1 أعلاها
+
+      const grain = n.fbm(u * 190, v * 190, 3) * 0.5 + 0.5;
+      const blotch = n.fbm(u * 5, v * 5, 4) * 0.5 + 0.5;
+      const dirtRun = smoothstep(0.55, 1.0, n.fbm(u * 24, v * 3.2, 3) * 0.5 + 0.5);
+
+      // ---------- الجدار / السباندرل ----------
+      const wallK = 0.90 + blotch * 0.18 + grain * 0.045 - dirtRun * 0.055 * C.dirt;
       let r = tint[0] * wallK, g = tint[1] * wallK, b = tint[2] * wallK;
-      // إطار فاتح
-      r = lerp(r, 0.82, frame * 0.85); g = lerp(g, 0.82, frame * 0.85); b = lerp(b, 0.80, frame * 0.85);
-      // زجاج داكن مائل للأزرق مع انعكاس سماء متدرّج
-      const sky = smoothstep(0.8, 0.2, cv) * 0.35;
-      r = lerp(r, glass[0] + sky * 0.25, inW); g = lerp(g, glass[1] + sky * 0.32, inW); b = lerp(b, glass[2] + sky * 0.42, inW);
-      const hgt = 0.7 - inW * 0.55 + frame * 0.25 + grain * 0.1;
-      const ro = lerp(clamp(0.70 + dirt * 0.15, 0, 1), 0.12, inW);
-      const ao = clamp(1 - inW * 0.25 - frame * 0.1, 0, 1);
-      return [r, g, b, hgt + mullion, ro, ao];
-    }, { normalStrength: 1.4 });
+      let rough = clamp(curtain ? 0.42 + blotch * 0.14 : 0.72 + blotch * 0.16, 0, 1);
+      let hgt = 0.62 + grain * 0.045;
+      let ao = 1.0;
+
+      // شريط سباندرل داكن أسفل كل خلية (يفصل الطوابق بصريًا)
+      const spandrel = smoothstep(H0 + 0.02, H0 - 0.06, cv) * smoothstep(-0.02, 0.05, cv);
+      if (spandrel > 0) {
+        const k = curtain ? 0.52 : 0.86;
+        r = lerp(r, r * k, spandrel); g = lerp(g, g * k, spandrel); b = lerp(b, b * k * 1.03, spandrel);
+        rough = lerp(rough, curtain ? 0.30 : 0.80, spandrel);
+        hgt = lerp(hgt, 0.55, spandrel);
+      }
+
+      // خط فاصل أفقي عند حدّ الطابق
+      const slab = smoothstep(0.018, 0.0, Math.min(cvRaw, 1 - cvRaw));
+      if (slab > 0) {
+        const k = curtain ? 1.10 : 1.05;
+        r = lerp(r, clamp(r * k, 0, 1), slab); g = lerp(g, clamp(g * k, 0, 1), slab); b = lerp(b, clamp(b * k, 0, 1), slab);
+        hgt = lerp(hgt, 0.95, slab);
+        ao = lerp(ao, 0.86, slab * 0.5);
+      }
+
+      // ---------- فتحة النافذة ----------
+      const inW = smoothstep(W0, W0 + 0.02, cu) * smoothstep(W1, W1 - 0.02, cu)
+                * smoothstep(H0, H0 + 0.02, cv) * smoothstep(H1, H1 - 0.02, cv);
+
+      if (inW > 0.002) {
+        // إطار/كتف حول الزجاج
+        const frameW = curtain ? 0.014 : 0.020;
+        const edge = Math.min(
+          Math.min(cu - W0, W1 - cu),
+          Math.min(cv - H0, H1 - cv)
+        );
+        const frame = smoothstep(frameW * 1.7, frameW * 0.3, edge);
+
+        // زجاج: تدرّج انعكاس السماء + انعكاس أفقي + داخل معتم
+        const skyRefl = smoothstep(0.10, 0.95, cv);
+        const gv = C.tintV;
+        let gr = glass[0] * (0.80 + gv * 0.40) + skyRefl * 0.115;
+        let gg = glass[1] * (0.80 + gv * 0.40) + skyRefl * 0.150;
+        let gb = glass[2] * (0.80 + gv * 0.40) + skyRefl * 0.205;
+        // شريط انعكاس مائل خفيف
+        const streak = smoothstep(0.42, 0.50, (cu * 0.7 + cv * 0.6) % 1) * smoothstep(0.62, 0.54, (cu * 0.7 + cv * 0.6) % 1);
+        gr += streak * 0.045; gg += streak * 0.058; gb += streak * 0.072;
+        // ستائر/بلايند في بعض النوافذ
+        if (C.blind > 0.62) {
+          const bl = 0.5 + 0.5 * Math.sin(cv * (curtain ? 90 : 58));
+          const cover = C.blind > 0.86 ? 1.0 : smoothstep(0.30, 0.62, cv);
+          const bc = 0.34 + bl * 0.11;
+          gr = lerp(gr, bc, cover * 0.72); gg = lerp(gg, bc * 0.97, cover * 0.72); gb = lerp(gb, bc * 0.92, cover * 0.72);
+        }
+        // قضيب أفقي في منتصف النافذة (ترانسوم)
+        const transom = smoothstep(0.012, 0.0, Math.abs(cv - (H0 + H1) * 0.5));
+        // عمود عمودي (مولين) للجدار الستائري
+        const mullion = curtain ? smoothstep(0.010, 0.0, Math.abs(cu - 0.5)) : 0;
+
+        const glassA = inW * (1 - frame);
+        r = lerp(r, gr, glassA); g = lerp(g, gg, glassA); b = lerp(b, gb, glassA);
+        rough = lerp(rough, 0.08 + gv * 0.05, glassA);
+        hgt = lerp(hgt, 0.06, glassA);                      // النافذة غائرة
+        ao = lerp(ao, 0.70 + skyRefl * 0.22, glassA);
+
+        // الإطار المعدني/الخشبي
+        const fr = curtain ? 0.34 : 0.50;
+        r = lerp(r, fr, inW * frame); g = lerp(g, fr, inW * frame); b = lerp(b, fr * 0.98, inW * frame);
+        rough = lerp(rough, curtain ? 0.30 : 0.52, inW * frame);
+        hgt = lerp(hgt, 0.42, inW * frame);
+
+        // ترانسوم/مولين فوق الزجاج
+        const bar = Math.max(transom, mullion) * glassA;
+        r = lerp(r, fr * 0.95, bar); g = lerp(g, fr * 0.95, bar); b = lerp(b, fr * 0.93, bar);
+        hgt = lerp(hgt, 0.40, bar);
+        rough = lerp(rough, 0.38, bar);
+      }
+
+      // ---------- العتبة (سِل) للنوافذ المثقوبة ----------
+      if (!curtain) {
+        const sillBand = smoothstep(H0 - 0.055, H0 - 0.020, cv) * smoothstep(H0 + 0.005, H0 - 0.010, cv);
+        const inSillX = smoothstep(W0 - 0.035, W0 - 0.010, cu) * smoothstep(W1 + 0.035, W1 + 0.010, cu);
+        const sill = sillBand * inSillX;
+        if (sill > 0) {
+          const sc = 0.56;
+          r = lerp(r, sc, sill); g = lerp(g, sc, sill); b = lerp(b, sc * 0.97, sill);
+          hgt = lerp(hgt, 1.0, sill);
+          rough = lerp(rough, 0.66, sill);
+        }
+        // أثر مياه تحت العتبة
+        const streakBelow = smoothstep(H0 - 0.06, H0 - 0.30, cv) * inSillX * dirtRun * 0.22;
+        r *= (1 - streakBelow); g *= (1 - streakBelow); b *= (1 - streakBelow * 0.9);
+        ao = clamp(ao - streakBelow * 0.35, 0, 1);
+      }
+
+      // انسداد محيطي حول الفتحة
+      const nearW = smoothstep(0.045, 0.0, Math.min(
+        Math.min(Math.abs(cu - W0), Math.abs(cu - W1)),
+        Math.min(Math.abs(cv - H0), Math.abs(cv - H1))
+      )) * (1 - inW);
+      ao = clamp(ao - nearW * 0.30, 0, 1);
+
+      return [r, g, b, hgt, rough, ao];
+    }, { normalStrength: 1.7 });
   }
 
-  /** قناع إضاءة النوافذ ليلًا: أبيض داخل النافذة فقط، مع نمط عشوائي للغرف المضاءة */
-  windowLight(seed = 161, { cols = 8, rows = 8, lit = 0.55 } = {}) {
-    const key = 'winlight' + seed + cols + rows + lit;
+  /** قناع إضاءة النوافذ ليلًا: يضيء داخل الفتحة فقط، بنمط غرف عشوائي ودفء متغيّر */
+  windowLight(seed = 161, { cols = 8, rows = 8, lit = 0.55, style = 'punched' } = {}) {
+    const key = 'winlight' + seed + cols + rows + lit + style;
     if (this.cache.has(key)) return this.cache.get(key);
     const size = Math.min(this.size, 512);
     const img = new ImageData(size, size);
     const d = img.data;
     const rnd = mulberry32(this.seed + seed);
-    const state = new Float32Array(cols * rows);
-    const warm = new Float32Array(cols * rows);
-    for (let i = 0; i < cols * rows; i++) { state[i] = rnd() < lit ? (0.55 + rnd() * 0.45) : 0; warm[i] = rnd(); }
+    const n = new Noise(this.seed + seed + 5);
+    const curtain = style === 'curtain';
+    const W0 = curtain ? 0.055 : 0.215, W1 = curtain ? 0.945 : 0.785;
+    const H0 = curtain ? 0.255 : 0.235, H1 = curtain ? 0.955 : 0.815;
+    const st = new Float32Array(cols * rows), warm = new Float32Array(cols * rows), blind = new Float32Array(cols * rows);
+    for (let i = 0; i < cols * rows; i++) {
+      st[i] = rnd() < lit ? (0.45 + rnd() * 0.55) : 0;
+      warm[i] = rnd(); blind[i] = rnd();
+    }
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
       const u = x / size, v = y / size;
-      const ci = Math.floor(u * cols), ri = Math.floor(v * rows);
-      const cu = (u * cols) % 1, cv = (v * rows) % 1;
-      const inW = smoothstep(0.18, 0.22, cu) * smoothstep(0.82, 0.78, cu) * smoothstep(0.22, 0.26, cv) * smoothstep(0.78, 0.74, cv);
-      const s = state[ri * cols + ci] * inW;
-      const wm = warm[ri * cols + ci];
-      // تدرّج داخلي (سقف الغرفة أفتح)
-      const grad = 0.72 + 0.5 * (1 - cv);
-      const i2 = (y * size + x) * 4;
-      d[i2] = clamp(s * grad * (1.0), 0, 1) * 255;
-      d[i2 + 1] = clamp(s * grad * (0.82 + wm * 0.14), 0, 1) * 255;
-      d[i2 + 2] = clamp(s * grad * (0.58 + wm * 0.30), 0, 1) * 255;
-      d[i2 + 3] = 255;
+      const ci = Math.min(cols - 1, Math.floor(u * cols));
+      const ri = Math.min(rows - 1, Math.floor(v * rows));
+      const cu = (u * cols) % 1, cv = 1 - ((v * rows) % 1);
+      const inW = smoothstep(W0 + 0.01, W0 + 0.035, cu) * smoothstep(W1 - 0.01, W1 - 0.035, cu)
+                * smoothstep(H0 + 0.01, H0 + 0.035, cv) * smoothstep(H1 - 0.01, H1 - 0.035, cv);
+      const i2 = ri * cols + ci;
+      let s0 = st[i2] * inW;
+      // تفاوت داخل الغرفة: السقف أفتح + بقعة ضوء
+      const grad = 0.55 + 0.75 * smoothstep(H0, H1, cv);
+      const flick = 0.85 + 0.3 * (n.fbm(u * 40, v * 40, 2) * 0.5 + 0.5);
+      if (blind[i2] > 0.72) s0 *= 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(cv * 70));
+      const wm = warm[i2];
+      const i3 = (y * size + x) * 4;
+      const val = clamp(s0 * grad * flick, 0, 1);
+      d[i3] = val * 255;
+      d[i3 + 1] = clamp(val * (0.74 + wm * 0.20), 0, 1) * 255;
+      d[i3 + 2] = clamp(val * (0.44 + wm * 0.34), 0, 1) * 255;
+      d[i3 + 3] = 255;
     }
     const tex = this._fromImageData(img, size, size, { srgb: true });
     this.cache.set(key, tex);

@@ -33,7 +33,7 @@ export function buildPrototype(kind, rng, slotIndex) {
     F.trim.push(parapet(w + 0.3, d + 0.3, 0.95, 0.2, h));
     F.roof.push(roofEquipment(rng, w * 0.8, d * 0.8, h, false));
     // شرفات على الواجهة
-    const balW = 2.6, per = Math.max(1, Math.floor(w / 4.2));
+    const balW = 2.8, per = Math.max(1, Math.floor(w / 5.2));
     for (let f = 1; f < floors; f++) {
       for (let i = 0; i < per; i++) {
         const bx = -w / 2 + (w / per) * (i + 0.5);
@@ -58,8 +58,8 @@ export function buildPrototype(kind, rng, slotIndex) {
     F.trim.push(parapet(w2 + 0.3, d2 + 0.3, 1.0, 0.22, h));
     addRoofSlab(w, d, hLow); addRoofSlab(w2, d2, h);
     F.roof.push(roofEquipment(rng, w2 * 0.8, d2 * 0.8, h, true));
-    const per = Math.max(2, Math.floor(w / 5));
-    for (let f = 1; f < tierAt; f += 1) {
+    const per = Math.max(2, Math.floor(w / 6.5));
+    for (let f = 1; f < tierAt; f += 2) {
       for (let i = 0; i < per; i++) {
         const bx = -w / 2 + (w / per) * (i + 0.5);
         const by = f * FLOOR_H;

@@ -6,14 +6,16 @@ import * as THREE from 'three';
 import { clamp, lerp, TAU } from './math.js';
 
 const PRESETS = {
-  overview:  { x: 0,    z: 0,    dist: 620, yaw: 0.72, pitch: 0.62, fov: 42 },
-  downtown:  { x: 60,   z: -40,  dist: 260, yaw: 2.20, pitch: 0.48, fov: 40 },
-  street:    { x: 20,   z: 90,   dist: 62,  yaw: 1.05, pitch: 0.20, fov: 46 },
-  aerial:    { x: 0,    z: 0,    dist: 980, yaw: 0.40, pitch: 1.05, fov: 38 },
-  waterfront:{ x: -230, z: 300,  dist: 330, yaw: -0.9, pitch: 0.34, fov: 44 },
-  suburb:    { x: 330,  z: 250,  dist: 240, yaw: 2.60, pitch: 0.42, fov: 42 },
-  closeup:   { x: 40,   z: 40,   dist: 38,  yaw: 0.90, pitch: 0.28, fov: 50 },
-  skyline:   { x: -120, z: 420,  dist: 520, yaw: -0.35,pitch: 0.16, fov: 36 },
+  overview:  { x: -140, z: -140, dist: 720, yaw: 0.72, pitch: 0.60, fov: 42 },
+  downtown:  { x: -60,  z: -70,  dist: 300, yaw: 2.35, pitch: 0.44, fov: 40 },
+  street:    { x: -230, z: -300, dist: 105, yaw: 1.15, pitch: 0.22, fov: 46 },
+  aerial:    { x: -200, z: -200, dist: 1150,yaw: 0.45, pitch: 1.02, fov: 38 },
+  waterfront:{ x: 40,   z: 60,   dist: 340, yaw: 2.60, pitch: 0.28, fov: 44 },
+  suburb:    { x: -640, z: -520, dist: 250, yaw: 0.95, pitch: 0.36, fov: 44 },
+  closeup:   { x: -200, z: -250, dist: 150, yaw: 2.05, pitch: 0.30, fov: 48 },
+  skyline:   { x: 120,  z: 190,  dist: 560, yaw: 2.42, pitch: 0.15, fov: 36 },
+  industrial:{ x: -740, z: -430, dist: 330, yaw: 1.60, pitch: 0.34, fov: 42 },
+  park:      { x: -300, z: 60,   dist: 180, yaw: 0.30, pitch: 0.30, fov: 46 },
 };
 
 export class CameraRig {

@@ -45,7 +45,7 @@ export default {
       this.composer.addPass(this.ssao);
     }
     if (quality.bloom) {
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.16, 0.45, 1.45);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.09, 0.40, 2.30);
       this.composer.addPass(this.bloom);
     }
     // OutputPass أولًا: يحوّل HDR الخطّي إلى فضاء العرض، ثم تعمل SMAA والتدرّج على قيم 0..1
@@ -77,8 +77,8 @@ export default {
     ctx.bus.on('time:changed:done', ({ night }) => {
       if (this.bloom) {
         // القيم هنا في فضاء HDR خطّي قبل التعيين اللوني ⇒ عتبة أعلى من 1
-        this.bloom.strength = lerp(0.15, 0.42, smoothstep(0.15, 0.8, night));
-        this.bloom.threshold = lerp(1.55, 0.75, smoothstep(0.15, 0.8, night));
+        this.bloom.strength = lerp(0.085, 0.40, smoothstep(0.15, 0.8, night));
+        this.bloom.threshold = lerp(2.35, 0.72, smoothstep(0.15, 0.8, night));
         this.bloom.radius = lerp(0.42, 0.62, smoothstep(0.15, 0.8, night));
       }
       this.grade.uniforms.uSaturation.value = lerp(1.07, 1.16, smoothstep(0.2, 0.8, night));

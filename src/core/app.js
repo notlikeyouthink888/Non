@@ -77,7 +77,7 @@ export class App {
     renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
-    renderer.shadowMap.autoUpdate = false;   // نحدّث الظلال فقط عند الحاجة (مكسب أداء كبير)
+    renderer.shadowMap.autoUpdate = true;
     renderer.info.autoReset = false;
     this.renderer = renderer;
 

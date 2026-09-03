@@ -48,9 +48,9 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
     const shallow = smoothstep(11, 0.25, depth);      // 1 عند الشاطئ
     const foam = smoothstep(0.85, 0.02, depth) * smoothstep(-0.5, 0.10, depth);
     // لون: أزرق مخضر ضحل ← أزرق داكن عميق
-    const r = 0.014 + shallow * 0.070 + foam * 0.34;
-    const g = 0.048 + shallow * 0.165 + foam * 0.38;
-    const b = 0.082 + shallow * 0.130 + foam * 0.40;
+    const r = 0.010 + shallow * 0.052 + foam * 0.30;
+    const g = 0.034 + shallow * 0.128 + foam * 0.34;
+    const b = 0.062 + shallow * 0.105 + foam * 0.36;
     const a = clamp(0.62 + (1 - shallow) * 0.33 - foam * 0.25, 0.3, 0.97);
     colors[i * 4] = r; colors[i * 4 + 1] = g; colors[i * 4 + 2] = b; colors[i * 4 + 3] = a;
   }
@@ -60,11 +60,11 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
   const nrm = waveNormalTexture(seed);
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, transparent: true,
-    roughness: 0.20, metalness: 0.06, normalMap: nrm,
-    normalScale: new THREE.Vector2(0.5, 0.5),
-    envMapIntensity: 0.95, depthWrite: false, side: THREE.FrontSide,
+    roughness: 0.30, metalness: 0.02, normalMap: nrm,
+    normalScale: new THREE.Vector2(0.30, 0.30),
+    envMapIntensity: 0.62, depthWrite: false, side: THREE.FrontSide,
   });
-  const uni = { uTime: { value: 0 }, uWave: { value: 0.45 }, uWaterNormal: { value: nrm } };
+  const uni = { uTime: { value: 0 }, uWave: { value: 0.30 }, uWaterNormal: { value: nrm } };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.fragmentShader = sh.fragmentShader
@@ -75,7 +75,7 @@ export function createWater(world, { seed = 7, segments = 160 } = {}) {
         vec3 nA = texture2D( uWaterNormal, wuv + vec2( uTime * 0.010, uTime * 0.014 ) ).xyz * 2.0 - 1.0;
         vec3 nB = texture2D( uWaterNormal, wuv * 2.7 + vec2( -uTime * 0.021, uTime * 0.008 ) ).xyz * 2.0 - 1.0;
         vec3 nC = texture2D( uWaterNormal, wuv * 0.35 + vec2( uTime * 0.004, -uTime * 0.003 ) ).xyz * 2.0 - 1.0;
-        vec3 mapN = normalize( vec3( nA.xy + nB.xy * 0.6 + nC.xy * 1.4, nA.z * nB.z ) );
+        vec3 mapN = normalize( vec3( nA.xy * 0.9 + nB.xy * 0.35 + nC.xy * 0.75, 1.0 ) );
         mapN.xy *= uWave * ( 0.55 + 0.9 * vColor.a );
         mat3 tbnW = getTangentFrame( - vViewPosition, normal, wuv );
         normal = normalize( tbnW * mapN );

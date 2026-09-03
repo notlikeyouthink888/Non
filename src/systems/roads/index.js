@@ -47,8 +47,9 @@ export default {
     }
     this.plainAsphalt = ctx.materials.asphalt([0.9, 0.9]);
     this.plainAsphalt.polygonOffset = true; this.plainAsphalt.polygonOffsetFactor = -3; this.plainAsphalt.polygonOffsetUnits = -3;
-    this.pavementMat = ctx.materials.pavement([0.35, 0.35]);
-    this.curbMat = ctx.materials.concrete([1.2, 1.2], 0xd8d4cc);
+    this.pavementMat = ctx.materials.pavement([0.30, 0.30]);
+    this.pavementMat.color.setHex(0x9aa0a4);
+    this.curbMat = ctx.materials.concrete([1.2, 1.2], 0xb3b0aa);
     this.crossTex = crosswalkTexture(world.seed);
     this.crossMat = new THREE.MeshStandardMaterial({
       map: this.crossTex, transparent: true, roughness: 0.75, metalness: 0,
@@ -482,7 +483,7 @@ export default {
     spots.forEach((s, i) => {
       const nx = Math.sin(s.rot) * 1.4, nz = Math.cos(s.rot) * 1.4;
       d.position.set(s.x + nx, s.y + 0.09, s.z + nz);
-      d.rotation.set(0, 0, 0); d.scale.setScalar(15);
+      d.rotation.set(0, 0, 0); d.scale.setScalar(19);
       d.updateMatrix(); pools.setMatrixAt(i, d.matrix);
     });
     pools.instanceMatrix.needsUpdate = true;
@@ -495,8 +496,8 @@ export default {
 
   _setNight(night) {
     const on = smoothstep(0.28, 0.72, night ?? 0);
-    if (this.lampHeadMat) this.lampHeadMat.emissiveIntensity = on * 6.0;
-    if (this.poolMat) this.poolMat.opacity = on * 0.85;
+    if (this.lampHeadMat) this.lampHeadMat.emissiveIntensity = on * 7.5;
+    if (this.poolMat) this.poolMat.opacity = on * 1.0;
   },
 
   update(dt, ctx) {},

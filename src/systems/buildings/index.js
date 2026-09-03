@@ -7,12 +7,14 @@ import { ZONE } from '../../core/config.js';
 import { clamp, lerp, smoothstep } from '../../core/math.js';
 import { buildPrototype, KIND_BY_ZONE } from './prototypes.js';
 
+// ألوان واجهات هادئة ومتنوّعة (طوب، جص، حجر، خرسانة) — لا ألوان مسطّحة
 const FACADE_TINTS = [
-  [0.66, 0.62, 0.56], [0.74, 0.70, 0.63], [0.58, 0.55, 0.52], [0.70, 0.64, 0.55],
-  [0.52, 0.47, 0.44], [0.63, 0.58, 0.60], [0.68, 0.60, 0.50], [0.48, 0.50, 0.53],
+  [0.52, 0.47, 0.42], [0.60, 0.55, 0.47], [0.44, 0.41, 0.39], [0.56, 0.46, 0.38],
+  [0.38, 0.35, 0.33], [0.49, 0.45, 0.46], [0.54, 0.44, 0.35], [0.36, 0.38, 0.40],
+  [0.62, 0.58, 0.50], [0.46, 0.42, 0.34],
 ];
 const TOWER_TINTS = [
-  [0.30, 0.34, 0.38], [0.22, 0.27, 0.33], [0.36, 0.38, 0.40], [0.26, 0.32, 0.36],
+  [0.26, 0.30, 0.34], [0.18, 0.23, 0.29], [0.32, 0.34, 0.36], [0.22, 0.28, 0.33],
 ];
 
 export default {
@@ -44,7 +46,10 @@ export default {
 
   _makeMaterials() {
     const ctx = this.ctx, T = ctx.textures;
-    const winLights = [0, 1, 2].map((i) => T.windowLight(161 + i * 7, { cols: 8, rows: 8, lit: 0.42 + i * 0.12 }));
+    const winLights = [0, 1, 2].map((i) => T.windowLight(161 + i * 7, { cols: 8, rows: 8, lit: 0.40 + i * 0.13, style: 'punched' }));
+    const winLightsC = [0, 1, 2].map((i) => T.windowLight(191 + i * 7, { cols: 8, rows: 8, lit: 0.46 + i * 0.12, style: 'curtain' }));
+    winLightsC.forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
+    this.winLightsC = winLightsC;
     winLights.forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; });
     this.winLights = winLights;
 
@@ -67,7 +72,7 @@ export default {
 
     // واجهات سكنية/تجارية
     this.facadeMats = FACADE_TINTS.map((tint, i) => {
-      const set = T.facadeWindows(151 + i * 3, { cols: 8, rows: 8, tint, glass: [0.10, 0.13, 0.17] });
+      const set = T.facadeWindows(151 + i * 3, { cols: 8, rows: 8, tint, glass: [0.085, 0.105, 0.135], style: 'punched' });
       const m = ctx.materials.fromSet('fac' + i, set, {
         roughness: 1, metalness: 0.05, envMapIntensity: 0.9,
         emissiveMap: winLights[i % 3], emissive: 0xffffff, emissiveIntensity: 0,
@@ -80,21 +85,22 @@ export default {
 
     // واجهات زجاجية للأبراج
     this.glassMats = TOWER_TINTS.map((tint, i) => {
-      const set = T.facadeWindows(171 + i * 5, { cols: 8, rows: 8, tint, glass: [0.045, 0.075, 0.115] });
+      const set = T.facadeWindows(171 + i * 5, { cols: 8, rows: 8, tint, glass: [0.040, 0.062, 0.098], style: 'curtain' });
       const m = ctx.materials.fromSet('glassfac' + i, set, {
         roughness: 0.28, metalness: 0.55, envMapIntensity: 1.5,
-        emissiveMap: winLights[i % 3], emissive: 0xffffff, emissiveIntensity: 0,
+        emissiveMap: winLightsC[i % 3], emissive: 0xffffff, emissiveIntensity: 0,
       });
-      m.emissiveMap = winLights[i % 3];
+      m.emissiveMap = winLightsC[i % 3];
       m.emissive = new THREE.Color(0xffffff);
       m.emissiveIntensity = 0;
-      m.roughness = 0.22; m.metalness = 0.6;
+      m.roughness = 0.24; m.metalness = 0.5;
       return patchWinOffset(m);
     });
 
     this.trimMats = [
-      ctx.materials.concrete([0.6, 0.6], 0xdcd8d0),
-      ctx.materials.concrete([0.6, 0.6], 0xb9b4ab),
+      ctx.materials.concrete([0.6, 0.6], 0xa8a49c),
+      ctx.materials.concrete([0.6, 0.6], 0x8e8a82),
+      ctx.materials.concrete([0.6, 0.6], 0xbdb6aa),
     ];
     this.roofMat = ctx.materials.roofGravel([1.5, 1.5]);
     this.tileRoofMat = ctx.materials.roofTile([0.42, 0.17, 0.12], [1, 1]);
@@ -246,6 +252,7 @@ export default {
     this.clear();
     this.protos.forEach((p) => p.geometry.dispose());
     this.winLights?.forEach((t) => t.dispose());
+    this.winLightsC?.forEach((t) => t.dispose());
     this.group?.removeFromParent();
   },
 };

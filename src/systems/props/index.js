@@ -24,12 +24,12 @@ export default {
     this.barkMat = M.bark([1, 2.5]);
     const leafTex = T.leafCard(141);
     this.leafMat = new THREE.MeshStandardMaterial({
-      map: leafTex, alphaTest: 0.42, transparent: false, side: THREE.DoubleSide,
-      roughness: 0.86, metalness: 0, color: 0xffffff, envMapIntensity: 0.8,
+      map: leafTex, alphaTest: 0.45, transparent: false, side: THREE.DoubleSide,
+      roughness: 0.88, metalness: 0, color: 0xffffff, envMapIntensity: 0.75,
     });
     this.needleMat = M.simple(0x24401f, { roughness: 0.9, flat: true, side: THREE.DoubleSide });
     this.frondMat = new THREE.MeshStandardMaterial({
-      map: T.leafCard(147), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.8, color: 0xa8c07a,
+      map: T.leafCard(147, 256, { hue: 0.35 }), alphaTest: 0.42, side: THREE.DoubleSide, roughness: 0.82, color: 0x9fb977,
     });
     this.metalMat = M.simple(0x3c444c, { roughness: 0.5, metalness: 0.8 });
     this.woodMat = M.simple(0x6b4b2e, { roughness: 0.85, metalness: 0.02 });
@@ -139,7 +139,7 @@ export default {
 
     // 1) غابات على المنحدرات والمناطق غير المزوّنة
     const S = world.size / 2;
-    const gridStep = 13 / clamp(treeDensity, 0.2, 3);
+    const gridStep = 15 / clamp(treeDensity, 0.2, 3);
     for (let z = -S + 20; z < S - 20; z += gridStep) {
       for (let x = -S + 20; x < S - 20; x += gridStep) {
         const jx = x + rng.range(-gridStep * 0.45, gridStep * 0.45);
@@ -247,7 +247,7 @@ export default {
       if (!list.length) return;
       count += list.length;
       if (t.trunkGeo) this._instance(t.trunkGeo, this.barkMat, list, { shadow: true });
-      this._instance(t.leafGeo, t.leafMat, list, { shadow: true, colorJitter: 0.42 });
+      this._instance(t.leafGeo, t.leafMat, list, { shadow: true, colorJitter: 0.55 });
     });
     for (const [k, list] of Object.entries(F2)) {
       const f = this.furni[k];

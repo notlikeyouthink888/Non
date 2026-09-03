@@ -41,7 +41,7 @@ export default {
       roughnessMap: this.macro.ormMap,
       aoMap: this.macro.ormMap,
       normalMap: detail.normalMap,
-      normalScale: new THREE.Vector2(0.85, 0.85),
+      normalScale: new THREE.Vector2(1.15, 1.15),
       roughness: 1, metalness: 0,
       envMapIntensity: 0.85,
       dithering: true,
@@ -50,23 +50,23 @@ export default {
     // التفاصيل تُبلَّط بتردد عالٍ عبر مصفوفة UV الخاصة بخريطة النتوء
     const dn = detail.normalMap.clone();
     dn.wrapS = dn.wrapT = THREE.RepeatWrapping;
-    dn.repeat.set(180, 180); dn.needsUpdate = true;
+    dn.repeat.set(420, 420); dn.needsUpdate = true;
     mat.normalMap = dn;
     this._clonedTex = [dn];
 
     const detAlb = detail.map.clone();
     detAlb.wrapS = detAlb.wrapT = THREE.RepeatWrapping;
-    detAlb.repeat.set(180, 180); detAlb.colorSpace = THREE.SRGBColorSpace; detAlb.needsUpdate = true;
+    detAlb.repeat.set(420, 420); detAlb.colorSpace = THREE.SRGBColorSpace; detAlb.needsUpdate = true;
     const detRock = detailRock.map.clone();
     detRock.wrapS = detRock.wrapT = THREE.RepeatWrapping;
-    detRock.repeat.set(52, 52); detRock.colorSpace = THREE.SRGBColorSpace; detRock.needsUpdate = true;
+    detRock.repeat.set(150, 150); detRock.colorSpace = THREE.SRGBColorSpace; detRock.needsUpdate = true;
     this._clonedTex.push(detAlb, detRock);
 
     const uni = {
       uDetail: { value: detAlb },
       uDetailRock: { value: detRock },
-      uNear: { value: 90.0 },
-      uFar: { value: 520.0 },
+      uNear: { value: 160.0 },
+      uFar: { value: 900.0 },
     };
     this.uniforms = uni;
     mat.onBeforeCompile = (sh) => {
@@ -84,22 +84,22 @@ export default {
           {
             float dCam = length( vViewPosition );
             float fade = 1.0 - smoothstep( uNear, uFar, dCam );
-            vec2 duv = vWPosT.xz * 0.09;
+            vec2 duv = vWPosT.xz * 0.26;
             vec3 dG = texture2D( uDetail, duv ).rgb;
-            vec3 dR = texture2D( uDetailRock, vWPosT.xz * 0.031 ).rgb;
+            vec3 dR = texture2D( uDetailRock, vWPosT.xz * 0.085 ).rgb;
             float rockW = smoothstep( 0.18, 0.46, vSlopeT );
             vec3 det = mix( dG, dR, rockW );
             float lum = dot( det, vec3( 0.3333 ) );
             // طبقة تفاصيل تُضاعف السطوع دون تغيير الصبغة الكبرى
-            diffuseColor.rgb *= mix( 1.0, 0.62 + 1.02 * lum, fade * 0.9 );
-            diffuseColor.rgb *= mix( vec3(1.0), det / max( lum, 0.001 ), fade * 0.28 );
+            diffuseColor.rgb *= mix( 1.0, 0.48 + 1.20 * lum, fade );
+            diffuseColor.rgb *= mix( vec3(1.0), det / max( lum, 0.001 ), fade * 0.45 );
           }`);
     };
     mat.customProgramCacheKey = () => 'terrain-v2';
     this.material = mat;
 
     // --- الهندسة المقسّمة ---
-    const segs = quality.name === 'low' ? 24 : quality.name === 'medium' ? 40 : 56;
+    const segs = quality.name === 'low' ? 24 : quality.name === 'medium' ? 36 : 44;
     const t2 = performance.now();
     this.chunks = [];
     const S = world.size, cs = S / CHUNKS;

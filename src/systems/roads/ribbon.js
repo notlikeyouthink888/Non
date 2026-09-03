@@ -27,9 +27,12 @@ export function ribbon(path, inner, outer, { yOff = 0, u0 = 0, u1 = 1, vScale = 
     const v = dist / vScale;
     uv.push(u0, v, u1, v);
   }
+  // اتجاه اللفّ يعتمد على إشارة (outer - inner) وإلا انقلبت الأوجه للجانب الآخر
+  const flip = (outer - inner) < 0;
   for (let i = 0; i < n - 1; i++) {
     const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
-    idx.push(a, c, b, b, c, d);
+    if (flip) idx.push(a, c, b, b, c, d);
+    else idx.push(a, b, c, b, d, c);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));

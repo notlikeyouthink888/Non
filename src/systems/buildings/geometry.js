@@ -95,12 +95,14 @@ export function parapet(w, d, h, t, y0) {
 }
 
 /** حاجز شرفة بأعمدة رفيعة */
-export function railing(w, h, y0, x, z, rotY = 0, posts = 6) {
-  const parts = [plainBox(w, 0.06, 0.06, 0, y0 + h - 0.06, 0), plainBox(w, 0.05, 0.05, 0, y0 + h * 0.5, 0)];
-  for (let i = 0; i <= posts; i++) {
-    const px = -w / 2 + (w * i) / posts;
-    parts.push(plainBox(0.05, h, 0.05, px, y0, 0));
-  }
+/** حاجز شرفة مبسّط: لوح + قضيب علوي + قائمان (36 مثلثًا بدل ~110) */
+export function railing(w, h, y0, x, z, rotY = 0, posts = 2) {
+  const parts = [
+    plainBox(w, h * 0.72, 0.04, 0, y0 + h * 0.10, 0),        // اللوح
+    plainBox(w, 0.07, 0.09, 0, y0 + h - 0.07, 0),            // القضيب العلوي
+    plainBox(0.07, h, 0.07, -w / 2 + 0.04, y0, 0),
+    plainBox(0.07, h, 0.07, w / 2 - 0.04, y0, 0),
+  ];
   const g = BGU.mergeGeometries(parts, false);
   parts.forEach((p) => p.dispose());
   g.rotateY(rotY);

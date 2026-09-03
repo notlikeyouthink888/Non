@@ -104,29 +104,29 @@ export default {
     // شبكة وسط المدينة الكثيفة (تدور قليلًا لكسر الانتظام)
     const rot = 0.13, cs = Math.cos(rot), sn = Math.sin(rot);
     const R = (x, z) => ({ x: x * cs - z * sn, z: x * sn + z * cs });
-    const D = 88;
-    for (let i = -8; i <= 8; i++) {
-      const a = R(-8 * D, i * D), b = R(8 * D, i * D);
+    const D = 74;
+    for (let i = -11; i <= 11; i++) {
+      const a = R(-11 * D, i * D), b = R(11 * D, i * D);
       this._addLine(a, b, i % 4 === 0 ? 2 : 1, 40);
     }
-    for (let i = -8; i <= 8; i++) {
-      const a = R(i * D, -8 * D), b = R(i * D, 8 * D);
+    for (let i = -11; i <= 11; i++) {
+      const a = R(i * D, -11 * D), b = R(i * D, 11 * D);
       this._addLine(a, b, i % 4 === 0 ? 2 : 1, 40);
     }
 
     // ضواحٍ منحنية شرق وشمال
-    for (let k = 0; k < 8; k++) {
-      const r = 800 + k * 74;
+    for (let k = 0; k < 10; k++) {
+      const r = 880 + k * 62;
       this._addCurve((t) => {
         const a = lerp(-0.75, 1.55, t);
         return { x: Math.cos(a) * r + 60, z: Math.sin(a) * r + 40 + Math.sin(t * 5) * 22 };
       }, 1, 60);
     }
-    for (let k = 0; k < 12; k++) {
-      const a = lerp(-0.7, 1.5, k / 11);
+    for (let k = 0; k < 18; k++) {
+      const a = lerp(-0.75, 1.55, k / 17);
       this._addCurve((t) => ({
-        x: Math.cos(a) * lerp(740, 1180, t) + 60 + Math.sin(t * 4 + k) * 20,
-        z: Math.sin(a) * lerp(740, 1180, t) + 40,
+        x: Math.cos(a) * lerp(820, 1440, t) + 60 + Math.sin(t * 4 + k) * 20,
+        z: Math.sin(a) * lerp(820, 1440, t) + 40,
       }), 0, 40);
     }
 

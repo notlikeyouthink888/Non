@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import * as BGU from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-function leafCards(rng, { count = 7, r = 3.0, yBase = 3.4, yTop = 6.6, tilt = 0.5 }) {
+function leafCards(rng, { count = 5, r = 3.0, yBase = 3.4, yTop = 6.6, tilt = 0.5 }) {
   const parts = [];
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2 + rng.range(-0.3, 0.3);
@@ -15,10 +15,11 @@ function leafCards(rng, { count = 7, r = 3.0, yBase = 3.4, yTop = 6.6, tilt = 0.
     g.translate(Math.cos(a) * rr * 0.32, y, Math.sin(a) * rr * 0.32);
     parts.push(g);
   }
-  // بطاقة أفقية علوية لملء الفراغ من الأعلى
-  const top = new THREE.PlaneGeometry(r * 2.4, r * 2.4);
-  top.rotateX(-Math.PI / 2);
-  top.translate(0, yTop * 0.96, 0);
+  // بطاقة علوية مائلة لملء الفراغ من الأعلى (تفادي شكل «البروكلي» المسطّح)
+  const top = new THREE.PlaneGeometry(r * 2.1, r * 2.1);
+  top.rotateX(-Math.PI / 2 + rng.range(-0.22, 0.22));
+  top.rotateZ(rng.range(-0.18, 0.18));
+  top.translate(rng.range(-0.3, 0.3), yTop * 0.92, rng.range(-0.3, 0.3));
   parts.push(top);
   const g = BGU.mergeGeometries(parts, false);
   parts.forEach((p) => p.dispose());
@@ -26,7 +27,7 @@ function leafCards(rng, { count = 7, r = 3.0, yBase = 3.4, yTop = 6.6, tilt = 0.
 }
 
 function trunk(rng, { h = 4.2, r0 = 0.26, r1 = 0.16, bend = 0.1 }) {
-  const g = new THREE.CylinderGeometry(r1, r0, h, 7, 2, false);
+  const g = new THREE.CylinderGeometry(r1, r0, h, 6, 1, false);
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i) + h / 2;
@@ -35,9 +36,9 @@ function trunk(rng, { h = 4.2, r0 = 0.26, r1 = 0.16, bend = 0.1 }) {
   g.translate(0, h / 2, 0);
   // أغصان
   const parts = [g];
-  const n = Math.floor(rng.range(2, 4));
+  const n = Math.floor(rng.range(1, 3));
   for (let i = 0; i < n; i++) {
-    const b = new THREE.CylinderGeometry(0.05, 0.12, h * 0.55, 5);
+    const b = new THREE.CylinderGeometry(0.05, 0.12, h * 0.55, 4);
     const a = rng.range(0, Math.PI * 2);
     b.rotateZ(rng.range(0.5, 0.95));
     b.rotateY(a);
@@ -55,12 +56,12 @@ export function makeTree(kind, rng) {
     const h = rng.range(7, 13);
     const t = trunk(rng, { h: h * 0.55, r0: 0.28, r1: 0.14, bend: 0.03 });
     const parts = [];
-    const layers = 5;
+    const layers = 4;
     for (let i = 0; i < layers; i++) {
       const f = i / (layers - 1);
       const rr = (1 - f) * rng.range(1.5, 2.3) + 0.35;
       const y = h * 0.28 + f * h * 0.66;
-      const c = new THREE.ConeGeometry(rr, h * 0.30, 8, 1, true);
+      const c = new THREE.ConeGeometry(rr, h * 0.32, 7, 1, true);
       c.translate(0, y, 0);
       parts.push(c);
     }
@@ -93,7 +94,7 @@ export function makeTree(kind, rng) {
   const h = rng.range(6.5, 12);
   const t = trunk(rng, { h: h * 0.5, r0: rng.range(0.24, 0.36), r1: 0.16, bend: 0.18 });
   const leaf = leafCards(rng, {
-    count: rng.int(6, 9), r: h * rng.range(0.26, 0.34),
+    count: rng.int(4, 6), r: h * rng.range(0.28, 0.36),
     yBase: h * 0.42, yTop: h * 0.86, tilt: 0.55,
   });
   return { trunkGeo: t, leafGeo: leaf, height: h };

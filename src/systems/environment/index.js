@@ -9,9 +9,9 @@ import { clamp, lerp, smoothstep } from '../../core/math.js';
 const DAY = {
   //                    sun color            intensity  ambient sky      ambient ground  fogDensity  exposure
   night:   { sun: 0x9fb6d8, i: 0.16, skyC: 0x223047, gndC: 0x0c1016, fog: 0.00030, exp: 1.10 },
-  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00062, exp: 0.90 },
-  day:     { sun: 0xfff4e2, i: 2.55, skyC: 0x9fc4ef, gndC: 0x5c5a4e, fog: 0.00020, exp: 0.72 },
-  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00070, exp: 0.92 },
+  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00030, exp: 0.86 },
+  day:     { sun: 0xfff2dc, i: 2.70, skyC: 0x9dbfe8, gndC: 0x605c48, fog: 0.00017, exp: 0.82 },
+  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00034, exp: 0.88 },
 };
 
 export default {
@@ -32,8 +32,8 @@ export default {
     this.sun.shadow.mapSize.set(sm, sm);
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 2200;
-    this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.9;
+    this.sun.shadow.bias = -0.00025;
+    this.sun.shadow.normalBias = 0.05;
     this.sun.shadow.blurSamples = 12;
     this.sunTarget = new THREE.Object3D();
     scene.add(this.sun, this.sunTarget);
@@ -127,14 +127,14 @@ export default {
     const gndC = mixC(DAY.night.gndC, twi.gndC, clamp(twiW * 1.8, 0, 1)).lerp(new THREE.Color(DAY.day.gndC), dayW);
     this.hemi.color.copy(skyC);
     this.hemi.groundColor.copy(gndC);
-    this.hemi.intensity = lerp(0.12, 0.42, dayW) + twiW * 0.14;
+    this.hemi.intensity = lerp(0.22, 0.62, dayW) + twiW * 0.16;
 
     this.fill.color.copy(skyC);
-    this.fill.intensity = lerp(0.05, 0.16, dayW);
+    this.fill.intensity = lerp(0.05, 0.22, dayW);
     this.fill.position.set(-sunDir.x, Math.max(0.45, sunDir.y * 0.4 + 0.5), -sunDir.z).multiplyScalar(800);
 
     // الضباب = لون الأفق (عمق جوي)
-    const horizon = skyC.clone().lerp(new THREE.Color(0xffffff), dayW * 0.30);
+    const horizon = skyC.clone().lerp(new THREE.Color(0xffffff), dayW * 0.14);
     if (twiW > 0.15) horizon.lerp(new THREE.Color(rising ? 0xffb98a : 0xff9c63), twiW * 0.5);
     if (nightW > 0.5) horizon.lerp(new THREE.Color(0x131b28), nightW * 0.8);
     this.fogColor = horizon;
@@ -188,7 +188,7 @@ export default {
     const prev = this._envTarget;
     this._envTarget = this.pmrem.fromScene(this.envScene, 0, 1, 1200);
     ctx.scene.environment = this._envTarget.texture;
-    ctx.scene.environmentIntensity = lerp(0.30, 0.62, 1 - this.night);
+    ctx.scene.environmentIntensity = lerp(0.45, 0.72, 1 - this.night);
     prev?.dispose();
     this._lastEnvHour = ctx.time.hour;
     this._envDirty = false;
