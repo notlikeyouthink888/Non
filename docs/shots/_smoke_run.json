@@ -1,0 +1,58 @@
+{
+  "ok": true,
+  "error": null,
+  "consoleErrors": [],
+  "results": [
+    {
+      "out": "docs/shots/_smoke.png",
+      "label": "",
+      "fps": 2,
+      "frameMs": 507.5,
+      "drawCalls": 499,
+      "triangles": 2226917,
+      "programs": 62,
+      "errors": 0
+    }
+  ],
+  "modules": {
+    "terrain": "ready",
+    "environment": "ready",
+    "roads": "ready",
+    "zoning": "ready",
+    "buildings": "ready",
+    "props": "ready",
+    "traffic": "ready",
+    "effects": "ready",
+    "simulation": "ready",
+    "tools": "ready",
+    "ui": "ready",
+    "audio": "ready",
+    "democity": "ready"
+  },
+  "pageLogs": [
+    "[boot] تهيئة الوحدات",
+    "[boot] تهيئة: terrain",
+    "[terrain] gen=181ms bake=1096ms mesh=164ms chunks=64 segs=56",
+    "[boot] تهيئة: environment",
+    "[boot] تهيئة: roads",
+    "[boot] تهيئة: zoning",
+    "[boot] تهيئة: buildings",
+    "[buildings] 40 prototypes",
+    "[boot] تهيئة: props",
+    "[boot] تهيئة: traffic",
+    "[boot] تهيئة: effects",
+    "[boot] تهيئة: simulation",
+    "[boot] تهيئة: tools",
+    "[boot] تهيئة: ui",
+    "[boot] تهيئة: audio",
+    "[boot] تهيئة: democity",
+    "[roads] rebuild 464 edges, 337 nodes in 73ms, 8 meshes",
+    "[zoning] 363 lots in 92ms",
+    "[buildings] 347 buildings / 35 instanced meshes in 3ms",
+    "[props] 2136 trees + furniture in 29ms (41 meshes)",
+    "[traffic] 280 vehicles across 9 batches",
+    "[democity] built in 388ms {\"roads\":70,\"rebuild\":170,\"zoning\":111,\"buildings\":5,\"props\":30,\"traffic\":3}",
+    "[app] ready in 8158ms — quality=high showcase=-"
+  ],
+  "elapsedS": 136.8
+}

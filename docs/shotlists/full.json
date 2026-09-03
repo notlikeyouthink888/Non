@@ -1,0 +1,12 @@
+[
+  { "out": "docs/shots/city_overview_day.png",   "preset": "overview",   "time": 14.0, "label": "منظر عام — نهار" },
+  { "out": "docs/shots/city_downtown_day.png",   "preset": "downtown",   "time": 11.5, "label": "وسط المدينة — صباح" },
+  { "out": "docs/shots/city_street_day.png",     "preset": "street",     "time": 9.5,  "label": "مستوى الشارع — نهار" },
+  { "out": "docs/shots/city_golden.png",         "preset": "skyline",    "time": 18.2, "label": "أفق المدينة — الساعة الذهبية" },
+  { "out": "docs/shots/city_downtown_night.png", "preset": "downtown",   "time": 21.5, "label": "وسط المدينة — ليل" },
+  { "out": "docs/shots/city_street_night.png",   "preset": "street",     "time": 22.0, "label": "مستوى الشارع — ليل" },
+  { "out": "docs/shots/city_aerial_day.png",     "preset": "aerial",     "time": 13.0, "label": "منظر جوي" },
+  { "out": "docs/shots/city_waterfront.png",     "preset": "waterfront", "time": 16.5, "label": "الواجهة البحرية" },
+  { "out": "docs/shots/city_suburb.png",         "preset": "suburb",     "time": 8.0,  "label": "الضاحية — صباح" },
+  { "out": "docs/shots/city_dawn.png",           "preset": "overview",   "time": 6.2,  "label": "الفجر" }
+]

@@ -1,0 +1,25 @@
+{
+  "name": "madinati",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Madinati - a Cities: Skylines II inspired city builder in Three.js, packaged for Android",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "shot": "node tools/shoot.mjs",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:apk": "bash tools/build-apk.sh"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "playwright-core": "^1.56.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
+  }
+}
