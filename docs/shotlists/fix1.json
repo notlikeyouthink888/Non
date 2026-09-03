@@ -1,0 +1,5 @@
+[
+  { "out": "docs/shots/final_suburb.png",     "preset": "suburb",     "time": 8.5,  "label": "الضاحية" },
+  { "out": "docs/shots/final_industrial.png", "preset": "industrial", "time": 14.5, "label": "المنطقة الصناعية" },
+  { "out": "docs/shots/final_street_noon.png","preset": "street",     "time": 12.0, "label": "الشارع — ظهرًا" }
+]

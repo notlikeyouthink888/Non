@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "error": null,
+  "consoleErrors": [],
+  "results": [
+    {
+      "out": "docs/shots/showcase_terrain.png",
+      "label": "",
+      "fps": 3.6,
+      "frameMs": 278.83,
+      "drawCalls": 46,
+      "triangles": 159450,
+      "programs": 19,
+      "errors": 0
+    }
+  ],
+  "modules": {
+    "terrain": "ready",
+    "environment": "ready",
+    "effects": "ready",
+    "ui": "ready"
+  },
+  "pageLogs": [
+    "[boot] تهيئة الوحدات",
+    "[boot] تهيئة: terrain",
+    "[terrain] gen=210ms bake=1662ms mesh=138ms chunks=64 segs=44",
+    "[boot] تهيئة: environment",
+    "[boot] تهيئة: effects",
+    "[boot] تهيئة: ui",
+    "[app] ready in 2906ms — quality=high showcase=terrain"
+  ],
+  "elapsedS": 306.4
+}

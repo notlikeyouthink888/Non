@@ -296,7 +296,7 @@ export default {
       const fx = Math.sin(lot.rot), fz = Math.cos(lot.rot);
       const dw = lot.zone === ZONE.INDUSTRIAL ? 7 : lot.zone === ZONE.RESIDENTIAL ? 3.2 : 5;
       const len = 4.5;
-      drive.push(quad(lot.cx + fx * (pd / 2 + len / 2 - 0.4), lot.cz + fz * (pd / 2 + len / 2 - 0.4), dw, len, lot.rot, 0.12, 0.3, 3));
+      if (false) drive.push(quad(lot.cx + fx * (pd / 2 + len / 2 - 0.4), lot.cz + fz * (pd / 2 + len / 2 - 0.4), dw, len, lot.rot, 0.12, 0.3, 3));   // معطّل مؤقتًا
     }
 
     const add = (list, mat, name) => {
@@ -315,7 +315,7 @@ export default {
   },
 
   _setNight(night) {
-    const on = smoothstep(0.20, 0.68, night ?? 0);
+    const on = smoothstep(0.34, 0.78, night ?? 0);
     for (const m of this.facadeMats || []) m.emissiveIntensity = on * 1.15;
     for (const m of this.glassMats || []) m.emissiveIntensity = on * 1.15;
     if (this.shopGlass) this.shopGlass.emissiveIntensity = on * 0.30;

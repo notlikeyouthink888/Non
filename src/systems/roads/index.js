@@ -53,7 +53,7 @@ export default {
     this.crossTex = crosswalkTexture(world.seed);
     this.crossMat = new THREE.MeshStandardMaterial({
       map: this.crossTex, transparent: true, roughness: 0.75, metalness: 0,
-      polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6, depthWrite: false,
+      polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false,
     });
 
     this._buildLampAssets();
@@ -197,7 +197,7 @@ export default {
     const dense = resample(smoothPolyline(points, 6), SAMPLE);
     for (const p of dense) p.y = this._terrainY(p.x, p.z);
     smoothHeights(dense, 3);
-    limitGrade(dense, 0.11);
+    limitGrade(dense, 0.145);
 
     // 1) اجمع التقاطعات مع الحواف الموجودة
     const hits = [];
@@ -254,12 +254,16 @@ export default {
       const e = this.edges.get(id);
       if (!e) continue;
       const halfW = e.width / 2 + e.sidewalk + 1.2;
-      for (let i = 0; i < e.path.length; i += 2) {
-        const p = e.path[i];
-        terrain.api.flatten(p.x, p.z, halfW, halfW, p.y, 9);
-      }
-      const last = e.path[e.path.length - 1];
-      terrain.api.flatten(last.x, last.z, halfW, halfW, last.y, 9);
+      const T = this.ctx.world.terrain;
+      // التدرّج (feather) يتناسب مع فرق الارتفاع بين مستوى الطريق والأرض الأصلية،
+      // فينتج سدّ ترابي أو حفرية بدل «طريق طائر» فوق التلال (كان أوضح عيب في الضواحي).
+      const step = (p) => {
+        const dh = Math.abs(p.y - T.sampleHeight(p.x, p.z));
+        const feather = clamp(8 + dh * 3.2, 10, 72);
+        terrain.api.flatten(p.x, p.z, halfW, halfW, p.y, feather);
+      };
+      for (let i = 0; i < e.path.length; i += 2) step(e.path[i]);
+      step(e.path[e.path.length - 1]);
     }
   },
 
@@ -358,11 +362,17 @@ export default {
 
     // التقاطعات
     for (const n of this.nodes.values()) {
-      const r = nodeRadius.get(n.id);
+      let r = nodeRadius.get(n.id);
+      if (n.edges.size === 1) {
+        // نهاية مسدودة: غطاء صغير يمنع الحافة الخام
+        const e = this.edges.get([...n.edges][0]);
+        if (e) plain.push(disc(n.x, this._terrainY(n.x, n.z) + 0.055, n.z, e.width * 0.55, 14, 0.06));
+        continue;
+      }
       if (!r || n.edges.size < 2) continue;
       const y = this._terrainY(n.x, n.z) + 0.055;
       plain.push(disc(n.x, y, n.z, r * 1.06, 18, 0.06));
-      if (n.edges.size >= 3) {
+      if (false && n.edges.size >= 3) {   // معطّل: انظر docs/STATUS.json المشكلة #9
         for (const eid of n.edges) {
           const e = this.edges.get(eid);
           if (!e || e.width < 10) continue;
@@ -371,8 +381,9 @@ export default {
           const p1 = atA ? e.path[Math.min(3, e.path.length - 1)] : e.path[Math.max(0, e.path.length - 4)];
           let dx = p1.x - p0.x, dz = p1.z - p0.z;
           const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
-          const cx = n.x + dx * (r + 2.0), cz = n.z + dz * (r + 2.0);
-          cross.push(quadOriented(cx, this._terrainY(cx, cz) + 0.085, cz, dx, dz, 3.2, e.width * 0.96));
+          // داخل قرص التقاطع تمامًا (كانت تُوضع خارجه فتظهر ألواحًا بيضاء طافية على العشب)
+          const cx = n.x + dx * (r * 0.74), cz = n.z + dz * (r * 0.74);
+          cross.push(quadOriented(cx, this._terrainY(cx, cz) + 0.10, cz, dx, dz, Math.min(3.0, r * 0.5), e.width * 0.82));
         }
       }
     }

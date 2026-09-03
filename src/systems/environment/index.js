@@ -9,9 +9,9 @@ import { clamp, lerp, smoothstep } from '../../core/math.js';
 const DAY = {
   //                    sun color            intensity  ambient sky      ambient ground  fogDensity  exposure
   night:   { sun: 0x9fb6d8, i: 0.16, skyC: 0x223047, gndC: 0x0c1016, fog: 0.00030, exp: 1.10 },
-  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00017, exp: 0.68 },
+  dawn:    { sun: 0xffb271, i: 1.35, skyC: 0x6b83a8, gndC: 0x3a3128, fog: 0.00017, exp: 0.88 },
   day:     { sun: 0xfff0d2, i: 2.85, skyC: 0xb7cade, gndC: 0x6a6450, fog: 0.00016, exp: 0.92 },
-  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00019, exp: 0.66 },
+  dusk:    { sun: 0xff9448, i: 1.20, skyC: 0x76708f, gndC: 0x372e2b, fog: 0.00019, exp: 0.86 },
 };
 
 export default {

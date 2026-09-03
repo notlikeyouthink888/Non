@@ -36,10 +36,11 @@ export function generateHeightfield(world, seed) {
       const plateau = smoothstep(-30, 200, land) * 21 + smoothstep(-70, 70, land) * 7.5;
 
       // تلال متوسطة تبتعد عن الساحل
-      const hills = (base.fbm(px * 1.9, pz * 1.9, 5) * 0.5 + 0.5) * smoothstep(120, 900, land) * 74;
+      // تلال أهدأ داخل النطاق الحضري (كانت 74م فتفكّكت الطرق عليها)
+      const hills = (base.fbm(px * 1.6, pz * 1.6, 5) * 0.5 + 0.5) * smoothstep(260, 1150, land) * 46;
 
       // جبال في الشمال الغربي
-      const mtnMask = smoothstep(560, 1250, land);
+      const mtnMask = smoothstep(720, 1400, land);
       const mtn = ridge.ridged(px * 1.35, pz * 1.35, 6) * mtnMask * 240;
 
       // قاع البحر
@@ -54,7 +55,7 @@ export function generateHeightfield(world, seed) {
       let hh = plateau + hills + mtn + Math.min(0, seaDepth) + river;
 
       // تفاصيل دقيقة
-      hh += detail.fbm(px * 9.5, pz * 9.5, 4) * lerp(1.2, 9.0, smoothstep(0, 200, Math.abs(hh)));
+      hh += detail.fbm(px * 9.5, pz * 9.5, 4) * lerp(0.8, 7.0, smoothstep(0, 220, Math.abs(hh)));
 
       // شاطئ لطيف حول منسوب الماء (تنعيم خفيف فقط حتى لا يُلغي الضفة)
       const beach = smoothstep(7, 0, Math.abs(hh));
@@ -69,7 +70,7 @@ export function generateHeightfield(world, seed) {
   }
 
   // تنعيم خفيف مرّتين لإزالة الحدة العالية التردد
-  smooth(h, hdim, 1);
+  smooth(h, hdim, 2);
   world.terrain.ready = true;
   return h;
 }

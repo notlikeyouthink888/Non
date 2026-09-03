@@ -1,0 +1,8 @@
+[
+  { "out": "docs/shots/final_industrial.png",    "preset": "industrial", "time": 14.5, "label": "المنطقة الصناعية" },
+  { "out": "docs/shots/final_suburb.png",        "preset": "suburb",     "time": 8.5,  "label": "الضاحية" },
+  { "out": "docs/shots/final_skyline_golden.png","preset": "skyline",    "time": 18.75,"label": "أفق المدينة — الساعة الذهبية" },
+  { "out": "docs/shots/final_dawn.png",          "preset": "overview",   "time": 5.85, "label": "الفجر" },
+  { "out": "docs/shots/final_overview_day.png",  "preset": "overview",   "time": 13.5, "label": "منظر عام — نهار" },
+  { "out": "docs/shots/final_closeup.png",       "preset": "closeup",    "time": 9.5,  "label": "حي سكني قريب" }
+]

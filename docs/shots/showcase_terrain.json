@@ -1,0 +1,96 @@
+{
+  "ok": true,
+  "shot": "/home/user/Non/docs/shots/showcase_terrain.png",
+  "requested": {
+    "out": "/home/user/Non/docs/shots/showcase_terrain.png",
+    "preset": "waterfront",
+    "time": 9.5,
+    "cam": null,
+    "settle": 1500,
+    "label": ""
+  },
+  "viewport": {
+    "w": 800,
+    "h": 450
+  },
+  "consoleErrors": [],
+  "stats": {
+    "ready": true,
+    "quality": "high",
+    "seed": 20260903,
+    "showcase": "terrain",
+    "fps": 3.6,
+    "frameMs": 278.83,
+    "frameMsP95": 1064.5,
+    "drawCalls": 46,
+    "triangles": 159450,
+    "programs": 19,
+    "geometries": 40,
+    "textures": 28,
+    "textureMB": 8,
+    "initMs": 2906,
+    "timeOfDay": 9.5,
+    "camera": {
+      "x": -30,
+      "z": 30,
+      "dist": 320,
+      "yaw": 0.6,
+      "pitch": 0.26,
+      "fov": 44
+    },
+    "modules": {
+      "terrain": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 2551,
+        "stats": {
+          "chunks": 64,
+          "timings": {
+            "gen": 210,
+            "bake": 1662,
+            "mesh": 138
+          }
+        }
+      },
+      "environment": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 6,
+        "stats": {
+          "night": 0,
+          "sunY": 0.798,
+          "exposure": 0.92
+        }
+      },
+      "effects": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 5,
+        "stats": {
+          "passes": 5,
+          "enabled": true
+        }
+      },
+      "ui": {
+        "state": "ready",
+        "errors": [],
+        "initMs": 3,
+        "stats": {
+          "visible": true
+        }
+      }
+    },
+    "consoleErrors": [],
+    "gl": {
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "maxTexture": 8192
+    },
+    "population": 0,
+    "buildings": 0,
+    "roads": 0,
+    "cars": 0
+  },
+  "note": "fps مقاسة على SwiftShader (رسم برمجي) — غير ممثلة للعتاد. اعتمد drawCalls/triangles.",
+  "at": "2026-09-03T19:39:48.387Z"
+}
