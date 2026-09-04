@@ -66,7 +66,16 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       </div>`;
     optC.onclick = () => stepOpenRouter();
 
-    body.append(optA, optB, optC);
+    const optD = el('button', 'setup-opt');
+    optD.innerHTML = `
+      <div class="oi">📱</div>
+      <div class="ot">
+        <b>على الموبايل نفسه — بلا إنترنت نهائياً</b>
+        <span>النموذج ينزل داخل جهازك ويشتغل بدون شبكة. يحتاج جهاز قوي (8 جيجا رام فأكثر) و3–5 جيجا مساحة، والرد أبطأ.</span>
+      </div>`;
+    optD.onclick = () => stepOnDevice();
+
+    body.append(optA, optB, optC, optD);
 
     if (canSkip) {
       const skip = el('button', 'setup-skip', 'أعرف شنو أسوي — افتح الإعدادات');
@@ -197,6 +206,59 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       draft.apiKey = inp.value.trim();
       if (!draft.apiKey) throw new Error('الصق المفتاح أولاً.');
       if (!draft.model) throw new Error('اختر نموذجاً.');
+      return draft;
+    }));
+  }
+
+  /* ---------- مسار التشغيل على الموبايل نفسه ---------- */
+  function stepOnDevice() {
+    draft.preset = 'custom';
+    draft.apiKey = '';
+    body.innerHTML = '';
+    body.appendChild(back(step1));
+    body.appendChild(el('h2', null, 'النموذج داخل موبايلك'));
+
+    const lead = el('p', 'setup-lead');
+    lead.textContent = 'تشغّل خادماً صغيراً داخل الجهاز عبر Termux، وهذا التطبيق يتصل به محلياً. بعد التنزيل ما يحتاج إنترنت إطلاقاً.';
+    body.appendChild(lead);
+
+    const steps = el('ol', 'setup-steps');
+    [
+      'نصّب <b>Termux</b> من <b>F-Droid</b> (نسخة جوجل بلاي قديمة ومعطّلة).',
+      'بداخل Termux نفّذ:<br><code dir="ltr">pkg update && pkg install -y git cmake clang</code>',
+      'ابنِ llama.cpp:<br><code dir="ltr">git clone https://github.com/ggml-org/llama.cpp</code><br><code dir="ltr">cd llama.cpp && cmake -B build && cmake --build build -j4</code>',
+      'نزّل نموذجاً (اختر حسب رامك — انظر الجدول تحت):<br><code dir="ltr">curl -L -o m.gguf "رابط_الملف"</code>',
+      'شغّل الخادم:<br><code dir="ltr">./build/bin/llama-server -m m.gguf --port 8080 -c 4096</code>',
+      '<b>خلّي Termux شغّالاً بالخلفية</b> وارجع هنا واضغط «اختبر واحفظ».',
+    ].forEach((h) => { const li = el('li'); li.innerHTML = h; steps.appendChild(li); });
+    body.appendChild(steps);
+
+    const tbl = el('div', 'setup-table');
+    tbl.innerHTML = `
+      <div class="st-row st-head"><span>النموذج</span><span>الحجم</span><span>رام الجهاز</span></div>
+      <div class="st-row"><span>Llama-3.2-1B Q4</span><span>0.8 جيجا</span><span>4+ جيجا</span></div>
+      <div class="st-row"><span>Llama-3.2-3B Q4</span><span>2.0 جيجا</span><span>6+ جيجا</span></div>
+      <div class="st-row hi"><span>Aion-RP-8B Q3_K_S</span><span>3.7 جيجا</span><span>8+ جيجا</span></div>
+      <div class="st-row hi"><span>Aion-RP-8B Q4_K</span><span>4.9 جيجا</span><span>12+ جيجا</span></div>`;
+    body.appendChild(tbl);
+
+    const note = el('div', 'setup-status');
+    note.textContent = 'Aion-RP-Llama-3.1-8B من نفس مختبر aion، متخصّص بتقمّص الشخصيات ومنشور كملفات GGUF. النموذجان aion-2.0 و aion-3.0 غير منشورين كأوزان ولا يمكن تشغيلهما محلياً.';
+    body.appendChild(note);
+
+    const open = el('button', 'setup-link', '↗ صفحة ملفات Aion-RP-8B على Hugging Face');
+    open.onclick = () => window.open('https://huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/tree/main', '_blank');
+    body.appendChild(open);
+
+    body.appendChild(el('div', 'setup-iplbl', 'منفذ الخادم المحلي'));
+    const port = el('input');
+    port.type = 'text'; port.dir = 'ltr'; port.value = '8080'; port.className = 'setup-input';
+    body.appendChild(port);
+
+    body.appendChild(testRow(() => {
+      const pt = (port.value.trim() || '8080').replace(/\D/g, '');
+      draft.baseUrl = `http://127.0.0.1:${pt}/v1`;
+      draft.model = 'local';
       return draft;
     }));
   }

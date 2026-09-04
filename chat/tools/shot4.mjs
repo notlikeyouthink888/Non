@@ -1,0 +1,22 @@
+import { chromium } from 'playwright-core';
+const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox','--disable-dev-shm-usage']});
+const errs=[];
+const p = await b.newPage({ viewport:{width:412,height:960}, deviceScaleFactor:2, isMobile:true, hasTouch:true });
+p.on('console',m=>{if(m.type()==='error')errs.push(m.text().slice(0,150));});
+p.on('pageerror',e=>errs.push('PE '+e.message));
+await p.goto('http://127.0.0.1:4180/', { waitUntil:'networkidle' });
+await p.waitForSelector('.setup');
+const n = await p.evaluate(()=>document.querySelectorAll('.setup-opt').length);
+console.log('options:', n);
+await p.screenshot({ path:'shots/s5_choices4.png', fullPage:true });
+await p.locator('.setup-opt').nth(3).click();
+await p.waitForSelector('.setup-table');
+await new Promise(r=>setTimeout(r,500));
+await p.screenshot({ path:'shots/s6_ondevice.png', fullPage:true });
+// اختبار: يبني رابط localhost الصحيح ويفشل بلا خادم (متوقّع)
+await p.click('.setup-go');
+await p.waitForSelector('.setup-status.err', { timeout: 15000 });
+const err = await p.evaluate(()=>document.querySelector('.setup-status.err')?.textContent.slice(0,70));
+console.log('expectedFail:', err);
+console.log('ERRORS:', errs.length? JSON.stringify(errs,null,1):'none');
+await b.close();

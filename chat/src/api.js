@@ -31,15 +31,26 @@ function headers(apiKey) {
 
 /** يشرح أخطاء الشبكة الشائعة بالعربية بدل رسالة "Failed to fetch" الغامضة */
 function explainNetworkError(err, baseUrl) {
-  const isHttp = /^http:\/\//i.test(baseUrl || '');
-  const isLocal = /(localhost|127\.0\.0\.1)/i.test(baseUrl || '');
-  let msg = 'تعذّر الاتصال بالخادم.';
+  const url = baseUrl || '';
+  const isLocal = /(localhost|127\.0\.0\.1)/i.test(url);
+  const isLan = /:\/\/(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(url);
   const tips = [];
-  if (isLocal) tips.push('كتبت "localhost" — على الموبايل هذا يعني الموبايل نفسه. استخدم آيبي الكمبيوتر في الشبكة (مثل 192.168.1.x).');
-  if (isHttp) tips.push('تأكد أن الجهازين على نفس شبكة الواي فاي.');
-  tips.push('تأكد أن الخادم يستمع على كل الواجهات لا على 127.0.0.1 فقط (في Ollama: OLLAMA_HOST=0.0.0.0).');
-  tips.push('تأكد أن جدار الحماية على الكمبيوتر يسمح بالمنفذ.');
-  return new ApiError(msg + '\n\n' + tips.map((t) => '• ' + t).join('\n'), { body: String(err?.message || err) });
+
+  if (isLocal) {
+    // localhost على الهاتف = الهاتف نفسه. هذا صحيح لخادم داخل الجهاز (Termux)،
+    // وخطأ إن كان المقصود كمبيوتراً على الشبكة. نذكر الحالتين بدل افتراض واحدة.
+    tips.push('إذا كان الخادم داخل هاتفك (Termux): تأكد أنه ما زال شغّالاً ولم يُغلق بالخلفية، وأن رقم المنفذ مطابق.');
+    tips.push('إذا كنت تقصد كمبيوترك: "localhost" يعني الهاتف نفسه — استبدله بآيبي الكمبيوتر في الشبكة (مثل 192.168.1.7).');
+  } else if (isLan) {
+    tips.push('تأكد أن الهاتف والكمبيوتر على نفس شبكة الواي فاي.');
+    tips.push('تأكد أن الخادم يستمع على كل الواجهات لا على 127.0.0.1 فقط (في Ollama: OLLAMA_HOST=0.0.0.0).');
+    tips.push('تأكد أن جدار الحماية على الكمبيوتر يسمح بالمنفذ.');
+    tips.push('تأكد أن الآيبي ما زال صحيحاً — الراوتر أحياناً يغيّره.');
+  } else {
+    tips.push('تأكد من اتصالك بالإنترنت.');
+    tips.push('تأكد أن نقطة النهاية مكتوبة صحيحة وتنتهي بـ /v1');
+  }
+  return new ApiError('تعذّر الاتصال بالخادم.\n\n' + tips.map((t) => '• ' + t).join('\n'), { body: String(err?.message || err) });
 }
 
 /**
