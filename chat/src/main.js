@@ -294,6 +294,33 @@ async function send() {
   btn.textContent = '■'; btn.classList.add('stop');
   controller = new AbortController();
 
+  // النماذج المحلية على الهاتف قد تكون بطيئة جداً (شوهد 0.38 وحدة/ثانية).
+  // بلا مؤشّر حيّ يظنّ المستخدم أن التطبيق معلّق فيبدّل التطبيق،
+  // فتُعلّق أندرويد شبكة الـWebView ويُلغى الطلب من طرف الخادم.
+  const t0 = Date.now();
+  let nTok = 0, sawFirst = false;
+  const prog = el('div', 'prog');
+  botNode.appendChild(prog);
+  const fmtT = (ms) => { const s2 = Math.floor(ms / 1000); return s2 < 60 ? s2 + ' ث' : Math.floor(s2 / 60) + ':' + String(s2 % 60).padStart(2, '0'); };
+  const tick = () => {
+    const ms = Date.now() - t0;
+    const rate = nTok > 0 ? (nTok / (ms / 1000)) : 0;
+    prog.textContent = sawFirst
+      ? `${fmtT(ms)} • ${nTok} وحدة • ${rate.toFixed(1)}/ث`
+      : `${fmtT(ms)} • النموذج يعالج طلبك…`;
+  };
+  tick();
+  const progTimer = setInterval(tick, 1000);
+
+  // إبقاء الشاشة مضاءة أثناء التوليد يمنع تعليق أندرويد للطلب
+  let wake = null;
+  try { wake = await navigator.wakeLock?.request('screen'); } catch {}
+
+  // إن غادر المستخدم التطبيق أثناء التوليد نسجّل ذلك لتفسير الإلغاء
+  let wentBackground = false;
+  const onVis = () => { if (document.hidden) wentBackground = true; };
+  document.addEventListener('visibilitychange', onVis);
+
   // سياق محدود العدد + تعليمات النظام
   const ctx = msgs.slice(-Math.max(2, settings.keepContext));
   const payload = settings.systemPrompt?.trim()
@@ -306,14 +333,24 @@ async function send() {
       messages: payload,
       settings,
       signal: controller.signal,
-      onToken: (_d, f) => {
+      onToken: (d, f) => {
+        sawFirst = true;
+        nTok += Math.max(1, Math.ceil((d || '').length / 4));
         renderContent(botNode._body, f);
         botNode._body.appendChild(el('span', 'cursor'));
+        tick();
         scrollDown();
       },
     });
     renderContent(botNode._body, full || '(رد فارغ)');
     setDot(true);
+    const secs = (Date.now() - t0) / 1000;
+    const rate = nTok / Math.max(secs, 0.001);
+    if (nTok > 4 && rate < 2) {
+      const w = el('div', 'slowwarn');
+      w.textContent = `بطيء: ${rate.toFixed(1)} وحدة/ثانية. جرّب نموذجاً أصغر (1B أو 3B)، أو قلّل «أقصى عدد وحدات» و«عدد الرسائل كسياق» من الإعدادات، أو شغّل الخادم بـ ‎-c 1024‎.`;
+      botNode.appendChild(w);
+    }
     const updated = [...store.getConvo(activeId).messages, { role: 'assistant', content: full }];
     store.updateConvo(activeId, { messages: updated });
     // زر النسخ يعمل على النص النهائي
@@ -323,6 +360,12 @@ async function send() {
   } catch (err) {
     botNode.remove();
     if (err?.name === 'AbortError') {
+      if (wentBackground && !full) {
+        m.appendChild(messageNode('error',
+          'انقطع الطلب لأن التطبيق راح للخلفية.\n\n'
+          + 'أندرويد يوقف شبكة التطبيق عند تبديله. مع النماذج المحلية البطيئة يستغرق الرد دقائق، '
+          + 'فابقَ داخل التطبيق حتى ينتهي — أو استعمل نموذجاً أصغر ليكون الرد أسرع.'));
+      }
       if (full) {
         const partial = messageNode('assistant', full + '\n\n[أُوقف]');
         m.appendChild(partial);
@@ -335,6 +378,10 @@ async function send() {
       m.appendChild(messageNode('error', (err.message || String(err)) + detail));
     }
   } finally {
+    clearInterval(progTimer);
+    prog.remove();
+    document.removeEventListener('visibilitychange', onVis);
+    try { await wake?.release(); } catch {}
     busy = false; controller = null;
     btn.textContent = '➤'; btn.classList.remove('stop');
     scrollDown();

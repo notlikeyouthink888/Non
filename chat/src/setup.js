@@ -300,6 +300,10 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       const pt = (port.value.trim() || '8080').replace(/\D/g, '');
       draft.baseUrl = `http://127.0.0.1:${pt}/v1`;
       draft.model = 'local';
+      // إعدادات محافِظة للتشغيل على الهاتف: ردود أقصر وسياق أقل ⇒ زمن انتظار معقول
+      draft.maxTokens = 384;
+      draft.keepContext = 6;
+      draft.temperature = 0.7;   // التوصية الرسمية لنماذج Aion
       return draft;
     }));
   }

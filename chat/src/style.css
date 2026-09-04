@@ -246,3 +246,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .st-best { color: var(--warn); }
 .st-fallback { width: 100%; background: #0a0d12; color: var(--fg); border: 1px solid var(--accent2);
   border-radius: 8px; padding: 8px; font-size: 11px; direction: ltr; margin: 6px 0; resize: none; }
+
+/* مؤشّر تقدّم التوليد + تحذير البطء */
+.prog { font-size: 11.5px; color: var(--dim); margin-top: 7px; font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; gap: 6px; }
+.prog::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  animation: pulse 1.1s ease-in-out infinite; flex-shrink: 0; }
+@keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+.slowwarn { margin-top: 9px; font-size: 12px; line-height: 1.75; color: #ffe0a3;
+  background: #241d0e; border: 1px solid #6b5520; border-radius: 9px; padding: 9px 11px; }
