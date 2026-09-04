@@ -1,0 +1,20 @@
+import { chromium } from 'playwright-core';
+import { readFileSync } from 'node:fs';
+const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--no-sandbox','--disable-dev-shm-usage']});
+const p = await b.newPage({ viewport:{width:412,height:892} });
+p.on('console',m=>console.log('CONSOLE',m.type(),m.text().slice(0,200)));
+p.on('pageerror',e=>console.log('PAGEERROR',e.message));
+await p.route('**/openrouter.ai/**', r => { console.log('ROUTED', r.request().url()); return r.fulfill({status:200,contentType:'application/json',body:readFileSync('tools/or-catalog.json','utf8')}); });
+await p.goto('http://127.0.0.1:4180/', { waitUntil:'networkidle' });
+await p.waitForSelector('.setup');
+const opts = await p.evaluate(()=>[...document.querySelectorAll('.setup-opt')].map(e=>e.textContent.slice(0,40)));
+console.log('options:', JSON.stringify(opts));
+await p.click('.setup-opt:nth-of-type(3)');
+await new Promise(r=>setTimeout(r,500));
+const links = await p.evaluate(()=>[...document.querySelectorAll('.setup-link')].map(e=>e.textContent));
+console.log('links:', JSON.stringify(links));
+if (links.length>1) { await p.locator('.setup-link').nth(1).click(); }
+await new Promise(r=>setTimeout(r,3000));
+const mp = await p.evaluate(()=>({ exists: !!document.querySelector('.mp'), rows: document.querySelectorAll('.mp-row').length, empty: document.querySelector('.mp-empty')?.textContent }));
+console.log('picker:', JSON.stringify(mp));
+await b.close();

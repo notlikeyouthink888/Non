@@ -6,6 +6,7 @@
 import { store, PRESETS, DEFAULT_SETTINGS } from './store.js';
 import { chat, listModels, ApiError } from './api.js';
 import { openSetup, setupDone, markSetupDone } from './setup.js';
+import { openModelPicker } from './models.js';
 import './style.css';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -58,7 +59,8 @@ document.getElementById('app').innerHTML = `
     <label>النموذج</label>
     <div class="row">
       <input type="text" id="sModel" dir="ltr" placeholder="llama3.1:8b">
-      <button class="iconbtn fit" id="btnModels" title="جلب النماذج من الخادم">⟳</button>
+      <button class="iconbtn fit" id="btnBrowse" title="تصفّح نماذج OpenRouter">⌕</button>
+      <button class="iconbtn fit" id="btnModels" title="جلب النماذج من الخادم الحالي">⟳</button>
     </div>
     <select id="sModelList" style="margin-top:8px;display:none"></select>
 
@@ -399,6 +401,19 @@ $('#testConn').onclick = async () => {
     setDot(false);
   }
 };
+
+$('#btnBrowse').onclick = () => openModelPicker({
+  current: $('#sModel').value.trim(),
+  onPick: (id) => {
+    $('#sModel').value = id;
+    // النماذج بصيغة provider/model تخصّ OpenRouter
+    if (id.includes('/') && !$('#sBaseUrl').value.includes('openrouter')) {
+      $('#sBaseUrl').value = 'https://openrouter.ai/api/v1';
+      $('#sPreset').value = 'openrouter';
+      toast('ضُبطت نقطة النهاية على OpenRouter');
+    }
+  },
+});
 
 $('#btnModels').onclick = async () => {
   const s = readSettingsForm();

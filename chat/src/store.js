@@ -28,9 +28,9 @@ export const PRESETS = [
     id: 'openrouter',
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    model: 'meta-llama/llama-3.3-70b-instruct',
+    model: 'aion-labs/aion-2.0',
     needsKey: true,
-    hint: 'سجّل مجاناً في openrouter.ai واحصل على مفتاح. فيه نماذج مجانية كثيرة.',
+    hint: 'مئات النماذج بمفتاح واحد. اضغط ⌕ لتصفّحها — المُعلَّمة «مجاني» بلا تكلفة.',
   },
   {
     id: 'groq',

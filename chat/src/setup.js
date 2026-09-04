@@ -4,6 +4,7 @@
  * هذا المعالج يوصلك لأقصر طريق يشتغل، ولا يُغلق إلا بعد نجاح اختبار حقيقي.
  */
 import { chat } from './api.js';
+import { openModelPicker } from './models.js';
 
 const K_DONE = 'mh.setup.done.v1';
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -56,7 +57,16 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       </div>`;
     optB.onclick = () => stepOllama();
 
-    body.append(optA, optB);
+    const optC = el('button', 'setup-opt');
+    optC.innerHTML = `
+      <div class="oi">🧠</div>
+      <div class="ot">
+        <b>OpenRouter — أكبر مكتبة نماذج</b>
+        <span>مئات النماذج بمكان واحد، بضمنها <code>aion-2.0</code> للأدوار والسرد، ونماذج مجانية تماماً. بمفتاح واحد.</span>
+      </div>`;
+    optC.onclick = () => stepOpenRouter();
+
+    body.append(optA, optB, optC);
 
     if (canSkip) {
       const skip = el('button', 'setup-skip', 'أعرف شنو أسوي — افتح الإعدادات');
@@ -140,6 +150,53 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       draft.baseUrl = `http://${v}:11434/v1`;
       draft.model = mdl.value.trim() || 'llama3.1:8b';
       draft.apiKey = '';
+      return draft;
+    }));
+  }
+
+  /* ---------- مسار OpenRouter ---------- */
+  function stepOpenRouter() {
+    draft.preset = 'openrouter';
+    draft.baseUrl = 'https://openrouter.ai/api/v1';
+    if (!draft.model || !draft.model.includes('/')) draft.model = 'aion-labs/aion-2.0';
+    body.innerHTML = '';
+    body.appendChild(back(step1));
+    body.appendChild(el('h2', null, 'OpenRouter'));
+
+    const steps = el('ol', 'setup-steps');
+    [
+      'افتح <b>openrouter.ai</b> وسجّل دخول.',
+      'من <b>Keys</b> أنشئ مفتاحاً وانسخه (يبدأ بـ <code>sk-or-</code>).',
+      'ألصقه تحت، ثم اختر النموذج.',
+    ].forEach((h) => { const li = el('li'); li.innerHTML = h; steps.appendChild(li); });
+    body.appendChild(steps);
+
+    const open = el('button', 'setup-link', '↗ افتح openrouter.ai/keys');
+    open.onclick = () => window.open('https://openrouter.ai/keys', '_blank');
+    body.appendChild(open);
+
+    const inp = el('input');
+    inp.type = 'text'; inp.dir = 'ltr'; inp.placeholder = 'sk-or-v1-...';
+    inp.className = 'setup-input';
+    inp.value = draft.apiKey?.startsWith('sk-or') ? draft.apiKey : '';
+    body.appendChild(inp);
+
+    body.appendChild(el('div', 'setup-iplbl', 'النموذج'));
+    const pick = el('button', 'setup-link');
+    pick.style.marginBottom = '6px';
+    const setLabel = () => { pick.textContent = '⌕ ' + draft.model; };
+    setLabel();
+    pick.onclick = () => openModelPicker({ current: draft.model, onPick: (id) => { draft.model = id; setLabel(); } });
+    body.appendChild(pick);
+
+    const note = el('div', 'setup-status');
+    note.textContent = 'النماذج المُعلَّمة «مجاني» لا تُحاسَب. غيرها تحتاج رصيداً في حسابك (أغلبها رخيص جداً).';
+    body.appendChild(note);
+
+    body.appendChild(testRow(() => {
+      draft.apiKey = inp.value.trim();
+      if (!draft.apiKey) throw new Error('الصق المفتاح أولاً.');
+      if (!draft.model) throw new Error('اختر نموذجاً.');
       return draft;
     }));
   }
