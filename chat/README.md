@@ -100,9 +100,29 @@ http://192.168.1.7:11434/v1
 pkg update && pkg install -y git cmake clang
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp && cmake -B build && cmake --build build -j4
-curl -L -o m.gguf "<رابط ملف GGUF>"
+
+# نزّل نموذجاً — الروابط أدناه مُتحقَّق منها (HTTP 200 + حجم مؤكَّد)
+curl -L -o m.gguf "<الرابط من الجدول>"
+
 ./build/bin/llama-server -m m.gguf --port 8080 -c 4096
 ```
+
+### روابط التنزيل المباشرة
+
+> داخل التطبيق: خيار **«على الموبايل نفسه»** فيه زر **«نسخ الأمر»** لكل نموذج
+> ينسخ لك سطر `curl` كاملاً — لا حاجة لنسخ الروابط يدوياً.
+
+| النموذج | الحجم | الرام | الرابط |
+|---|---|---|---|
+| Llama 3.2 1B Q4_K_M | 0.81 GB | 4+ | `huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf` |
+| Qwen 2.5 3B Q4_K_M | 1.93 GB | 6+ | `huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf` |
+| Llama 3.2 3B Q4_K_M | 2.02 GB | 6+ | `huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf` |
+| Aion-RP 8B Q2_K | 3.18 GB | 6+ | `huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q2_K.gguf` |
+| **Aion-RP 8B Q3_K_S ★** | 3.66 GB | 8+ | `huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q3_K_S.gguf` |
+| Aion-RP 8B Q4_K | 4.92 GB | 12+ | `huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q4_K.gguf` |
+
+القاعدة العامة لأي نموذج على Hugging Face:
+`https://huggingface.co/<المستودع>/resolve/main/<اسم الملف>.gguf`
 
 | النموذج | الحجم | رام الجهاز | السرعة التقريبية |
 |---|---|---|---|

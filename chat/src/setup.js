@@ -227,20 +227,61 @@ export function openSetup({ settings, onFinish, canSkip = false }) {
       'نصّب <b>Termux</b> من <b>F-Droid</b> (نسخة جوجل بلاي قديمة ومعطّلة).',
       'بداخل Termux نفّذ:<br><code dir="ltr">pkg update && pkg install -y git cmake clang</code>',
       'ابنِ llama.cpp:<br><code dir="ltr">git clone https://github.com/ggml-org/llama.cpp</code><br><code dir="ltr">cd llama.cpp && cmake -B build && cmake --build build -j4</code>',
-      'نزّل نموذجاً (اختر حسب رامك — انظر الجدول تحت):<br><code dir="ltr">curl -L -o m.gguf "رابط_الملف"</code>',
+'نزّل نموذجاً: اضغط <b>«نسخ الأمر»</b> من الجدول تحت والصقه في Termux.',
       'شغّل الخادم:<br><code dir="ltr">./build/bin/llama-server -m m.gguf --port 8080 -c 4096</code>',
       '<b>خلّي Termux شغّالاً بالخلفية</b> وارجع هنا واضغط «اختبر واحفظ».',
     ].forEach((h) => { const li = el('li'); li.innerHTML = h; steps.appendChild(li); });
     body.appendChild(steps);
 
+    // نماذج مُتحقَّق من روابطها فعلياً (HTTP 200 + الحجم مؤكَّد)
+    const MODELS = [
+      { n: 'Llama 3.2 1B', q: 'Q4_K_M', gb: '0.81', ram: '4+',
+        u: 'https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf' },
+      { n: 'Qwen 2.5 3B', q: 'Q4_K_M', gb: '1.93', ram: '6+',
+        u: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf' },
+      { n: 'Llama 3.2 3B', q: 'Q4_K_M', gb: '2.02', ram: '6+',
+        u: 'https://huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf' },
+      { n: 'Aion-RP 8B', q: 'Q2_K', gb: '3.18', ram: '6+', hi: true,
+        u: 'https://huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q2_K.gguf' },
+      { n: 'Aion-RP 8B', q: 'Q3_K_S', gb: '3.66', ram: '8+', hi: true, best: true,
+        u: 'https://huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q3_K_S.gguf' },
+      { n: 'Aion-RP 8B', q: 'Q4_K', gb: '4.92', ram: '12+', hi: true,
+        u: 'https://huggingface.co/aion-labs/Aion-RP-Llama-3.1-8B-GGUF/resolve/main/Aion-RP-3.1-8B-Q4_K.gguf' },
+    ];
+
+    body.appendChild(el('div', 'setup-iplbl', 'اختر نموذجاً — ينسخ لك أمر التنزيل الجاهز'));
     const tbl = el('div', 'setup-table');
-    tbl.innerHTML = `
-      <div class="st-row st-head"><span>النموذج</span><span>الحجم</span><span>رام الجهاز</span></div>
-      <div class="st-row"><span>Llama-3.2-1B Q4</span><span>0.8 جيجا</span><span>4+ جيجا</span></div>
-      <div class="st-row"><span>Llama-3.2-3B Q4</span><span>2.0 جيجا</span><span>6+ جيجا</span></div>
-      <div class="st-row hi"><span>Aion-RP-8B Q3_K_S</span><span>3.7 جيجا</span><span>8+ جيجا</span></div>
-      <div class="st-row hi"><span>Aion-RP-8B Q4_K</span><span>4.9 جيجا</span><span>12+ جيجا</span></div>`;
+    const head = el('div', 'st-row st-head');
+    head.append(el('span', null, 'النموذج'), el('span', null, 'الحجم'), el('span', null, 'الرام'), el('span', null, ''));
+    tbl.appendChild(head);
+
+    for (const m of MODELS) {
+      const row = el('div', 'st-row' + (m.hi ? ' hi' : ''));
+      const nm = el('span', null, `${m.n} ${m.q}`);
+      if (m.best) nm.appendChild(el('b', 'st-best', ' ★'));
+      const btn = el('button', 'st-copy', 'نسخ الأمر');
+      btn.onclick = async () => {
+        const cmd = `curl -L -o m.gguf "${m.u}"`;
+        try {
+          await navigator.clipboard.writeText(cmd);
+          btn.textContent = '✓ نُسخ';
+        } catch {
+          // بعض المتصفحات تمنع الحافظة — نعرض الأمر ليُنسخ يدوياً
+          const box = el('textarea', 'st-fallback');
+          box.value = cmd; box.rows = 3; box.readOnly = true;
+          row.after(box); box.select();
+          btn.textContent = 'انسخ يدوياً ↓';
+        }
+        setTimeout(() => { btn.textContent = 'نسخ الأمر'; }, 2200);
+      };
+      row.append(nm, el('span', null, m.gb + ' GB'), el('span', null, m.ram), btn);
+      tbl.appendChild(row);
+    }
     body.appendChild(tbl);
+
+    const tip = el('div', 'hint');
+    tip.textContent = '★ = الخيار المتوازن لأغلب الأجهزة. التنزيل يستغرق وقتاً — استعمل واي فاي، ولا تغلق Termux أثناءه.';
+    body.appendChild(tip);
 
     const note = el('div', 'setup-status');
     note.textContent = 'Aion-RP-Llama-3.1-8B من نفس مختبر aion، متخصّص بتقمّص الشخصيات ومنشور كملفات GGUF. النموذجان aion-2.0 و aion-3.0 غير منشورين كأوزان ولا يمكن تشغيلهما محلياً.';
