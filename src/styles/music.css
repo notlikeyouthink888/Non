@@ -1,0 +1,56 @@
+/* القسم الأول: الأغاني */
+
+#mini-host { position: fixed; inset-inline: 0; bottom: calc(var(--nav-h) + var(--safe-bottom)); z-index: 55; padding: 0 8px 7px; pointer-events: none; }
+#mini-host > * { pointer-events: auto; }
+
+.mini {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+  border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(12px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .4);
+}
+.mini .art { width: 40px; height: 40px; border-radius: 9px; background: var(--surface-3); flex: none; object-fit: cover; display: grid; place-items: center; font-size: 18px; }
+.mini .t { font-size: 13px; font-weight: 600; }
+.mini .s { font-size: 11px; color: var(--fg-3); }
+.mini .prog { position: absolute; inset-inline: 10px; bottom: 3px; height: 2px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+.mini .prog > i { display: block; height: 100%; background: var(--accent); }
+.mini button { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; background: var(--surface-3); flex: none; }
+
+.art-box {
+  width: 100%; aspect-ratio: 1; border-radius: 22px; background: linear-gradient(150deg, var(--surface-3), var(--surface));
+  display: grid; place-items: center; font-size: 74px; color: var(--fg-3); overflow: hidden;
+  border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.art-box img { width: 100%; height: 100%; object-fit: cover; }
+
+.now-title { font-size: 20px; font-weight: 700; margin: 16px 0 2px; text-align: center; }
+.now-artist { color: var(--fg-3); text-align: center; font-size: 13px; }
+
+.seek { margin: 16px 0 4px; }
+.seek input[type="range"] { width: 100%; }
+.seek .times { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--fg-3); }
+
+.transport { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 14px 0 6px; }
+.transport button { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; background: var(--surface-2); border: 1px solid var(--line); }
+.transport button.main { width: 64px; height: 64px; font-size: 25px; background: linear-gradient(140deg, var(--accent), #6248e0); border: none; color: #fff; }
+.transport button.on { color: var(--accent); border-color: var(--accent); }
+
+.track-row { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 12px; }
+.track-row:active { background: var(--surface-2); }
+.track-row.playing { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.track-row .n { width: 38px; height: 38px; border-radius: 9px; background: var(--surface-2); display: grid; place-items: center; font-size: 15px; flex: none; overflow: hidden; }
+.track-row .n img { width: 100%; height: 100%; object-fit: cover; }
+.track-row .t { font-size: 13.5px; font-weight: 600; }
+.track-row .s { font-size: 11.5px; color: var(--fg-3); }
+.track-row .d { font-size: 11.5px; color: var(--fg-3); flex: none; }
+
+.eq-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; align-items: end; height: 165px; margin: 10px 0; }
+.eq-band { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+.eq-band .v { font-size: 10.5px; color: var(--fg-3); }
+.eq-band .slot { flex: 1; display: grid; place-items: center; width: 100%; }
+.eq-band input[type="range"] { width: 130px; transform: rotate(-90deg); }
+.eq-band .f { font-size: 10.5px; color: var(--fg-3); }
+
+.scan-state { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--fg-2); }
+.spin { width: 15px; height: 15px; border: 2px solid var(--surface-3); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

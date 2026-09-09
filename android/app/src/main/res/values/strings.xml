@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">مدينتي</string>
-    <string name="title_activity_main">مدينتي</string>
-    <string name="package_name">com.madinati.citybuilder</string>
-    <string name="custom_url_scheme">com.madinati.citybuilder</string>
+    <string name="app_name">Your World</string>
+    <string name="title_activity_main">Your World</string>
+    <string name="package_name">com.yourworld.app</string>
+    <string name="custom_url_scheme">com.yourworld.app</string>
+    <string name="alarm_dismiss">إيقاف</string>
+    <string name="alarm_snooze">غفوة</string>
 </resources>

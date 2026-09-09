@@ -1,0 +1,45 @@
+/* القسم الثاني: الوقت */
+
+.big-clock { font-size: clamp(44px, 15vw, 74px); font-weight: 300; letter-spacing: 1px; text-align: center; font-variant-numeric: tabular-nums; direction: ltr; }
+.big-clock small { font-size: .34em; color: var(--fg-3); }
+
+.dial { position: relative; width: min(260px, 72vw); aspect-ratio: 1; margin: 6px auto 10px; display: grid; place-items: center; }
+.dial svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.dial .inner { text-align: center; z-index: 1; }
+
+.time-pick { display: flex; align-items: center; justify-content: center; gap: 6px; direction: ltr; }
+.time-pick input {
+  width: 78px; text-align: center; font-size: 30px; padding: 8px 4px;
+  font-variant-numeric: tabular-nums; background: var(--surface-2);
+}
+.time-pick .colon { font-size: 28px; color: var(--fg-3); }
+
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal .dow { text-align: center; font-size: 11px; color: var(--fg-3); padding: 4px 0; }
+.cal .day {
+  aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; font-size: 13px;
+  background: var(--surface); border: 1px solid transparent; position: relative;
+}
+.cal .day.other { opacity: .3; }
+.cal .day.today { border-color: var(--accent); font-weight: 700; }
+.cal .day.sel { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
+.cal .day .dots { display: flex; gap: 2px; position: absolute; bottom: 5px; }
+.cal .day .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); display: block; }
+.cal .day .dots i.done { background: var(--ok); }
+
+.task { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.task.done .t { text-decoration: line-through; color: var(--fg-3); }
+.task .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--fg-3); flex: none; display: grid; place-items: center; font-size: 13px; margin-top: 1px; }
+.task.done .box { background: var(--ok); border-color: var(--ok); color: #04170f; }
+.task .p { width: 3px; align-self: stretch; border-radius: 3px; background: var(--fg-3); flex: none; }
+.task .p.high { background: var(--danger); }
+.task .p.mid { background: var(--warn); }
+.task .p.low { background: var(--ok); }
+
+.sleep-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 11px; background: var(--surface); border: 1px solid var(--line); }
+.sleep-row.best { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.sleep-row .h { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; }
+
+.laps { max-height: 220px; overflow-y: auto; }
+.lap { display: flex; justify-content: space-between; padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
