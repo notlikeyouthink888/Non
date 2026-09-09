@@ -1,0 +1,87 @@
+name: بناء APK
+
+on:
+  push:
+    branches:
+      - main
+      - claude/your-world-android-app-sxo5zu
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: بناء ملف التثبيت
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تهيئة Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: تهيئة Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: تهيئة Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: قبول التراخيص مسبقًا
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      - name: بناء واجهة الويب
+        run: npm run build
+
+      - name: مزامنة مشروع أندرويد
+        run: npx cap sync android
+
+      - name: بناء APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          # </dev/null يمنع التعليق إن طلب Gradle إدخالًا تفاعليًا
+          ./gradlew assembleDebug --no-daemon --stacktrace --console=plain </dev/null
+
+      - name: تسمية الملف
+        id: name
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/YourWorld.apk
+          echo "size=$(du -h out/YourWorld.apk | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: رفع الملف كمُخرَج
+        uses: actions/upload-artifact@v4
+        with:
+          name: YourWorld-APK
+          path: out/YourWorld.apk
+          if-no-files-found: error
+
+      - name: نشره في إصدار للتنزيل المباشر
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create apk-latest out/YourWorld.apk \
+            --target "$GITHUB_SHA" \
+            --title "Your World — أحدث نسخة" \
+            --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
+          مبني من: \`$GITHUB_SHA\`
+
+          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`YourWorld.apk\` ←
+          افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
+
+          نسخة تجريبية (debug) موقّعة بمفتاح التطوير — تعمل كاملة، لكنها ليست للنشر على المتجر."

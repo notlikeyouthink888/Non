@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# بناء ملف APK لتطبيق «مدينتي».
+# بناء ملف APK لتطبيق «Your World».
 # المتطلبات: Node 20+، JDK 17+، وAndroid SDK (cmdline-tools + platforms;android-35 + build-tools).
 # إن لم تكن حزمة SDK موجودة، يحاول السكربت تنزيلها إلى $ANDROID_SDK_ROOT.
 set -euo pipefail

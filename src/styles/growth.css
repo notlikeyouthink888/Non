@@ -1,0 +1,15 @@
+/* القسم الخامس: الإنتاجية */
+
+.growth {
+  display: flex; align-items: center; gap: 11px; padding: 11px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.growth.done { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.growth.done .t { color: var(--fg-3); }
+.growth .box {
+  width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--fg-3);
+  display: grid; place-items: center; flex: none; font-size: 13px;
+}
+.growth.done .box { background: var(--ok); border-color: var(--ok); color: #04170f; }
+.growth .t { font-weight: 600; font-size: 14px; }
+.growth .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }

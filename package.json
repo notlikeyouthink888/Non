@@ -1,19 +1,16 @@
 {
-  "name": "madinati",
+  "name": "your-world",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Madinati - a Cities: Skylines II inspired city builder in Three.js, packaged for Android",
+  "description": "Your World — تطبيق أندرويد شخصي يعمل دون إنترنت: مشغّل أغاني، وقت ومنبهات وتقويم، التزامات، أماكن، وإنتاجية.",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "shot": "node tools/shoot.mjs",
+    "check": "node tools/check.mjs",
     "android:sync": "npm run build && npx cap sync android",
     "android:apk": "bash tools/build-apk.sh"
-  },
-  "dependencies": {
-    "three": "^0.185.1"
   },
   "devDependencies": {
     "vite": "^7.1.0",

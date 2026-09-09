@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
@@ -15,8 +13,14 @@
         <item name="android:background">@null</item>
     </style>
 
-
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+    </style>
+
+    <style name="AlarmTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/yw_bg</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/yw_bg</item>
+        <item name="android:navigationBarColor">@color/yw_bg</item>
     </style>
 </resources>
