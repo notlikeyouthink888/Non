@@ -14,6 +14,7 @@ jobs:
   apk:
     name: بناء ملف التثبيت
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: جلب الكود
@@ -33,6 +34,11 @@ jobs:
 
       - name: تهيئة Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: قبول التراخيص مسبقًا
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: تثبيت الحزم
         run: npm ci
@@ -47,7 +53,8 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          # </dev/null يمنع التعليق إن طلب Gradle إدخالًا تفاعليًا
+          ./gradlew assembleDebug --no-daemon --stacktrace --console=plain </dev/null
 
       - name: تسمية الملف
         id: name
