@@ -71,15 +71,19 @@ jobs:
           if-no-files-found: error
 
       - name: نشره في إصدار للتنزيل المباشر
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: apk-r${{ github.run_number }}
         run: |
-          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create apk-latest out/YourWorld.apk \
+          # وسم جديد لكل بناء: المستودع يفعّل «الإصدارات غير القابلة للتعديل»
+          # فلا يمكن إعادة استعمال وسم استُهلك في إصدار سابق.
+          gh release create "$TAG" out/YourWorld.apk \
             --target "$GITHUB_SHA" \
-            --title "Your World — أحدث نسخة" \
+            --title "Your World — بناء ${{ github.run_number }}" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
+          أحدث بناء دائمًا في: https://github.com/${{ github.repository }}/releases/latest
 
           **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`YourWorld.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
