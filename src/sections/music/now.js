@@ -10,6 +10,7 @@ import {
   toggleFavorite, isFavorite, playQueue, SPEEDS,
 } from './player.js';
 import { openEffects } from './effects.js';
+import { displayTitle } from './library.js';
 
 const REPEAT_ICON = { off: '🔁', all: '🔁', one: '🔂' };
 
@@ -38,7 +39,7 @@ export function openNowPlaying() {
 
     fill(body, [
       h('div.art-box', t.artUri ? h('img', { src: t.artUri, alt: '' }) : '♪'),
-      h('div.now-title.ellipsis', t.title),
+      h('div.now-title.ellipsis', displayTitle(t)),
       h('div.now-artist.ellipsis', [t.artist, t.album ? ` · ${t.album}` : ''].join('')),
 
       h('div.seek', [range, h('div.times', [timeNow, timeEnd])]),
@@ -134,7 +135,7 @@ export function openQueue() {
       onclick: () => playQueue(now.queue, i, now.queueName),
     }, [
       h('div.n', i === now.index ? '▶' : String(i + 1)),
-      h('div.grow', [h('div.t.ellipsis', t.title), h('div.s.ellipsis', t.artist)]),
+      h('div.grow', [h('div.t.ellipsis', displayTitle(t)), h('div.s.ellipsis', t.artist)]),
       h('div.d.mono', dur(t.durationMs)),
     ]))));
 }

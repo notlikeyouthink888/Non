@@ -13,14 +13,30 @@ const SHOT_DIR = 'docs/shots';
 const BROWSER = process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium';
 
 const SECTIONS = [
-  { id: 'music', tabs: ['tracks', 'favorites', 'playlists', 'artists', 'albums'] },
+  { id: 'music', tabs: ['tracks', 'new', 'favorites', 'playlists', 'artists', 'albums'] },
   { id: 'time', tabs: ['overview', 'timer', 'alarms', 'calendar', 'sleep', 'day'] },
+  { id: 'workout', tabs: ['plan', 'protein', 'log'] },
+  { id: 'money', tabs: ['overview', 'items', 'subs', 'report'] },
   { id: 'commit', tabs: ['today', 'library', 'routines', 'progress'] },
   { id: 'places', tabs: ['map', 'list', 'offline'] },
+  { id: 'room', tabs: ['list', 'zones', 'bought'] },
   { id: 'growth', tabs: ['today', 'library', 'paths', 'done'] },
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** ينتقل إلى قسم سواء كان مثبّتًا في الشريط أو داخل ورقة «الأقسام». */
+async function goSection(page, id) {
+  const pinned = page.locator(`.nav button[data-id="${id}"]`);
+  if (await pinned.count()) {
+    await pinned.click();
+  } else {
+    await page.locator('.nav button[data-id="__more"]').click();
+    await sleep(300);
+    await page.locator(`.sec-tile[data-sec="${id}"]`).click();
+  }
+  await sleep(400);
+}
 
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
@@ -31,7 +47,7 @@ function run(cmd, args) {
 
 /** يجرّب المسارات الأساسية فعليًا: منبّه، مهمّة، مؤقّت، التزام، مكان، عنصر إنتاجية. */
 async function runFlows(page) {
-  const go = async (i) => { await page.locator('.nav button').nth(i).click(); await sleep(300); };
+  const go = (id) => goSection(page, id);
   const tab = async (i) => { await page.locator('.tabs button').nth(i).click(); await sleep(300); };
   const expect = async (label, locator, count = 1) => {
     const n = await locator.count();
@@ -40,7 +56,7 @@ async function runFlows(page) {
   };
 
   // منبّه جديد
-  await go(1);
+  await go('time');
   await tab(2);
   await page.getByText('＋ منبّه جديد').click();
   await sleep(350);
@@ -66,18 +82,18 @@ async function runFlows(page) {
   await sleep(300);
 
   // التزام من المكتبة
-  await go(2);
+  await go('commit');
   await tab(1);
   await page.locator('.item button.btn.sm').first().click();
   await sleep(350);
   await page.locator('.sheet').getByText('💾 أضِف').click();
   await sleep(400);
-  await go(2);
+  await go('commit');
   await tab(0);
   await expect('إضافة التزام', page.locator('.commit'));
 
   // مكان جديد
-  await go(3);
+  await go('places');
   await tab(1);
   await page.getByText('＋ مكان جديد').click();
   await sleep(400);
@@ -87,11 +103,52 @@ async function runFlows(page) {
   await expect('إضافة مكان', page.locator('.place'));
 
   // عنصر إنتاجية
-  await go(4);
+  await go('growth');
   await tab(1);
   await page.locator('.growth .box').first().click();
   await sleep(300);
   await expect('تعليم عنصر كمنجَز', page.locator('.growth.done'));
+
+  // تمرين في اليوم الأول
+  await go('workout');
+  await tab(0);
+  await page.locator('.slot.empty').first().click();
+  await sleep(350);
+  await page.locator('.sheet input').first().fill('ضغط بنش');
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(400);
+  await expect('إضافة تمرين', page.locator('.slot:not(.empty)'));
+
+  // بروتين
+  await tab(1);
+  await page.getByText('✎ إدخال يدوي').click();
+  await sleep(350);
+  await page.locator('.sheet input').first().fill('بيض');
+  await page.locator('.sheet input[type="number"]').first().fill('18');
+  await page.locator('.sheet').getByText('أضف', { exact: true }).click();
+  await sleep(400);
+  await expect('تسجيل بروتين', page.locator('.food'));
+
+  // مصروف
+  await go('money');
+  await tab(1);
+  await page.getByText('＋ مصروف جديد').click();
+  await sleep(350);
+  await page.locator('.sheet input').first().fill('معجون أسنان');
+  await page.locator('.sheet input[type="number"]').first().fill('3000');
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(400);
+  await expect('إضافة مصروف', page.locator('.exp'));
+
+  // شيء للغرفة
+  await go('room');
+  await tab(0);
+  await page.getByText('＋ أضف شيئًا').click();
+  await sleep(350);
+  await page.locator('.sheet input').first().fill('رف خشبي');
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(400);
+  await expect('إضافة غرض للغرفة', page.locator('.room-item'));
 
   // الإعدادات
   await page.locator('.head button.btn.icon').first().click();
@@ -130,9 +187,7 @@ async function main() {
     if (SHOTS) mkdirSync(SHOT_DIR, { recursive: true });
 
     for (const sec of SECTIONS) {
-      const idx = SECTIONS.findIndex((s) => s.id === sec.id);
-      await page.locator('.nav button').nth(idx).click();
-      await sleep(350);
+      await goSection(page, sec.id);
 
       for (const tab of sec.tabs) {
         const tabs = page.locator('.tabs button');

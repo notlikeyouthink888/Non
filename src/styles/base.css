@@ -95,6 +95,22 @@ input[type="color"] { padding: 2px; height: 42px; }
 .nav button.on { color: var(--accent); }
 .nav button.on .ico { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent)); }
 
+/* شبكة كل الأقسام */
+.sec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sec-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 16px 8px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line); color: var(--fg-2);
+}
+.sec-tile.on { background: color-mix(in srgb, var(--accent) 20%, var(--surface)); border-color: var(--accent); color: var(--fg); }
+.sec-tile .ic { font-size: 25px; line-height: 1; }
+.sec-tile .nm { font-size: 12.5px; font-weight: 600; }
+.sec-tile .pin {
+  position: absolute; top: 5px; inset-inline-start: 5px; width: 24px; height: 24px;
+  display: grid; place-items: center; font-size: 12px; border-radius: 50%; opacity: .35;
+}
+.sec-tile .pin.on { opacity: 1; background: color-mix(in srgb, var(--accent) 28%, transparent); }
+
 /* ── العناوين ─────────────────────────────────────── */
 .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 4px 2px 14px; }
 .head h1 { margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -.2px; }

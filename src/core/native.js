@@ -59,6 +59,16 @@ export const Music = {
     return webLib ? webLib.tracks : [];
   },
 
+  /**
+   * يطلب من النظام إعادة فهرسة مجلّدات التنزيل (تيليجرام وغيره)
+   * حتى تظهر الملفات الجديدة في MediaStore قبل المسح.
+   */
+  async refresh() {
+    const p = plugin('MusicLibrary');
+    if (!p?.refresh) return { requested: 0 };
+    return p.refresh();
+  },
+
   /** بديل الويب: اختيار ملفات/مجلد من المتصفّح. */
   async pickFromBrowser() {
     const { pickAudioFiles } = await import('./webfallback/library.js');

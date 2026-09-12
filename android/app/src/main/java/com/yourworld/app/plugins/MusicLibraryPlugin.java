@@ -63,6 +63,98 @@ public class MusicLibraryPlugin extends Plugin {
         call.resolve(r);
     }
 
+    /**
+     * يطلب من النظام إعادة فهرسة مجلّدات التنزيل الشائعة (تيليجرام، واتساب، Download…)
+     * حتى تظهر الملفات التي نُزّلت للتوّ في MediaStore.
+     */
+    @PluginMethod
+    public void refresh(PluginCall call) {
+        java.io.File root = android.os.Environment.getExternalStorageDirectory();
+        String[] folders = {
+            "Download", "Downloads", "Music", "Telegram",
+            "Telegram/Telegram Audio", "Telegram/Telegram Documents", "Telegram/Telegram Music",
+            "Android/media/org.telegram.messenger/Telegram",
+            "Android/media/org.telegram.messenger/Telegram/Telegram Audio",
+            "Android/media/org.telegram.messenger/Telegram/Telegram Documents",
+            "Android/media/org.telegram.messenger.web/Telegram/Telegram Audio",
+            "WhatsApp/Media/WhatsApp Audio",
+            "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Audio"
+        };
+
+        java.util.ArrayList<String> paths = new java.util.ArrayList<>();
+        for (String f : folders) {
+            java.io.File dir = new java.io.File(root, f);
+            collectAudio(dir, paths, 0);
+        }
+
+        JSObject r = new JSObject();
+        r.put("requested", paths.size());
+
+        if (paths.isEmpty()) {
+            call.resolve(r);
+            return;
+        }
+
+        final PluginCall saved = call;
+        final int[] done = { 0 };
+        final int total = paths.size();
+        try {
+            android.media.MediaScannerConnection.scanFile(
+                getContext(),
+                paths.toArray(new String[0]),
+                null,
+                (path, uri) -> {
+                    synchronized (done) {
+                        done[0]++;
+                        if (done[0] >= total) {
+                            JSObject out = new JSObject();
+                            out.put("requested", total);
+                            out.put("scanned", done[0]);
+                            saved.resolve(out);
+                        }
+                    }
+                }
+            );
+        } catch (Exception e) {
+            call.resolve(r);
+            return;
+        }
+
+        // مهلة أمان: لا نترك النداء معلّقًا إن لم يكتمل الفحص
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            synchronized (done) {
+                if (done[0] < total) {
+                    JSObject out = new JSObject();
+                    out.put("requested", total);
+                    out.put("scanned", done[0]);
+                    out.put("timedOut", true);
+                    saved.resolve(out);
+                    done[0] = total;   // يمنع استدعاء resolve مرّتين
+                }
+            }
+        }, 6000);
+    }
+
+    /** يجمع ملفات الصوت داخل مجلّد (بعمق محدود). */
+    private void collectAudio(java.io.File dir, java.util.List<String> out, int depth) {
+        if (depth > 2 || out.size() > 600 || dir == null || !dir.isDirectory()) return;
+        java.io.File[] files = dir.listFiles();
+        if (files == null) return;
+        for (java.io.File f : files) {
+            if (f.isDirectory()) {
+                collectAudio(f, out, depth + 1);
+            } else {
+                String n = f.getName().toLowerCase();
+                if (n.endsWith(".mp3") || n.endsWith(".m4a") || n.endsWith(".aac")
+                        || n.endsWith(".ogg") || n.endsWith(".opus") || n.endsWith(".wav")
+                        || n.endsWith(".flac") || n.endsWith(".mka")) {
+                    out.add(f.getAbsolutePath());
+                }
+            }
+            if (out.size() > 600) return;
+        }
+    }
+
     @PluginMethod
     public void scan(PluginCall call) {
         if (!granted()) {

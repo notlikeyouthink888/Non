@@ -70,6 +70,36 @@ export const defaults = {
     tileCache: true,
   },
 
+  workout: {
+    // برنامج ثابت من ثلاثة أيام، كل يوم ٨ خانات تمارين
+    days: [
+      { id: 'd1', name: 'اليوم الأول', slots: [] },
+      { id: 'd2', name: 'اليوم الثاني', slots: [] },
+      { id: 'd3', name: 'اليوم الثالث', slots: [] },
+    ],
+    // slots[i] = { n, title, note, media: [{id,type,mime,name}], sets, reps, rest, done }
+    log: {},                 // 'YYYY-MM-DD' -> { dayId, doneSlots: [n] }
+    protein: {
+      targetG: 120,          // الهدف اليومي بالغرام
+      weightKg: 70,
+      perKg: 1.7,            // غرام لكل كغم (مرجع شائع لمن يتمرّن)
+      plans: {},             // dayId -> [{ id, name, grams, when }]  ما يجب أخذه
+      log: {},               // 'YYYY-MM-DD' -> [{ id, name, grams, at }]  ما أُكل فعلًا
+    },
+  },
+
+  money: {
+    currency: 'د.ع',
+    items: [],               // { id, name, price, qty, category, date, lastsDays, note, photo, recurring }
+    budgets: {},             // category -> حدّ شهري
+    monthStartDay: 1,
+  },
+
+  room: {
+    items: [],               // { id, name, note, zone, priority, price, status, order, photo, link }
+    zones: ['المكتب', 'السرير', 'الجدار', 'الأرضية', 'الإضاءة', 'التخزين', 'عام'],
+  },
+
   growth: {
     done: [],                // [{ id, day, at }] لما أُنجز
     inProgress: [],
@@ -85,6 +115,8 @@ export const defaults = {
     haptics: true,
     notifications: true,
     startSection: 'music',
+    navPinned: ['music', 'time', 'workout', 'money'],   // أقسام الشريط السفلي
+    renamed: {},                                        // معرّف الأغنية -> الاسم الذي اخترته
     keepAwakeInPlayer: false,
     weekStart: 6,            // السبت
     hour12: false,

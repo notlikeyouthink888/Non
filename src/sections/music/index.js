@@ -10,6 +10,7 @@ import { isNative } from '../../core/native.js';
 import {
   loadLibrary, scanLibrary, addFromBrowser, allTracks, search, byArtist, byAlbum,
   recentlyAdded, libraryStats, isScanning, isLoaded, trackById,
+  displayTitle, renameTrack, isRenamed, originalTitle, newlyFound,
 } from './library.js';
 import {
   playTrack, playQueue, shuffleAll, now, onPlayer, isFavorite, toggleFavorite,
@@ -20,6 +21,7 @@ import { openEffects } from './effects.js';
 
 const TABS = [
   { id: 'tracks', label: 'كل الأغاني' },
+  { id: 'new', label: 'الجديد' },
   { id: 'favorites', label: 'المفضّلة' },
   { id: 'playlists', label: 'القوائم' },
   { id: 'artists', label: 'الفنانون' },
@@ -70,9 +72,15 @@ export default {
 
     async function rescan() {
       if (isNative()) {
-        toast('جارٍ فحص الجهاز…');
-        await scanLibrary();
-        toast(`وُجدت ${allTracks().length} أغنية`, 'ok');
+        toast('جارٍ البحث عن ملفات جديدة…');
+        const { added } = await scanLibrary({ deep: true });
+        if (added > 0) {
+          toast(`وُجدت ${added} أغنية جديدة`, 'ok');
+          tab = 'new';
+          syncTabs();
+        } else {
+          toast(`لا جديد · ${allTracks().length} أغنية`, 'ok');
+        }
       } else {
         await addFromBrowser();
       }
@@ -124,6 +132,7 @@ function buildTab(which, q, rerender, rescan) {
   }
 
   if (which === 'tracks') return tracksTab(q, rerender);
+  if (which === 'new') return newTab(rerender, rescan);
   if (which === 'favorites') return favoritesTab(rerender);
   if (which === 'playlists') return playlistsTab(rerender);
   if (which === 'artists') return groupTab(byArtist(), '👤', rerender);
@@ -157,6 +166,66 @@ function tracksTab(q, rerender) {
       ? h('div.list', list.map((t) => trackRow(t, list, q ? 'نتائج البحث' : 'كل الأغاني', rerender)))
       : empty('🔍', 'لا نتائج مطابقة'),
   ]);
+}
+
+/** تبويب «الجديد»: ما ظهر بعد آخر تحديث + أحدث ما أُضيف إلى الجهاز. */
+function newTab(rerender, rescan) {
+  const fresh = newlyFound();
+  const recent = recentlyAdded(30);
+
+  return h('div', [
+    h('div.card.glow', [
+      h('div.card-t', '⟳ ابحث عن أغانٍ جديدة'),
+      h('div.card-s', 'بعد تنزيل أغنية من تيليجرام أو أي تطبيق، اضغط الزر ليعيد النظام فهرسة الملفات '
+        + 'ويضيفها إلى مكتبتك.'),
+      h('button.btn.primary.block', {
+        style: { marginTop: '10px' },
+        onclick: rescan,
+      }, isScanning() ? 'جارٍ الفحص…' : '⟳ حدّث المكتبة الآن'),
+    ]),
+
+    fresh.length ? h('div', [
+      h('h2.sec', `أُضيفت للتوّ (${fresh.length})`),
+      h('div.list', fresh.map((t) => trackRow(t, fresh, 'الجديد', rerender))),
+    ]) : null,
+
+    h('h2.sec', 'الأحدث في جهازك'),
+    recent.length
+      ? h('div.list', recent.map((t) => trackRow(t, recent, 'الأحدث', rerender)))
+      : empty('🎵', 'لا شيء بعد'),
+  ]);
+}
+
+/** تغيير اسم الأغنية داخل التطبيق (الملف نفسه لا يُمَس). */
+function openRename(track, rerender) {
+  const input = h('input', { value: displayTitle(track), placeholder: 'الاسم الجديد' });
+  const panel = sheet('اسم الأغنية', h('div', [
+    input,
+    h('div.muted', { style: { marginTop: '8px' } }, `الاسم الأصلي: ${originalTitle(track.id)}`),
+    h('div.muted', { style: { marginTop: '4px', fontSize: '11.5px' } },
+      'الاسم الجديد يظهر في المشغّل وشاشة القفل. ملف الأغنية في جهازك لا يتغيّر.'),
+    h('div.grid2', { style: { marginTop: '14px' } }, [
+      h('button.btn' + (isRenamed(track.id) ? '.danger' : '.ghost'), {
+        onclick: () => {
+          renameTrack(track.id, '');
+          panel.close();
+          toast('أُعيد الاسم الأصلي', 'ok');
+          rerender?.();
+        },
+      }, isRenamed(track.id) ? '↺ الاسم الأصلي' : 'إلغاء'),
+      h('button.btn.primary', {
+        onclick: () => {
+          const v = input.value.trim();
+          if (!v) { toast('اكتب اسمًا', 'err'); return; }
+          renameTrack(track.id, v);
+          panel.close();
+          toast('تغيّر الاسم', 'ok');
+          rerender?.();
+        },
+      }, '💾 حفظ'),
+    ]),
+  ]));
+  setTimeout(() => { input.focus(); input.select(); }, 150);
 }
 
 function favoritesTab(rerender) {
@@ -212,7 +281,7 @@ export function trackRow(track, context, contextName, rerender) {
   }, [
     track.artUri ? h('div.n', h('img', { src: track.artUri, alt: '' })) : h('div.n', '♪'),
     h('div.grow', [
-      h('div.t.ellipsis', track.title),
+      h('div.t.ellipsis', displayTitle(track)),
       h('div.s.ellipsis', track.artist),
     ]),
     h('div.d.mono', dur(track.durationMs)),
@@ -223,12 +292,18 @@ export function trackRow(track, context, contextName, rerender) {
 }
 
 function trackMenu(track, rerender) {
-  sheet(track.title, ({ close }) => h('div.list', [
+  sheet(displayTitle(track), ({ close }) => h('div.list', [
+    h('div.item', { onclick: () => { close(); openRename(track, rerender); } }, [
+      h('div.grow', [
+        h('div.t', '✎ غيّر اسم الأغنية'),
+        isRenamed(track.id) ? h('div.s', `الأصلي: ${originalTitle(track.id)}`) : null,
+      ]),
+    ]),
     h('div.item', { onclick: () => { toggleFavorite(track.id); close(); rerender?.(); } }, [
       h('div.grow', isFavorite(track.id) ? '💔 أزل من المفضّلة' : '❤️ أضف إلى المفضّلة'),
     ]),
     h('div.item', { onclick: () => { close(); addToPlaylist(track, rerender); } }, [h('div.grow', '📃 أضف إلى قائمة')]),
-    h('div.item', { onclick: () => { close(); playTrack(track, [track], track.title); openNowPlaying(); } }, [h('div.grow', '▶ شغّلها وحدها')]),
+    h('div.item', { onclick: () => { close(); playTrack(track, [track], displayTitle(track)); openNowPlaying(); } }, [h('div.grow', '▶ شغّلها وحدها')]),
     h('div.item', [
       h('div.grow', [
         h('div.t', 'التفاصيل'),

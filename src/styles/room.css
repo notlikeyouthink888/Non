@@ -1,0 +1,32 @@
+/* قسم غرفتي */
+
+.room-item {
+  display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.room-item.bought { opacity: .7; border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.room-item.bought .t { text-decoration: line-through; }
+.room-item .ord {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2);
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--fg-3); flex: none;
+}
+.room-item .ph { width: 44px; height: 44px; border-radius: 11px; background: var(--surface-2); flex: none; overflow: hidden; display: grid; place-items: center; font-size: 17px; }
+.room-item .ph img { width: 100%; height: 100%; object-fit: cover; }
+.room-item .t { font-weight: 600; font-size: 14px; }
+.room-item .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+.room-item .moves { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.room-item .moves button {
+  width: 26px; height: 20px; border-radius: 6px; background: var(--surface-2);
+  display: grid; place-items: center; font-size: 10px; color: var(--fg-3);
+}
+
+.prio { width: 3px; align-self: stretch; border-radius: 3px; flex: none; background: var(--fg-3); }
+.prio.must { background: var(--danger); }
+.prio.soon { background: var(--warn); }
+.prio.later { background: var(--ok); }
+
+.zone-head {
+  display: flex; align-items: center; gap: 8px; margin: 18px 2px 8px;
+  font-size: 13px; color: var(--fg-2); font-weight: 600;
+}
+.zone-head .line { flex: 1; height: 1px; background: var(--line); }

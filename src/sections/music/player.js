@@ -5,7 +5,7 @@
 
 import { Player, toSrc } from '../../core/native.js';
 import { state, save, emit } from '../../core/store.js';
-import { trackById, allTracks } from './library.js';
+import { trackById, allTracks, displayTitle } from './library.js';
 
 const listeners = new Set();
 
@@ -77,7 +77,7 @@ export async function playQueue(tracks, index = 0, name = '') {
 
   const payload = now.queue.map((t) => ({
     id: t.id, uri: toSrc(t.uri), rawUri: t.uri,
-    title: t.title, artist: t.artist, album: t.album,
+    title: displayTitle(t), artist: t.artist, album: t.album,
     durationMs: t.durationMs, artUri: t.artUri ? toSrc(t.artUri) : null,
   }));
 

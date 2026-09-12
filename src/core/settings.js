@@ -49,13 +49,21 @@ export function openSettings(onChange) {
       h('div.field', [
         h('label', 'القسم الذي يفتح أولًا'),
         chipGroup([
-          { value: 'music', label: 'الأغاني' },
-          { value: 'time', label: 'الوقت' },
-          { value: 'commit', label: 'التزاماتي' },
-          { value: 'places', label: 'الأماكن' },
-          { value: 'growth', label: 'الإنتاجية' },
+          { value: 'music', label: '♪ الأغاني' },
+          { value: 'time', label: '⏰ الوقت' },
+          { value: 'workout', label: '🏋 التمارين' },
+          { value: 'money', label: '💰 المصاريف' },
+          { value: 'commit', label: '🎯 التزاماتي' },
+          { value: 'places', label: '🗺 الأماكن' },
+          { value: 'room', label: '🛏 غرفتي' },
+          { value: 'growth', label: '📈 الإنتاجية' },
         ], s.startSection, (v) => { s.startSection = v; save(); }),
       ]),
+
+      h('h2.sec', 'العملة'),
+      chipGroup(['د.ع', 'ر.س', 'د.إ', 'ج.م', '$', '€'], state.money.currency, (v) => {
+        state.money.currency = v; save(); emit('money'); onChange?.();
+      }),
 
       h('h2.sec', 'حدّ الاستخدام اليومي'),
       h('div.card.tight', [
@@ -95,7 +103,7 @@ export function openSettings(onChange) {
       h('h2.sec', 'عن التطبيق'),
       h('div.card.tight', [
         h('div.card-t', 'Your World'),
-        h('div.card-s', 'خمسة أقسام: أغانيك، وقتك، التزاماتك، أماكنك، وإنتاجيتك — '
+        h('div.card-s', 'ثمانية أقسام: أغانيك، وقتك، تمارينك، مصاريفك، التزاماتك، أماكنك، غرفتك، وإنتاجيتك — '
           + 'وكلّها تعمل دون إنترنت. الشبكة تُستعمل فقط إن طلبت تنزيل صور خريطة لمنطقتك.'),
       ]),
     ]);

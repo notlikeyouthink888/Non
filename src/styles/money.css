@@ -1,0 +1,25 @@
+/* قسم المصاريف */
+
+.exp {
+  display: flex; align-items: center; gap: 11px; padding: 11px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.exp .ic { width: 38px; height: 38px; border-radius: 11px; background: var(--surface-2); display: grid; place-items: center; font-size: 17px; flex: none; }
+.exp .t { font-weight: 600; font-size: 14px; }
+.exp .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+.exp .p { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; flex: none; }
+.exp.due { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.exp.over { border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); }
+
+.big-money { font-size: clamp(26px, 8vw, 38px); font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; text-align: center; }
+
+.cat-bar { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.cat-bar .nm { width: 92px; font-size: 12.5px; color: var(--fg-2); flex: none; }
+.cat-bar .track { flex: 1; height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.cat-bar .track > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.cat-bar .val { font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; flex: none; }
+
+.lasts { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-2); margin-top: 6px; }
+.lasts .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
+.lasts .dot.warn { background: var(--warn); }
+.lasts .dot.gone { background: var(--danger); }

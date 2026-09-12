@@ -1,19 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- أيقونة «Your World»: حرف Y مبني من ثلاثة مسارات تلتقي في نقطة واحدة -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <group android:translateX="0" android:translateY="0">
-        <path android:pathData="M54,28 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0"
-            android:strokeColor="#7C5CFF" android:strokeWidth="0"/>
-        <path
-            android:pathData="M54,30 m-22,0 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0"
-            android:strokeColor="#7C5CFF" android:strokeWidth="3" android:fillColor="#00000000"/>
-        <path
-            android:pathData="M54,30 m-9,0 a9,22 0 1,1 18,0 a9,22 0 1,1 -18,0"
-            android:strokeColor="#22D3EE" android:strokeWidth="2" android:fillColor="#00000000"/>
-        <path android:pathData="M32,30 L76,30" android:strokeColor="#22D3EE" android:strokeWidth="2"/>
-        <path android:pathData="M54,30 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" android:fillColor="#22D3EE"/>
-        <path android:pathData="M54,58 L54,84" android:strokeColor="#7C5CFF" android:strokeWidth="3"/>
-        <path android:pathData="M54,84 m-8,0 a8,6 0 1,0 16,0 a8,6 0 1,0 -16,0" android:fillColor="#7C5CFF"/>
-    </group>
+
+    <!-- الذراع اليسرى -->
+    <path android:pathData="M34,30 L54,54"
+        android:strokeColor="#7C5CFF" android:strokeWidth="9" android:strokeLineCap="round"/>
+    <!-- الذراع اليمنى -->
+    <path android:pathData="M74,30 L54,54"
+        android:strokeColor="#22D3EE" android:strokeWidth="9" android:strokeLineCap="round"/>
+    <!-- الجذع -->
+    <path android:pathData="M54,54 L54,80"
+        android:strokeColor="#A78BFA" android:strokeWidth="9" android:strokeLineCap="round"/>
+
+    <!-- نقاط الأطراف -->
+    <path android:pathData="M34,30 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" android:fillColor="#7C5CFF"/>
+    <path android:pathData="M74,30 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" android:fillColor="#22D3EE"/>
+    <path android:pathData="M54,80 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" android:fillColor="#A78BFA"/>
+    <!-- مركز الالتقاء -->
+    <path android:pathData="M54,54 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" android:fillColor="#FFFFFF"/>
 </vector>

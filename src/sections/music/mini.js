@@ -3,6 +3,7 @@
 import { h, fill } from '../../core/dom.js';
 import { dur } from '../../core/fmt.js';
 import { now, onPlayer, toggle, next, currentTrack } from './player.js';
+import { displayTitle } from './library.js';
 import { openNowPlaying } from './now.js';
 
 export function mountMiniPlayer(host) {
@@ -18,7 +19,7 @@ export function mountMiniPlayer(host) {
         ? h('img.art', { src: t.artUri, alt: '' })
         : h('div.art', '♪'),
       h('div.grow', [
-        h('div.t.ellipsis', t.title),
+        h('div.t.ellipsis', displayTitle(t)),
         h('div.s.ellipsis', `${t.artist} · ${dur(now.positionMs)} / ${dur(now.durationMs || t.durationMs)}`),
       ]),
       h('button', { onclick: () => toggle() }, now.playing ? '⏸' : '▶'),
