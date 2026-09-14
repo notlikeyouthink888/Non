@@ -88,6 +88,21 @@ export const defaults = {
     },
   },
 
+  s2: {
+    // السبت=6، الأحد=0، الاثنين=1، الثلاثاء=2، الأربعاء=3، الخميس=4، الجمعة=5
+    workDays: [6, 0, 1, 2, 3],
+    work: { start: '06:30', end: '14:30', title: 'الدوام', enabled: true },
+    blocks: [],          // { id, scope:'work'|'off'|0..6, start, end, cat, title, note, drawing, workoutDay }
+    gym: { days: [1, 3, 5], link: false, map: {} },   // يوم الأسبوع → معرّف يوم التمارين
+    startHour: 5,        // بداية عرض الخط الزمني
+  },
+
+  study: {
+    groups: [],          // { id, name, icon, color, createdAt }
+    pages: [],           // { id, groupId, n, title, blocks: [], updatedAt }
+    lastGroup: null,
+  },
+
   money: {
     currency: 'د.ع',
     items: [],               // { id, name, price, qty, category, date, lastsDays, note, photo, recurring }

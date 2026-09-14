@@ -366,9 +366,13 @@ export function createMap({ lat, lng, zoom = 13, onMove, onLongPress, onPickMark
     },
   };
 
-  const ro = new ResizeObserver(resize);
+  let resizeRaf = 0;
+  const ro = new ResizeObserver(() => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(resize);
+  });
   ro.observe(canvas);
-  api.destroy = () => { ro.disconnect(); cancelAnimationFrame(raf); };
+  api.destroy = () => { ro.disconnect(); cancelAnimationFrame(raf); cancelAnimationFrame(resizeRaf); };
 
   setTimeout(resize, 0);
   return api;

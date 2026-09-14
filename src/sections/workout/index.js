@@ -11,6 +11,7 @@ import { sheet, toast, confirmSheet, haptic } from '../../core/ui.js';
 import { openSettings } from '../../core/settings.js';
 import { saveMedia, mediaUrl, deleteMedia, pickFile, mediaUsage } from '../../core/media.js';
 import { PROTEIN_FOODS, ACTIVITY_LEVELS, suggestTarget, PROTEIN_TIPS } from '../../data/protein.js';
+import { drawButton, drawPreview, deleteDrawing } from '../../core/draw.js';
 
 const ORDINALS = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن'];
 export const SLOTS_PER_DAY = 8;
@@ -92,6 +93,7 @@ export async function removeSlot(dayId, n) {
   if (slot?.media?.length) {
     await Promise.all(slot.media.map((m) => deleteMedia(m.id)));
   }
+  if (slot?.drawing) await deleteDrawing(slot.drawing);
   day.slots = (day.slots || []).filter((s) => s.n !== n);
   save();
   emit('workout');
@@ -236,6 +238,8 @@ function openSlotView(dayId, n, rerender) {
       return box;
     }),
 
+    slot.drawing ? drawPreview(slot.drawing, { title: slot.title || `التمرين ${ORDINALS[n - 1]}` }) : null,
+
     h('div.grid2', { style: { marginTop: '14px' } }, [
       h('button.btn' + (done ? '.ok' : '.primary'), {
         onclick: () => { toggleSlotDone(dayId, n); panel.close(); rerender(); },
@@ -251,7 +255,7 @@ function openSlotEditor(dayId, n, rerender) {
   const existing = getSlot(dayId, n);
   const draft = existing
     ? { ...existing, media: [...(existing.media || [])] }
-    : { n, title: '', note: '', sets: '', reps: '', rest: '', weight: '', media: [] };
+    : { n, title: '', note: '', sets: '', reps: '', rest: '', weight: '', media: [], drawing: null };
 
   const body = h('div');
   const panel = sheet(existing ? `تعديل التمرين ${ORDINALS[n - 1]}` : `التمرين ${ORDINALS[n - 1]}`, body);
@@ -303,6 +307,14 @@ function openSlotEditor(dayId, n, rerender) {
         h('button.btn.sm', { onclick: () => attach('image', true) }, '📷 كاميرا'),
         h('button.btn.sm', { onclick: () => attach('video', false) }, '🎬 فيديو'),
       ]),
+
+      h('h2.sec', 'ملاحظة رسم'),
+      drawPreview(draft.drawing, { title: draft.title || `التمرين ${ORDINALS[n - 1]}` }),
+      drawButton({
+        id: draft.drawing,
+        title: draft.title || `التمرين ${ORDINALS[n - 1]}`,
+        onChange: (id) => { draft.drawing = id; render(); },
+      }),
 
       h('div.grid2', { style: { marginTop: '16px' } }, [
         existing

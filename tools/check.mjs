@@ -15,6 +15,8 @@ const BROWSER = process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium';
 const SECTIONS = [
   { id: 'music', tabs: ['tracks', 'new', 'favorites', 'playlists', 'artists', 'albums'] },
   { id: 'time', tabs: ['overview', 'timer', 'alarms', 'calendar', 'sleep', 'day'] },
+  { id: 's2', tabs: ['today', 'plan', 'week', 'setup'] },
+  { id: 'study', tabs: ['groups', 'recent', 'search'] },
   { id: 'workout', tabs: ['plan', 'protein', 'log'] },
   { id: 'money', tabs: ['overview', 'items', 'subs', 'report'] },
   { id: 'commit', tabs: ['today', 'library', 'routines', 'progress'] },
@@ -150,7 +152,44 @@ async function runFlows(page) {
   await sleep(400);
   await expect('إضافة غرض للغرفة', page.locator('.room-item'));
 
+  // كتلة في نظام S2
+  await go('s2');
+  await tab(1);
+  await page.getByText('＋ كتلة جديدة').click();
+  await sleep(400);
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(400);
+  await go('s2');
+  await tab(1);
+  await expect('إضافة كتلة S2', page.locator('.tl-block'));
+
+  // مجموعة وصفحة في المذاكرة
+  await go('study');
+  await tab(0);
+  await page.getByText('＋ مجموعة جديدة').click();
+  await sleep(350);
+  await page.locator('.sheet input').first().fill('رياضيات');
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(400);
+  await expect('إضافة مجموعة', page.locator('.grp'));
+  await page.locator('.grp').first().click();
+  await sleep(350);
+  await page.getByText('＋ صفحة جديدة').first().click();
+  await sleep(400);
+  await page.locator('.add-strip button').first().click();
+  await sleep(350);
+  await page.locator('.pg-editor').first().fill('قانون فيثاغورس');
+  await expect('إضافة صفحة وعنصر نص', page.locator('.blk'));
+
+  // محرّر الرسم يفتح ويحفظ
+  await page.locator('.add-strip button').nth(4).click();
+  await sleep(900);
+  await expect('فتح محرّر الرسم', page.locator('.draw-overlay'));
+  await page.locator('.draw-top button.primary').click();
+  await sleep(500);
+
   // الإعدادات
+  await go('music');
   await page.locator('.head button.btn.icon').first().click();
   await sleep(350);
   await expect('فتح الإعدادات', page.locator('.sheet'));

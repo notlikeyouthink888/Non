@@ -8,6 +8,8 @@ import { mountMiniPlayer } from './sections/music/mini.js';
 
 import music from './sections/music/index.js';
 import time from './sections/time/index.js';
+import s2 from './sections/s2/index.js';
+import study from './sections/study/index.js';
 import workout from './sections/workout/index.js';
 import money from './sections/money/index.js';
 import commit from './sections/commit/index.js';
@@ -16,7 +18,7 @@ import room from './sections/room/index.js';
 import growth from './sections/growth/index.js';
 
 /** كل الأقسام بترتيب العرض في ورقة «الأقسام». */
-export const SECTIONS = [music, time, workout, money, commit, places, room, growth];
+export const SECTIONS = [music, time, s2, study, workout, money, commit, places, room, growth];
 
 const PIN_COUNT = 4;
 
@@ -70,7 +72,7 @@ function markActive() {
   [...navEl.children].forEach((b) => b.classList.toggle('on', b.dataset.id === current?.id));
 }
 
-/** ورقة تعرض كل الأقسام الثمانية مع إمكانية تثبيت ما تريده في الشريط. */
+/** ورقة تعرض كل الأقسام مع إمكانية تثبيت ما تريده في الشريط. */
 export function openSections() {
   const body = h('div');
   const panel = sheet('كل الأقسام', body);

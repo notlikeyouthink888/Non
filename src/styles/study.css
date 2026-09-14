@@ -1,0 +1,67 @@
+/* قسم المذاكرة */
+
+.grp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.grp {
+  position: relative; padding: 16px 12px; border-radius: var(--radius); text-align: center;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.grp .e { font-size: 28px; display: block; }
+.grp .nm { font-weight: 600; font-size: 14px; margin-top: 6px; }
+.grp .ct { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+.grp .bar2 { height: 4px; border-radius: 99px; margin-top: 10px; }
+
+.page-row {
+  display: flex; align-items: center; gap: 11px; padding: 11px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.page-row .num {
+  width: 38px; height: 38px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  font-weight: 700; font-size: 15px; background: var(--surface-2); color: var(--fg-2);
+}
+.page-row .t { font-weight: 600; font-size: 14px; }
+.page-row .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+
+/* الصفحة المفتوحة */
+.pg-head {
+  display: flex; align-items: center; gap: 9px; padding: 10px 0 12px;
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+}
+.pg-head button { min-width: 38px; height: 38px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line); display: grid; place-items: center; font-size: 15px; }
+.pg-head .t { font-weight: 700; font-size: 16px; }
+.pg-head .s { font-size: 11.5px; color: var(--fg-3); }
+
+.blk {
+  position: relative; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px;
+}
+.blk .tools {
+  position: absolute; top: 6px; inset-inline-end: 6px; display: flex; gap: 4px; opacity: .55;
+}
+.blk .tools button {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--surface-2);
+  border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px;
+}
+.blk.text { white-space: pre-wrap; line-height: 1.75; font-size: 14.5px; }
+.blk.head1 { font-size: 19px; font-weight: 700; border: none; background: transparent; padding: 6px 0 0; margin-bottom: 4px; }
+.blk.quote { border-inline-start: 3px solid var(--accent); color: var(--fg-2); font-style: italic; }
+.blk img { width: 100%; border-radius: 10px; display: block; }
+.blk .file {
+  display: flex; align-items: center; gap: 10px;
+}
+.blk .file .fi { width: 42px; height: 42px; border-radius: 11px; background: var(--surface-2); display: grid; place-items: center; font-size: 19px; flex: none; }
+.blk .file .fn { font-weight: 600; font-size: 13.5px; }
+.blk .file .fs { font-size: 11.5px; color: var(--fg-3); }
+
+.add-strip {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 6px 0 16px;
+}
+.add-strip button {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 11px 4px;
+  border-radius: 12px; background: var(--surface); border: 1px dashed var(--line);
+  font-size: 10.5px; color: var(--fg-2);
+}
+.add-strip button .e { font-size: 18px; }
+.add-strip button:active { border-color: var(--accent); }
+
+.pg-editor { width: 100%; min-height: 120px; background: transparent; border: none; padding: 0; font-size: 14.5px; line-height: 1.75; }
+.pg-editor:focus { border: none; }

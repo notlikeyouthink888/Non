@@ -51,6 +51,8 @@ export function openSettings(onChange) {
         chipGroup([
           { value: 'music', label: '♪ الأغاني' },
           { value: 'time', label: '⏰ الوقت' },
+          { value: 's2', label: '🧭 نظام S2' },
+          { value: 'study', label: '📚 المذاكرة' },
           { value: 'workout', label: '🏋 التمارين' },
           { value: 'money', label: '💰 المصاريف' },
           { value: 'commit', label: '🎯 التزاماتي' },
@@ -103,7 +105,7 @@ export function openSettings(onChange) {
       h('h2.sec', 'عن التطبيق'),
       h('div.card.tight', [
         h('div.card-t', 'Your World'),
-        h('div.card-s', 'ثمانية أقسام: أغانيك، وقتك، تمارينك، مصاريفك، التزاماتك، أماكنك، غرفتك، وإنتاجيتك — '
+        h('div.card-s', 'عشرة أقسام: أغانيك، وقتك، نظام S2، مذاكرتك، تمارينك، مصاريفك، التزاماتك، أماكنك، غرفتك، وإنتاجيتك — '
           + 'وكلّها تعمل دون إنترنت. الشبكة تُستعمل فقط إن طلبت تنزيل صور خريطة لمنطقتك.'),
       ]),
     ]);

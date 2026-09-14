@@ -11,6 +11,7 @@ import { sheet, toast, confirmSheet, promptSheet, haptic } from '../../core/ui.j
 import { openSettings } from '../../core/settings.js';
 import { saveMedia, mediaUrl, deleteMedia, pickFile } from '../../core/media.js';
 import { newItem as newExpense, saveItem as saveExpense, money } from '../money/index.js';
+import { drawButton, drawPreview, deleteDrawing } from '../../core/draw.js';
 
 const PRIORITIES = [
   { value: 'must', label: '🔴 ضروري' },
@@ -84,6 +85,7 @@ export function newRoomItem(patch = {}) {
     status: 'want',          // want | bought
     order: pending.length,
     photo: null,
+    drawing: null,
     createdAt: Date.now(),
     ...patch,
   };
@@ -100,6 +102,7 @@ export function saveRoomItem(item) {
 export async function removeRoomItem(id) {
   const item = state.room.items.find((x) => x.id === id);
   if (item?.photo) await deleteMedia(item.photo);
+  if (item?.drawing) await deleteDrawing(item.drawing);
   state.room.items = state.room.items.filter((x) => x.id !== id);
   reindex();
   save();
@@ -289,6 +292,7 @@ function openItemView(item, rerender) {
       item.status === 'bought' ? h('span.badge.ok', 'اشتريته') : null,
     ]),
     photo,
+    item.drawing ? drawPreview(item.drawing, { title: item.name }) : null,
     item.note ? h('p', { style: { marginTop: '12px', whiteSpace: 'pre-wrap' } }, item.note) : null,
 
     h('div.grid2', { style: { marginTop: '14px' } }, [
@@ -378,6 +382,14 @@ function openItemEditor(item, onDone) {
         h('button.btn.sm', { onclick: () => attach(false) }, '🖼 من المعرض'),
         h('button.btn.sm', { onclick: () => attach(true) }, '📷 كاميرا'),
       ]),
+
+      h('h2.sec', 'ملاحظة رسم'),
+      drawPreview(draft.drawing, { title: draft.name || 'غرض الغرفة' }),
+      drawButton({
+        id: draft.drawing,
+        title: draft.name || 'غرض الغرفة',
+        onChange: (id) => { draft.drawing = id; render(); },
+      }),
 
       h('div.grid2', { style: { marginTop: '16px' } }, [
         exists

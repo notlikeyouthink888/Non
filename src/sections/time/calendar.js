@@ -7,6 +7,7 @@ import { sheet, toast, confirmSheet, haptic } from '../../core/ui.js';
 import { describe, normalize, matches, nextAfter } from './repeat.js';
 import { openRepeatEditor } from './repeatUI.js';
 import { scheduleReminder, cancelReminder } from './alarms.js';
+import { drawButton, drawPreview, deleteDrawing } from '../../core/draw.js';
 
 const PRIORITIES = [
   { value: 'low', label: 'عادية' },
@@ -27,6 +28,7 @@ export function newTask(patch = {}) {
     priority: 'low',
     tag: 'عام',
     remind: false,
+    drawing: null,
     repeat: normalize(null),
     createdAt: Date.now(),
     ...patch,
@@ -80,6 +82,8 @@ export function saveTask(task) {
 }
 
 export function removeTask(id) {
+  const t = state.time.tasks.find((x) => x.id === id);
+  if (t?.drawing) deleteDrawing(t.drawing);
   cancelReminder(numericTaskId(id));
   state.time.tasks = state.time.tasks.filter((t) => t.id !== id);
   save();
@@ -256,6 +260,14 @@ export function openTaskEditor(task, onDone) {
       h('textarea', {
         placeholder: 'تفاصيل إضافية (اختياري)', value: draft.note,
         oninput: (e) => { draft.note = e.target.value; },
+      }),
+
+      h('h2.sec', 'ملاحظة رسم'),
+      drawPreview(draft.drawing, { title: draft.title || 'مهمّة' }),
+      drawButton({
+        id: draft.drawing,
+        title: draft.title || 'مهمّة',
+        onChange: (id) => { draft.drawing = id; render(); },
       }),
 
       h('div.grid2', { style: { marginTop: '14px' } }, [

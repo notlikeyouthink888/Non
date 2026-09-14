@@ -182,6 +182,34 @@ export const Scheduler = {
   },
 };
 
+/* ────────────────────────── الملفات ────────────────────────── */
+
+/**
+ * يفتح ملفًا (PDF مثلًا) بعارض النظام. يعيد true عند النجاح.
+ * في المتصفّح يعيد false ليستعمل المستدعي البديل (فتح في تبويب).
+ */
+export async function openFile({ name, mime, blob }) {
+  const p = plugin('Files');
+  if (!p || !blob) return false;
+  try {
+    const data = await blobToBase64(blob);
+    const r = await p.openFile({ name, mime, data });
+    return !!r?.opened;
+  } catch (err) {
+    console.warn('[files] تعذّر الفتح', err);
+    return false;
+  }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+
 /* ────────────────────────── الموقع ────────────────────────── */
 
 export const Location = {

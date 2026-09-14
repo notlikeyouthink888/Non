@@ -3,6 +3,7 @@ package com.yourworld.app;
 import android.os.Bundle;
 
 import com.getcapacitor.BridgeActivity;
+import com.yourworld.app.plugins.FilesPlugin;
 import com.yourworld.app.plugins.MusicLibraryPlugin;
 import com.yourworld.app.plugins.PlayerPlugin;
 import com.yourworld.app.plugins.SchedulerPlugin;
@@ -15,6 +16,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MusicLibraryPlugin.class);
         registerPlugin(PlayerPlugin.class);
         registerPlugin(SchedulerPlugin.class);
+        registerPlugin(FilesPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
