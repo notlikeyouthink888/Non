@@ -41,6 +41,15 @@
 }
 .food .g { font-variant-numeric: tabular-nums; color: var(--accent-2); font-weight: 600; flex: none; }
 .food .u { font-size: 11.5px; color: var(--fg-3); }
+.food .grow { cursor: pointer; min-width: 0; }
+/* رقم الغرامات نفسه زرّ: اضغطه لتعديله */
+.food button.as-btn {
+  background: var(--surface-2); border: 1px dashed var(--line); border-radius: 9px;
+  padding: 4px 9px; font: inherit; font-weight: 600; color: var(--accent-2);
+  font-variant-numeric: tabular-nums; flex: none; cursor: pointer;
+}
+.food button.as-btn:active { background: var(--surface-3); }
+.food .prot-big { font-size: 19px; }
 
 .day-pills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .day-pill {

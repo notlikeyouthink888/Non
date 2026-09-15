@@ -1,15 +1,30 @@
 /**
  * تخزين محلي دائم — كل البيانات تبقى داخل الجهاز، بلا أي اتصال بالإنترنت.
- * يحفظ في localStorage مع كتابة مؤجّلة، ويبثّ تغييرات لمن يشترك.
+ *
+ * الطبقة الأساسية IndexedDB (سعة كبيرة ولا تتأثّر بحدّ الـ 5 م.ب)، ومعها
+ * مرآة في localStorage لإقلاع فوري قبل أن تفتح قاعدة البيانات. أي فشل في
+ * الحفظ يُعلَن للمستخدم بدل أن يُبتلع بصمت، ويُجرَّب التقليم ثم إعادة الكتابة.
+ * بعد كل حفظ ناجح تُؤخذ لقطة احتياطية دوّارة يمكن الرجوع إليها.
  */
 
+import { idb } from './idb.js';
+
 const KEY = 'yw.state.v1';
+const DOC = 'main';
 const listeners = new Set();
+const errorHandlers = new Set();
+
 let saveTimer = null;
+let writing = null;        // وعد الكتابة الجارية
+let dirty = false;         // تغيّرت الحالة بعد آخر كتابة
+let ready = false;         // فُتحت قاعدة البيانات وقُرئت النسخة الأحدث
+let lsBroken = false;      // امتلأ localStorage — نكتفي بـ IndexedDB
+let idbBroken = false;     // تعذّرت الكتابة الدائمة — أُبلغ المستخدم مرّة
+let lastBackupAt = 0;
 
 /** الحالة الابتدائية — أي مفتاح جديد يُدمج تلقائيًا عند الترقية. */
 export const defaults = {
-  meta: { createdAt: Date.now(), version: 1, lastOpenDay: null },
+  meta: { createdAt: Date.now(), version: 2, lastOpenDay: null, savedAt: 0, saves: 0 },
 
   music: {
     favorites: [],           // معرفات الأغاني المفضّلة
@@ -85,6 +100,8 @@ export const defaults = {
       perKg: 1.7,            // غرام لكل كغم (مرجع شائع لمن يتمرّن)
       plans: {},             // dayId -> [{ id, name, grams, when }]  ما يجب أخذه
       log: {},               // 'YYYY-MM-DD' -> [{ id, name, grams, at }]  ما أُكل فعلًا
+      customFoods: [],       // { id, name, cat, per100, piece, pieceLabel }  أطعمة أضافها المستخدم
+      edits: {},             // اسم الطعام -> per100 بعد تعديل المستخدم
     },
   },
 
@@ -149,28 +166,223 @@ function deepMerge(base, patch) {
   return out;
 }
 
-function load() {
+function hydrate(raw) {
+  return deepMerge(structuredClone(defaults), raw || {});
+}
+
+/** إقلاع فوري من مرآة localStorage حتى تكتمل قراءة IndexedDB. */
+function loadMirror() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return structuredClone(defaults);
-    return deepMerge(structuredClone(defaults), JSON.parse(raw));
+    return hydrate(raw ? JSON.parse(raw) : null);
   } catch (err) {
-    console.warn('[store] تعذّرت القراءة، سنبدأ من الحالة الابتدائية', err);
+    console.warn('[store] تعذّرت قراءة المرآة، سنبدأ من الحالة الابتدائية', err);
     return structuredClone(defaults);
   }
 }
 
-export const state = load();
+export const state = loadMirror();
 
-/** يحفظ الحالة (مؤجَّل 250ms لتجميع التعديلات المتتابعة). */
-export function save(immediate = false) {
-  clearTimeout(saveTimer);
-  const write = () => {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); }
-    catch (err) { console.warn('[store] تعذّر الحفظ', err); }
+function replaceState(next) {
+  Object.keys(state).forEach((k) => delete state[k]);
+  Object.assign(state, next);
+}
+
+/**
+ * يفتح التخزين الدائم ويستعيد أحدث نسخة. يُنتظَر مرّة واحدة عند الإقلاع
+ * قبل رسم الواجهة، فلا يظهر للمستخدم أي بيانات قديمة ثم تُستبدل.
+ */
+export async function initStore() {
+  if (ready) return state;
+  try {
+    const doc = await idb.read('state', DOC);
+    if (doc && typeof doc === 'object') {
+      const mine = Number(state.meta?.savedAt || 0);
+      const theirs = Number(doc.meta?.savedAt || 0);
+      // نسخة IndexedDB هي المرجع؛ المرآة لا تفوز إلا إن كانت أحدث فعلًا
+      if (theirs >= mine) replaceState(hydrate(doc));
+    }
+    lastBackupAt = Number((await idb.read('backups', 'lastAt').catch(() => 0)) || 0);
+  } catch (err) {
+    idbBroken = true;
+    console.warn('[store] تعذّر فتح التخزين الدائم — سنعتمد المرآة وحدها', err);
+  }
+  ready = true;
+  if (dirty) save(true);
+  return state;
+}
+
+/** يشترك في أخطاء الحفظ (تُعرض للمستخدم بدل أن تُبتلع). */
+export function onStoreError(fn) {
+  errorHandlers.add(fn);
+  return () => errorHandlers.delete(fn);
+}
+
+function reportError(message, err) {
+  console.warn('[store]', message, err);
+  errorHandlers.forEach((fn) => { try { fn(message, err); } catch { /* تجاهل */ } });
+}
+
+/** يقلّم السجلّات التي تنمو بلا حدّ حتى لا تمتلئ المساحة. */
+export function prune() {
+  const keepLast = (obj, n) => {
+    const keys = Object.keys(obj || {}).sort();
+    if (keys.length <= n) return 0;
+    const drop = keys.slice(0, keys.length - n);
+    drop.forEach((k) => delete obj[k]);
+    return drop.length;
   };
-  if (immediate) write();
-  else saveTimer = setTimeout(write, 250);
+
+  let removed = 0;
+  removed += keepLast(state.time?.usage?.days, 180);
+  removed += keepLast(state.time?.summaries, 90);
+  removed += keepLast(state.workout?.log, 400);
+  removed += keepLast(state.workout?.protein?.log, 400);
+  removed += keepLast(state.commit?.log, 400);
+
+  if (state.music?.recent?.length > 120) {
+    removed += state.music.recent.length - 120;
+    state.music.recent = state.music.recent.slice(0, 120);
+  }
+  if (state.time?.stopwatchLaps?.length > 200) {
+    removed += state.time.stopwatchLaps.length - 200;
+    state.time.stopwatchLaps = state.time.stopwatchLaps.slice(-200);
+  }
+  if (state.growth?.done?.length > 800) {
+    removed += state.growth.done.length - 800;
+    state.growth.done = state.growth.done.slice(-800);
+  }
+  return removed;
+}
+
+function serialize() {
+  state.meta = state.meta || {};
+  state.meta.savedAt = Date.now();
+  state.meta.saves = (state.meta.saves || 0) + 1;
+  return JSON.stringify(state);
+}
+
+function mirror(json) {
+  if (lsBroken) return;
+  try {
+    localStorage.setItem(KEY, json);
+  } catch {
+    // امتلأت المساحة. نُبقي القيمة القديمة (أفضل من لا شيء إن تعطّل IndexedDB)
+    // ونتوقّف عن المحاولة حتى لا تبطؤ كل كتابة. IndexedDB هو المرجع أصلًا.
+    lsBroken = true;
+  }
+}
+
+async function writeNow(pre) {
+  if (!ready) return;                     // ستُكتب فور انتهاء initStore
+  dirty = false;
+  const doc = pre || JSON.parse(serialize());
+
+  if (idbBroken) {
+    // لا مرجع دائم: المرآة وحدها. إن سقطت هي أيضًا فالمستخدم يعرف.
+    if (lsBroken) reportError('تعذّر حفظ بياناتك — لا مساحة متاحة في الجهاز.', null);
+    return;
+  }
+
+  try {
+    await idb.put('state', DOC, doc);
+  } catch (err) {
+    // غالبًا امتلاء المساحة: نقلّم ثم نعيد المحاولة مرّة واحدة
+    const removed = prune();
+    try {
+      await idb.put('state', DOC, JSON.parse(JSON.stringify(state)));
+      if (removed) console.info(`[store] حُرّرت مساحة بحذف ${removed} سجلًّا قديمًا`);
+    } catch (err2) {
+      idbBroken = true;                   // نُبلّغ مرّة واحدة لا مع كل ضغطة
+      reportError('تعذّر حفظ بياناتك — المساحة ممتلئة. احذف ملفات من التطبيق أو الجهاز.', err2);
+      return;
+    }
+  }
+  await maybeBackup(doc);
+}
+
+/** لقطة احتياطية كل ٦ ساعات، نحتفظ بآخر ١٢ لقطة. */
+async function maybeBackup(snapshot) {
+  const now = Date.now();
+  if (now - lastBackupAt < 6 * 3600 * 1000) return;
+  lastBackupAt = now;
+  try {
+    await idb.put('backups', `auto_${now}`, { at: now, kind: 'auto', data: snapshot });
+    await idb.put('backups', 'lastAt', now);
+    const keys = (await idb.keys('backups')).filter((k) => String(k).startsWith('auto_')).sort();
+    for (const k of keys.slice(0, Math.max(0, keys.length - 12))) await idb.del('backups', k);
+  } catch (err) {
+    console.warn('[store] تعذّرت اللقطة الاحتياطية', err);
+  }
+}
+
+/**
+ * يحفظ الحالة. مؤجَّل 250ms لتجميع التعديلات المتتابعة،
+ * و`immediate` يكتب حالًا (عند الخروج أو بعد عملية مهمّة).
+ */
+export function save(immediate = false) {
+  dirty = true;
+  clearTimeout(saveTimer);
+  if (immediate) {
+    // المرآة تُكتب فورًا وبشكل متزامن: إن أُغلق التطبيق في هذه اللحظة لا يضيع شيء.
+    const json = serialize();
+    mirror(json);
+    const snap = JSON.parse(json);
+    writing = Promise.resolve(writing).then(() => writeNow(snap), () => writeNow(snap));
+    return writing;
+  }
+  saveTimer = setTimeout(() => {
+    const json = serialize();
+    mirror(json);
+    const snap = JSON.parse(json);
+    writing = Promise.resolve(writing).then(() => writeNow(snap), () => writeNow(snap));
+  }, 250);
+  return writing || Promise.resolve();
+}
+
+/** ينتظر انتهاء أي كتابة معلّقة (يُستعمل قبل التصدير أو الخروج). */
+export async function flush() {
+  clearTimeout(saveTimer);
+  if (dirty) await save(true);
+  await writing;
+}
+
+/** لقطات احتياطية محفوظة داخل الجهاز، الأحدث أولًا. */
+export async function listSnapshots() {
+  try {
+    const keys = (await idb.keys('backups')).filter((k) => String(k).startsWith('auto_') || String(k).startsWith('manual_'));
+    const out = [];
+    for (const k of keys) {
+      const v = await idb.get('backups', k);
+      if (v?.data) out.push({ key: k, at: v.at, kind: v.kind || 'auto', size: JSON.stringify(v.data).length });
+    }
+    return out.sort((a, b) => b.at - a.at);
+  } catch { return []; }
+}
+
+/** لقطة يدوية قبل عملية خطرة (استيراد، مسح). */
+export async function snapshot(kind = 'manual') {
+  const now = Date.now();
+  try {
+    await idb.put('backups', `manual_${now}`, { at: now, kind, data: JSON.parse(JSON.stringify(state)) });
+    const keys = (await idb.keys('backups')).filter((k) => String(k).startsWith('manual_')).sort();
+    for (const k of keys.slice(0, Math.max(0, keys.length - 8))) await idb.del('backups', k);
+    return true;
+  } catch { return false; }
+}
+
+export async function restoreSnapshot(key) {
+  const v = await idb.get('backups', key);
+  if (!v?.data) return false;
+  await snapshot('before-restore');
+  replaceState(hydrate(v.data));
+  await save(true);
+  emit('*');
+  return true;
+}
+
+export async function deleteSnapshot(key) {
+  await idb.del('backups', key);
 }
 
 /** يعدّل الحالة ثم يحفظ ويبثّ. */
@@ -204,19 +416,40 @@ export function exportAll() {
   return JSON.stringify(state, null, 2);
 }
 
-/** استيراد نسخة احتياطية. */
-export function importAll(json) {
-  const parsed = JSON.parse(json);
-  const merged = deepMerge(structuredClone(defaults), parsed);
-  Object.keys(state).forEach((k) => delete state[k]);
-  Object.assign(state, merged);
-  save(true);
+/**
+ * استيراد نسخة احتياطية. تُؤخذ لقطة للحالة الحالية أولًا حتى يمكن التراجع،
+ * و`merge` يدمج النسخة مع ما هو موجود بدل استبداله (مفيد لاسترجاع التمارين
+ * وحدها دون فقدان ما أُضيف بعدها).
+ */
+export async function importAll(json, { merge = false } = {}) {
+  const parsed = typeof json === 'string' ? JSON.parse(json) : json;
+  if (!parsed || typeof parsed !== 'object') throw new Error('ملف غير صالح');
+  await snapshot('before-import');
+  const base = merge ? structuredClone(state) : structuredClone(defaults);
+  replaceState(deepMerge(base, parsed));
+  await save(true);
   emit('*');
 }
 
-export function resetAll() {
-  Object.keys(state).forEach((k) => delete state[k]);
-  Object.assign(state, structuredClone(defaults));
-  save(true);
+/** ما الذي تحتويه نسخة احتياطية — لعرضه قبل الاستيراد. */
+export function describeBackup(obj) {
+  const n = (v) => (Array.isArray(v) ? v.length : Object.keys(v || {}).length);
+  const slots = (obj?.workout?.days || []).reduce((s, d) => s + n(d.slots), 0);
+  return [
+    slots ? `${slots} تمرين` : null,
+    n(obj?.time?.alarms) ? `${n(obj.time.alarms)} منبّه` : null,
+    n(obj?.time?.tasks) ? `${n(obj.time.tasks)} مهمّة` : null,
+    n(obj?.study?.pages) ? `${n(obj.study.pages)} صفحة مذاكرة` : null,
+    n(obj?.money?.items) ? `${n(obj.money.items)} مصروف` : null,
+    n(obj?.places?.items) ? `${n(obj.places.items)} مكان` : null,
+    n(obj?.room?.items) ? `${n(obj.room.items)} غرض غرفة` : null,
+    n(obj?.s2?.blocks) ? `${n(obj.s2.blocks)} كتلة S2` : null,
+  ].filter(Boolean).join(' · ') || 'نسخة فارغة';
+}
+
+export async function resetAll() {
+  await snapshot('before-reset');
+  replaceState(structuredClone(defaults));
+  await save(true);
   emit('*');
 }

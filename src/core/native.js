@@ -201,6 +201,48 @@ export async function openFile({ name, mime, blob }) {
   }
 }
 
+/**
+ * يحفظ ملفًا في «التنزيلات/YourWorld» داخل الجهاز.
+ * يعيد المسار الظاهر للمستخدم، أو null في المتصفّح.
+ */
+export async function saveToDownloads({ name, mime = 'application/json', text }) {
+  const p = plugin('Files');
+  if (!p?.saveToDownloads) return null;
+  const r = await p.saveToDownloads({ name, mime, data: toBase64(text) });
+  return r?.path || null;
+}
+
+/** يبحث عن النسخ الاحتياطية المحفوظة في الجهاز. */
+export async function listBackupFiles() {
+  const p = plugin('Files');
+  if (!p?.listBackups) return [];
+  try {
+    const r = await p.listBackups();
+    return r?.files || [];
+  } catch (err) {
+    console.warn('[files] تعذّر البحث', err);
+    return [];
+  }
+}
+
+/** يقرأ نصّ ملف من مسار أو content:// */
+export async function readTextFile(uri) {
+  const p = plugin('Files');
+  if (!p?.readText) return null;
+  const r = await p.readText({ uri });
+  return r?.text ?? null;
+}
+
+/** نصّ → base64 على دفعات (النسخة الاحتياطية قد تكون بضعة ميغابايت). */
+function toBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  }
+  return btoa(bin);
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();

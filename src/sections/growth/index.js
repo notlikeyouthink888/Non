@@ -157,15 +157,28 @@ function todayTab(rerender) {
 }
 
 function libraryTab(rerender) {
-  const q = query.trim().toLowerCase();
-  let list = cat === 'all' ? GROWTH : GROWTH.filter((g) => g.cat === cat);
-  if (q) list = list.filter((g) => g.title.toLowerCase().includes(q) || g.why.toLowerCase().includes(q));
+  // حقل البحث يبقى هو نفسه ولا يُعاد بناؤه مع كل حرف، وإلا انقطعت
+  // كتابة لوحة المفاتيح العربية وضاع نصف الكلمة.
+  const results = h('div');
+  const searchEl = h('input', {
+    type: 'search', placeholder: 'ابحث عن مهارة أو عادة…', value: query,
+    oninput: (e) => { query = e.target.value; renderList(); },
+  });
+
+  function renderList() {
+    const q = query.trim().toLowerCase();
+    let list = cat === 'all' ? GROWTH : GROWTH.filter((g) => g.cat === cat);
+    if (q) list = list.filter((g) => g.title.toLowerCase().includes(q) || g.why.toLowerCase().includes(q));
+
+    fill(results, [list.length
+      ? h('div.list', { style: { marginTop: '14px' } }, list.map((g) => growthRow(g, rerender)))
+      : h('div', { style: { marginTop: '20px' } }, empty('🔍', 'لا نتائج مطابقة'))]);
+  }
+
+  renderList();
 
   return h('div', [
-    h('input', {
-      type: 'search', placeholder: 'ابحث عن مهارة أو عادة…', value: query,
-      oninput: (e) => { query = e.target.value; rerender(); },
-    }),
+    searchEl,
     h('div', { style: { marginTop: '12px' } }, chipGroup(
       [{ value: 'all', label: `الكل (${GROWTH.length})` },
         ...GROWTH_CATEGORIES.map((c) => ({
@@ -175,9 +188,7 @@ function libraryTab(rerender) {
       cat,
       (v) => { cat = v; rerender(); },
     )),
-    list.length
-      ? h('div.list', { style: { marginTop: '14px' } }, list.map((g) => growthRow(g, rerender)))
-      : h('div', { style: { marginTop: '20px' } }, empty('🔍', 'لا نتائج مطابقة')),
+    results,
   ]);
 }
 

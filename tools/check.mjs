@@ -195,6 +195,59 @@ async function runFlows(page) {
   await expect('فتح الإعدادات', page.locator('.sheet'));
   await page.locator('.scrim').click({ position: { x: 20, y: 20 } });
   await sleep(200);
+
+  // بروتين من القائمة: تصنيف الفواكه ← منتقي المقدار
+  await go('workout');
+  await tab(1);
+  await page.getByText('＋ من القائمة').click();
+  await sleep(400);
+  await page.locator('.sheet .chip').filter({ hasText: 'فواكه' }).click();
+  await sleep(300);
+  await page.locator('.sheet .food button.primary').first().click();
+  await sleep(450);
+  await expect('منتقي مقدار الطعام', page.locator('.sheet .prot-big'));
+  await page.locator('.sheet').getByText('✓ أضف').click();
+  await sleep(450);
+  await expect('إضافة فاكهة بمقدارها', page.locator('.food button.as-btn'));
+
+  // تعديل غرامات إدخال مسجَّل
+  await page.locator('.food button.as-btn').first().click();
+  await sleep(400);
+  await page.locator('.sheet input[type="number"]').first().fill('42');
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(450);
+  await expect('تعديل غرامات البروتين', page.getByText('42 غم').first());
+
+  // مركز النسخ الاحتياطي ولقطة يدوية
+  await page.locator('.head button.btn.icon').first().click();
+  await sleep(400);
+  await page.locator('.sheet').getByText('🗄 النسخ الاحتياطي والاسترجاع').click();
+  await sleep(500);
+  await page.locator('.sheet').getByText('＋ خذ لقطة الآن').click();
+  await sleep(800);
+  await expect('لقطة احتياطية قابلة للاسترجاع', page.locator('.sheet').getByText('↺ استرجع').first());
+  // ورقتان مفتوحتان (الإعدادات ثم النسخ) — نغلقهما واحدة تلو الأخرى
+  while (await page.locator('.scrim').count()) {
+    await page.locator('.scrim').last().click({ position: { x: 20, y: 20 } });
+    await sleep(300);
+  }
+
+  // اسم عربي يُكتب حرفًا حرفًا ويبقى كاملًا بعد إعادة تشغيل التطبيق
+  const NAME = 'تمرين الضغط المائل بالدمبل';
+  await go('workout');
+  await tab(0);
+  await page.locator('.slot.empty').first().click();
+  await sleep(400);
+  await page.locator('.sheet input').first().pressSequentially(NAME, { delay: 35 });
+  await page.locator('.sheet').getByText('💾 حفظ').click();
+  await sleep(600);
+
+  await page.reload();
+  await page.waitForSelector('.nav', { timeout: 15000 });
+  await sleep(900);
+  await go('workout');
+  await tab(0);
+  await expect('اسم عربي كامل بعد إعادة التشغيل', page.getByText(NAME, { exact: true }).first());
 }
 
 async function main() {

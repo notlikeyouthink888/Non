@@ -87,6 +87,12 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- كتابة النسخة الاحتياطية في «التنزيلات» على أندرويد ٩ وأقدم؛
+         من أندرويد ١٠ فصاعدًا تُكتب عبر MediaStore بلا أي إذن -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <!-- التشغيل بالخلفية وشاشة القفل -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />

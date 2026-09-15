@@ -1,8 +1,8 @@
 /** غلاف صغير حول IndexedDB لتخزين البيانات الكبيرة (مكتبة الأغاني، بلاطات الخريطة). */
 
 const DB = 'yourworld';
-const VERSION = 2;
-const STORES = ['library', 'tiles', 'blobs', 'drawings'];
+const VERSION = 3;
+const STORES = ['library', 'tiles', 'blobs', 'drawings', 'state', 'backups'];
 
 let dbPromise = null;
 
@@ -32,6 +32,11 @@ async function tx(store, mode, fn) {
 }
 
 export const idb = {
+  /** كتابة تُظهر الخطأ بدل ابتلاعه — تُستعمل لحفظ الحالة والنسخ الاحتياطية. */
+  put: (store, key, value) => tx(store, 'readwrite', (s) => s.put(value, key)),
+  read: (store, key) => tx(store, 'readonly', (s) => s.get(key)),
+  all: (store) => tx(store, 'readonly', (s) => s.getAll()).catch(() => []),
+
   get: (store, key) => tx(store, 'readonly', (s) => s.get(key)).catch(() => undefined),
   set: (store, key, value) => tx(store, 'readwrite', (s) => s.put(value, key)).catch(() => undefined),
   del: (store, key) => tx(store, 'readwrite', (s) => s.delete(key)).catch(() => undefined),

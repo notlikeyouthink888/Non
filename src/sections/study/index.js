@@ -472,17 +472,26 @@ async function attachFile(p, rerender) {
   input.click();
 }
 
-/** يفتح الملف بعارض النظام (PDF مثلًا)، وإن تعذّر يفتحه في نافذة. */
+/**
+ * يفتح الملف. ملفات PDF تُعرض داخل Your World نفسه بعارض التطبيق،
+ * وغيرها يُسلَّم لعارض النظام لأنه الوحيد الذي يفهمها.
+ */
 async function openStoredFile(b) {
-  const url = await mediaUrl(b.mediaId);
-  if (!url) { toast('تعذّر فتح الملف', 'err'); return; }
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const ok = await openFile({ name: b.name || 'file.pdf', mime: b.mime || 'application/pdf', blob });
-    if (ok) return;
-  } catch { /* نكمل إلى البديل */ }
-  window.open(url, '_blank');
+  const isPdf = (b.mime || '').includes('pdf') || /\.pdf$/i.test(b.name || '');
+
+  const external = async () => {
+    const url = await mediaUrl(b.mediaId);
+    if (!url) { toast('تعذّر فتح الملف', 'err'); return; }
+    try {
+      const blob = await (await fetch(url)).blob();
+      if (await openFile({ name: b.name || 'file', mime: b.mime || 'application/octet-stream', blob })) return;
+    } catch { /* نكمل إلى البديل */ }
+    window.open(url, '_blank');
+  };
+
+  if (!isPdf) { external(); return; }
+  const { openPdf } = await import('../../core/pdf.js');
+  await openPdf({ mediaId: b.mediaId, name: b.name || 'ملف PDF', onExternal: external });
 }
 
 function openImage(url, name) {
@@ -536,34 +545,43 @@ function recentTab(rerender) {
 }
 
 function searchTab(rerender) {
-  const q = query.trim().toLowerCase();
-  const hits = q
-    ? state.study.pages.filter((p) =>
-      (p.title || '').toLowerCase().includes(q)
-      || p.blocks.some((b) => (b.text || '').toLowerCase().includes(q) || (b.name || '').toLowerCase().includes(q)))
-    : [];
+  // الحقل نفسه يبقى ثابتًا؛ تتحدّث النتائج وحدها مع كل حرف
+  // حتى لا تنقطع كتابة لوحة المفاتيح العربية.
+  const results = h('div');
+  const searchEl = h('input', {
+    type: 'search', placeholder: 'ابحث في كل صفحاتك…', value: query,
+    oninput: (e) => { query = e.target.value; renderResults(); },
+  });
 
-  return h('div', [
-    h('input', {
-      type: 'search', placeholder: 'ابحث في كل صفحاتك…', value: query,
-      oninput: (e) => { query = e.target.value; rerender(); },
-    }),
-    q
-      ? (hits.length
-        ? h('div.list', { style: { marginTop: '14px' } }, hits.map((p) => {
-          const g = groupById(p.groupId);
-          const snippet = p.blocks.map((b) => b.text || '').find((t) => t.toLowerCase().includes(q)) || '';
-          return h('div.page-row', {
-            onclick: () => { openGroupId = p.groupId; openPageId = p.id; rerender(); },
-          }, [
-            h('div.num', g?.icon || '📄'),
-            h('div.grow', [
-              h('div.t', p.title || `صفحة ${p.n}`),
-              h('div.s.ellipsis', snippet.slice(0, 80) || g?.name || ''),
-            ]),
-          ]);
-        }))
-        : h('div', { style: { marginTop: '20px' } }, empty('🔍', 'لا نتائج')))
-      : h('div.muted.center', { style: { marginTop: '20px' } }, 'اكتب كلمة للبحث في عناوين الصفحات ونصوصها.'),
-  ]);
+  function renderResults() {
+    const q = query.trim().toLowerCase();
+    const hits = q
+      ? state.study.pages.filter((p) =>
+        (p.title || '').toLowerCase().includes(q)
+        || p.blocks.some((b) => (b.text || '').toLowerCase().includes(q) || (b.name || '').toLowerCase().includes(q)))
+      : [];
+
+    fill(results, [
+      q
+        ? (hits.length
+          ? h('div.list', { style: { marginTop: '14px' } }, hits.map((p) => {
+            const g = groupById(p.groupId);
+            const snippet = p.blocks.map((b) => b.text || '').find((t) => t.toLowerCase().includes(q)) || '';
+            return h('div.page-row', {
+              onclick: () => { openGroupId = p.groupId; openPageId = p.id; rerender(); },
+            }, [
+              h('div.num', g?.icon || '📄'),
+              h('div.grow', [
+                h('div.t', p.title || `صفحة ${p.n}`),
+                h('div.s.ellipsis', snippet.slice(0, 80) || g?.name || ''),
+              ]),
+            ]);
+          }))
+          : h('div', { style: { marginTop: '20px' } }, empty('🔍', 'لا نتائج')))
+        : h('div.muted.center', { style: { marginTop: '20px' } }, 'اكتب كلمة للبحث في عناوين الصفحات ونصوصها.'),
+    ]);
+  }
+
+  renderResults();
+  return h('div', [searchEl, results]);
 }
