@@ -188,6 +188,15 @@ function replaceState(next) {
   Object.assign(state, next);
 }
 
+/** مقياس خشن لكم البيانات في نسخة — يُستعمل حارسًا ضدّ استبدال نسخة بأفقر منها. */
+function contentScore(s) {
+  const n = (v) => (Array.isArray(v) ? v.length : Object.keys(v || {}).length);
+  return (s?.workout?.days || []).reduce((t, d) => t + n(d.slots), 0)
+    + n(s?.time?.alarms) + n(s?.time?.tasks) + n(s?.study?.pages)
+    + n(s?.money?.items) + n(s?.places?.items) + n(s?.room?.items)
+    + n(s?.s2?.blocks) + n(s?.commit?.active) + n(s?.growth?.done);
+}
+
 /**
  * يفتح التخزين الدائم ويستعيد أحدث نسخة. يُنتظَر مرّة واحدة عند الإقلاع
  * قبل رسم الواجهة، فلا يظهر للمستخدم أي بيانات قديمة ثم تُستبدل.
@@ -199,8 +208,11 @@ export async function initStore() {
     if (doc && typeof doc === 'object') {
       const mine = Number(state.meta?.savedAt || 0);
       const theirs = Number(doc.meta?.savedAt || 0);
-      // نسخة IndexedDB هي المرجع؛ المرآة لا تفوز إلا إن كانت أحدث فعلًا
-      if (theirs >= mine) replaceState(hydrate(doc));
+      // مرآة من نسخة أقدم من التطبيق لا تحمل طابعًا زمنيًا؛ لا نسمح بأن تمحوها
+      // نسخة أفقر منها في IndexedDB. عدا ذلك، IndexedDB هو المرجع.
+      const legacyMirror = mine === 0 && contentScore(state) > 0;
+      const poorer = legacyMirror && contentScore(doc) < contentScore(state);
+      if (theirs >= mine && !poorer) replaceState(hydrate(doc));
     }
     lastBackupAt = Number((await idb.read('backups', 'lastAt').catch(() => 0)) || 0);
   } catch (err) {

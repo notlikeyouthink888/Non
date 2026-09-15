@@ -250,6 +250,62 @@ async function runFlows(page) {
   await expect('اسم عربي كامل بعد إعادة التشغيل', page.getByText(NAME, { exact: true }).first());
 }
 
+/** بيانات نسخة قديمة من التطبيق (localStorage وحده، بلا طابع زمني). */
+const LEGACY = {
+  meta: { createdAt: 1, version: 1 },
+  workout: {
+    days: [
+      { id: 'd1', name: 'اليوم الأول', slots: [{ n: 1, title: 'تمرين قديم محفوظ', note: '', media: [] }] },
+      { id: 'd2', name: 'اليوم الثاني', slots: [] },
+      { id: 'd3', name: 'اليوم الثالث', slots: [] },
+    ],
+  },
+  time: { alarms: [{ id: 'a1', hour: 6, minute: 30, label: 'الدوام', enabled: true }] },
+};
+
+/**
+ * يتحقّق أن بيانات المستخدم القديمة لا تضيع عند الترقية إلى تخزين IndexedDB:
+ * (أ) ترقية عادية عبر ثلاثة إقلاعات، (ب) مرآة قديمة أمام نسخة أفقر في القاعدة.
+ */
+async function checkMigration(browser, url) {
+  const slots = (p) => p.evaluate(() =>
+    JSON.parse(localStorage.getItem('yw.state.v1')).workout.days[0].slots.map((x) => x.title));
+  const boot = async (p) => {
+    await p.goto(url);
+    await p.waitForSelector('.nav', { timeout: 15000 });
+    await sleep(900);
+  };
+  const assert = (label, got) => {
+    if (got[0] !== 'تمرين قديم محفوظ') throw new Error(`${label}: ضاعت البيانات القديمة (${JSON.stringify(got)})`);
+    console.log(`  ✓ ${label}`);
+  };
+
+  // (أ) جهاز فيه بيانات النسخة السابقة، ثم يُحدَّث التطبيق ويُفتح ثلاث مرّات
+  {
+    const ctx = await browser.newContext({ viewport: { width: 412, height: 900 } });
+    await ctx.addInitScript((s) => {
+      if (!localStorage.getItem('yw.state.v1')) localStorage.setItem('yw.state.v1', JSON.stringify(s));
+    }, LEGACY);
+    const p = await ctx.newPage();
+    for (let i = 0; i < 3; i++) await boot(p);
+    assert('ترقية من النسخة السابقة بلا فقدان', await slots(p));
+    await ctx.close();
+  }
+
+  // (ب) القاعدة فيها حالة فارغة بطابع زمني، والمرآة القديمة فيها بيانات بلا طابع
+  {
+    const ctx = await browser.newContext({ viewport: { width: 412, height: 900 } });
+    const first = await ctx.newPage();
+    await boot(first);
+    await first.close();
+    await ctx.addInitScript((s) => localStorage.setItem('yw.state.v1', JSON.stringify(s)), LEGACY);
+    const p = await ctx.newPage();
+    await boot(p);
+    assert('حارس: لا تمحو نسخة فارغة بياناتك', await slots(p));
+    await ctx.close();
+  }
+}
+
 async function main() {
   console.log('▸ بناء الإصدار…');
   await run('npx', ['vite', 'build']);
@@ -297,6 +353,7 @@ async function main() {
     }
 
     await runFlows(page);
+    await checkMigration(browser, 'http://127.0.0.1:4173/');
 
     await browser.close();
   } catch (err) {
