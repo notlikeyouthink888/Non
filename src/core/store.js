@@ -307,7 +307,9 @@ async function maybeBackup(snapshot) {
   if (now - lastBackupAt < 6 * 3600 * 1000) return;
   lastBackupAt = now;
   try {
-    await idb.put('backups', `auto_${now}`, { at: now, kind: 'auto', data: snapshot });
+    await idb.put('backups', `auto_${now}`, {
+      at: now, kind: 'auto', size: JSON.stringify(snapshot).length, data: snapshot,
+    });
     await idb.put('backups', 'lastAt', now);
     const keys = (await idb.keys('backups')).filter((k) => String(k).startsWith('auto_')).sort();
     for (const k of keys.slice(0, Math.max(0, keys.length - 12))) await idb.del('backups', k);
@@ -354,7 +356,7 @@ export async function listSnapshots() {
     const out = [];
     for (const k of keys) {
       const v = await idb.get('backups', k);
-      if (v?.data) out.push({ key: k, at: v.at, kind: v.kind || 'auto', size: JSON.stringify(v.data).length });
+      if (v?.data) out.push({ key: k, at: v.at, kind: v.kind || 'auto', size: v.size || 0 });
     }
     return out.sort((a, b) => b.at - a.at);
   } catch { return []; }
@@ -364,7 +366,8 @@ export async function listSnapshots() {
 export async function snapshot(kind = 'manual') {
   const now = Date.now();
   try {
-    await idb.put('backups', `manual_${now}`, { at: now, kind, data: JSON.parse(JSON.stringify(state)) });
+    const json = JSON.stringify(state);
+    await idb.put('backups', `manual_${now}`, { at: now, kind, size: json.length, data: JSON.parse(json) });
     const keys = (await idb.keys('backups')).filter((k) => String(k).startsWith('manual_')).sort();
     for (const k of keys.slice(0, Math.max(0, keys.length - 8))) await idb.del('backups', k);
     return true;
