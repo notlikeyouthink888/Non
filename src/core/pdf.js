@@ -1,19 +1,21 @@
 /**
- * عارض PDF داخل Your World نفسه — لا يخرج الملف إلى أي تطبيق آخر ولا إلى الشبكة.
+ * عارض PDF داخل Your World — قراءة وكتابة ورسم، بلا إنترنت وبلا تطبيق آخر.
  *
- *  • تمرير متواصل لكل الصفحات، تُرسَم الصفحة عند اقترابها من الشاشة فقط
- *    (كسول) فيفتح الملف الكبير فورًا ولا تمتلئ الذاكرة.
- *  • تكبير وتصغير، «ملء العرض»، وضغطتان سريعتان للتكبير.
- *  • انتقال إلى رقم صفحة، وبحث في نصّ الملف مع القفز إلى الصفحة.
- *  • يتذكّر آخر صفحة وقفت عندها في كل ملف.
+ * الترتيب مستقرّ: تُقاس أبعاد كل صفحة قبل العرض، فيأخذ كل صندوق مكانه الصحيح
+ * من أول لحظة ولا تقفز الصفحات تحت إصبعك أثناء التمرير أو التكبير. التكبير
+ * يحافظ على موضع القراءة بالضبط (يُحسب مرساة في مركز الشاشة ثم يُستعاد).
  *
- * محرّك العرض pdf.js مُضمَّن داخل التطبيق (لا CDN) فيعمل دون إنترنت.
+ * الرسم: طبقة فوق كل صفحة تقبل قلم سامسونغ بضغطه، مع قلم ومُبرِز وممحاة
+ * ونصّ وأشكال، و٢٤ لونًا، وتراجع وإعادة. المسارات تُخزَّن بإحداثيات نسبية
+ * (٠..١ من الصفحة) فتبقى مضبوطة عند أي تكبير، وتُحفظ لكل ملف على حدة.
  */
 
 import '../styles/pdf.css';
 import { h, fill } from './dom.js';
 import { idb } from './idb.js';
-import { toast, haptic } from './ui.js';
+import { toast, haptic, confirmSheet, sheet, promptSheet } from './ui.js';
+
+/* ─────────────────── المحرّك ─────────────────── */
 
 let pdfjs = null;
 
@@ -36,9 +38,130 @@ async function engine() {
   return pdfjs;
 }
 
+/* ─────────────────── إعدادات الرسم ─────────────────── */
+
+export const INK_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6',
+  '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+  '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+  '#f43f5e', '#78716c', '#0b0e14', '#374151',
+  '#6b7280', '#9ca3af', '#e5e7eb', '#ffffff',
+];
+
+const WIDTHS = [1.2, 2.2, 4, 7, 12];
+const MAX_LIVE_CANVAS = 12;        // أقصى عدد صفحات مرسومة في الذاكرة
+const PAD = 10;                    // هامش جانبي حول الصفحة
+
+const TOOLS = [
+  { id: 'pen', icon: '🖊', label: 'قلم' },
+  { id: 'marker', icon: '🖍', label: 'مُبرِز' },
+  { id: 'line', icon: '📏', label: 'خط' },
+  { id: 'rect', icon: '▭', label: 'إطار' },
+  { id: 'text', icon: 'T', label: 'نصّ' },
+  { id: 'erase', icon: '🧽', label: 'ممحاة' },
+];
+
+/* ─────────────────── تخزين التعليقات ─────────────────── */
+
+const notesKey = (id) => `notes:${id}`;
 const posKey = (id) => `pdfpos:${id}`;
-const readPos = (id) => idb.get('state', posKey(id)).then((v) => Number(v) || 1).catch(() => 1);
-const writePos = (id, page) => idb.set('state', posKey(id), page);
+
+async function loadNotes(id) {
+  if (!id) return { pages: {} };
+  const v = await idb.get('pdfnotes', notesKey(id));
+  return v && typeof v === 'object' ? { pages: v.pages || {} } : { pages: {} };
+}
+
+const saveNotes = (id, notes) =>
+  (id ? idb.set('pdfnotes', notesKey(id), { ...notes, updatedAt: Date.now() }) : Promise.resolve());
+
+/** يحذف تعليقات ملف (يُستدعى عند حذف الملف نفسه). */
+export const deletePdfNotes = (id) => idb.del('pdfnotes', notesKey(id));
+
+/* ─────────────────── رسم المسارات ─────────────────── */
+
+/** يرسم مسارات صفحة على سياق، بمقياس صندوق العرض (w×h بالبكسل). */
+function paintInk(ctx, strokes, w, hgt, dpr = 1) {
+  ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, hgt);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (const s of strokes || []) {
+    if (s.type === 'text') {
+      const size = (s.size || 0.025) * hgt;
+      ctx.fillStyle = s.color;
+      ctx.font = `600 ${size}px system-ui, sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.direction = 'rtl';
+      String(s.text || '').split('\n').forEach((line, i) => {
+        ctx.fillText(line, s.x * w, s.y * hgt + i * size * 1.25);
+      });
+      continue;
+    }
+
+    const pts = s.pts || [];
+    if (!pts.length) continue;
+    const marker = s.tool === 'marker';
+    const lw = marker ? s.w * 4.5 : s.w;      // المُبرِز عريض وشفّاف كالحقيقي
+    ctx.globalAlpha = marker ? 0.3 : 1;
+    ctx.lineCap = marker ? 'butt' : 'round';
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = s.color;
+
+    if (s.tool === 'rect' && pts.length >= 2) {
+      const a = pts[0]; const b = pts[pts.length - 1];
+      ctx.lineWidth = lw;
+      ctx.strokeRect(a[0] * w, a[1] * hgt, (b[0] - a[0]) * w, (b[1] - a[1]) * hgt);
+      continue;
+    }
+
+    if (s.tool === 'line' && pts.length >= 2) {
+      const a = pts[0]; const b = pts[pts.length - 1];
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(a[0] * w, a[1] * hgt);
+      ctx.lineTo(b[0] * w, b[1] * hgt);
+      ctx.stroke();
+      continue;
+    }
+
+    // قلم حرّ: سماكة متغيّرة مع ضغط القلم
+    for (let i = 1; i < pts.length; i++) {
+      const p0 = pts[i - 1];
+      const p1 = pts[i];
+      ctx.lineWidth = marker ? lw : s.w * (0.45 + 1.1 * (p1[2] ?? 0.5));
+      ctx.beginPath();
+      ctx.moveTo(p0[0] * w, p0[1] * hgt);
+      ctx.lineTo(p1[0] * w, p1[1] * hgt);
+      ctx.stroke();
+    }
+    if (pts.length === 1) {
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(pts[0][0] * w, pts[0][1] * hgt, lw * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/** أقرب مسافة بين نقطة ومسار (بإحداثيات نسبية مصحّحة بنسبة الصفحة). */
+function nearStroke(s, x, y, ratio) {
+  const pts = s.type === 'text' ? [[s.x, s.y]] : (s.pts || []);
+  let best = Infinity;
+  for (const p of pts) {
+    const dx = (p[0] - x);
+    const dy = (p[1] - y) * ratio;
+    best = Math.min(best, Math.hypot(dx, dy));
+  }
+  return best;
+}
+
+/* ─────────────────── العارض ─────────────────── */
 
 /**
  * يفتح ملف PDF محفوظًا داخل الجهاز.
@@ -48,50 +171,84 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
   const data = blob || (mediaId ? await idb.get('blobs', mediaId) : null);
   if (!data) { toast('تعذّر فتح الملف', 'err'); return null; }
 
+  /* الهيكل */
   const stage = h('div.pdf-stage');
-  const pageInfo = h('div.sub', 'جارٍ الفتح…');
+  const pagesEl = h('div.pdf-pages');
+  stage.append(pagesEl);
+
   const title = h('div.ttl.ellipsis', name);
+  const pageInfo = h('div.sub', 'جارٍ الفتح…');
   const zoomLabel = h('b.mono', '100%');
-  const searchBar = h('div.pdf-search', { hidden: true });
+  const searchBar = h('div.pdf-bar', { hidden: true });
+  const inkBar = h('div.pdf-ink', { hidden: true });
+  const thumbsBar = h('div.pdf-thumbs', { hidden: true });
+
+  const modeBtn = h('button', { title: 'الرسم والكتابة', onclick: () => setMode(mode === 'read' ? 'ink' : 'read') }, '✍️');
 
   const overlay = h('div.pdf-overlay', [
     h('div.pdf-top', [
       h('button', { title: 'إغلاق', onclick: () => close() }, '✕'),
       h('div.grow', { style: { minWidth: '0' } }, [title, pageInfo]),
+      h('button', { title: 'الصفحات', onclick: () => toggleThumbs() }, '☰'),
       h('button', { title: 'بحث', onclick: () => toggleSearch() }, '🔎'),
-      onExternal ? h('button', { title: 'فتح بتطبيق آخر', onclick: () => onExternal() }, '↗') : null,
+      modeBtn,
     ]),
     searchBar,
+    thumbsBar,
     stage,
+    inkBar,
     h('div.pdf-bottom', [
-      h('button', { title: 'السابقة', onclick: () => step(-1) }, '‹'),
+      h('button', { title: 'الصفحة السابقة', onclick: () => step(-1) }, '‹'),
       h('button', { title: 'تصغير', onclick: () => setZoom(zoom / 1.25) }, '−'),
-      zoomLabel,
+      h('button.wide', { title: 'اذهب إلى صفحة', onclick: () => jumpTo() }, zoomLabel),
       h('button', { title: 'تكبير', onclick: () => setZoom(zoom * 1.25) }, '＋'),
       h('button', { title: 'ملء العرض', onclick: () => fitWidth() }, '⤢'),
-      h('button', { title: 'اذهب إلى صفحة', onclick: () => jumpTo() }, '#'),
-      h('button', { title: 'التالية', onclick: () => step(1) }, '›'),
+      h('button', { title: 'الصفحة التالية', onclick: () => step(1) }, '›'),
     ]),
   ]);
 
   document.body.append(overlay);
 
+  /* الحالة */
   let doc = null;
+  let pages = [];             // { n, el, canvas, ink, w, h, box:{w,h}, rendered, task }
   let zoom = 1;
-  let baseScale = 1;          // المقياس الذي يملأ العرض
-  let pages = [];             // { n, el, canvas, rendered, task, w, h }
+  let fitScale = 1;           // مقياس ملء العرض
   let current = 0;
-  let observer = null;
   let closed = false;
+  let mode = 'read';
+  let observer = null;
   const textCache = new Map();
+
+  let notes = { pages: {} };
+  let tool = 'pen';
+  let color = INK_COLORS[0];
+  let width = WIDTHS[1];
+  const undoStack = [];
+  const redoStack = [];
+
+  // حالة داخلية تُستعمل من دوال تُستدعى قبل موضعها النصّي، فتُعرَّف هنا أوّلًا
+  const pending = [];          // صفحات بانتظار الرسم
+  const active = new Map();    // مؤشّرات اللمس الجارية (للتكبير بإصبعين)
+  let running = 0;
+  let rerenderTimer = null;
+  let trimTimer = null;
+  let saveTimer = null;
+  let scrollRaf = 0;
+  let pinch = null;
+  let lastTap = 0;
+  let drawing = null;          // المسار الجاري رسمه الآن: { p, stroke } أو { p, erase }
+
+  const strokesOf = (n) => (notes.pages[n] = notes.pages[n] || []);
 
   function close() {
     closed = true;
     observer?.disconnect();
-    pages.forEach((p) => { try { p.task?.cancel(); } catch { /* تجاهل */ } });
+    pages.forEach((p) => cancel(p));
     if (doc) { try { doc.destroy(); } catch { /* تجاهل */ } }
     overlay.remove();
     document.removeEventListener('keydown', onKey);
+    if (mediaId) saveNotes(mediaId, notes);
   }
 
   function onKey(e) {
@@ -114,7 +271,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
     }).promise;
   } catch (err) {
     console.warn('[pdf]', err);
-    fill(stage, [h('div.pdf-err', [
+    fill(pagesEl, [h('div.pdf-err', [
       h('p', 'تعذّر عرض هذا الملف داخل التطبيق.'),
       h('p.muted', String(err?.message || err)),
       onExternal ? h('button.btn', { onclick: () => { close(); onExternal(); } }, 'افتحه بتطبيق آخر') : null,
@@ -124,130 +281,254 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
   if (closed) return null;
 
   const total = doc.numPages;
-  const first = await doc.getPage(1);
-  const vp1 = first.getViewport({ scale: 1 });
-  baseScale = Math.max(0.2, (stage.clientWidth - 16) / vp1.width);
+  notes = await loadNotes(mediaId);
 
-  // هياكل الصفحات بأبعادها الصحيحة قبل الرسم، فلا يقفز التمرير
-  pages = Array.from({ length: total }, (_, i) => {
+  // قياس كل الصفحات قبل العرض — هذا ما يجعل الترتيب ثابتًا ولا تقفز الصفحات
+  pageInfo.textContent = `قياس ${total} صفحة…`;
+  const sizes = [];
+  for (let n = 1; n <= total; n++) {
+    try {
+      const vp = (await doc.getPage(n)).getViewport({ scale: 1 });
+      sizes.push({ w: vp.width, h: vp.height });
+    } catch {
+      sizes.push(sizes[0] || { w: 595, h: 842 });
+    }
+    if (n % 25 === 0) pageInfo.textContent = `قياس الصفحات… ${n}/${total}`;
+    if (closed) return null;
+  }
+
+  pages = sizes.map((s, i) => {
     const n = i + 1;
-    const canvas = h('canvas');
-    const el = h('div.pdf-page', { dataset: { n: String(n) } }, [canvas, h('div.pn', String(n))]);
-    return { n, el, canvas, rendered: false, task: null, vp: null };
+    const canvas = h('canvas.pdf-canvas');
+    const ink = h('canvas.pdf-inkcv');
+    const el = h('div.pdf-page', { dataset: { n: String(n) } }, [canvas, ink, h('div.pn', String(n))]);
+    return { n, el, canvas, ink, w: s.w, h: s.h, box: { w: 0, h: 0 }, rendered: false, task: null, scale: 0 };
   });
-  fill(stage, pages.map((p) => p.el));
+  fill(pagesEl, pages.map((p) => p.el));
 
-  applyZoom();
+  computeFit();
+  layout();
 
   observer = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
-      const n = Number(en.target.dataset.n);
-      const p = pages[n - 1];
-      if (!p) return;
-      if (en.isIntersecting) {
-        renderPage(p);
-        if (en.intersectionRatio > 0.4) setCurrent(n);
-      }
+      const p = pages[Number(en.target.dataset.n) - 1];
+      if (p && en.isIntersecting) queue(p);
     });
-  }, { root: stage, rootMargin: '600px 0px', threshold: [0, 0.45] });
+  }, { root: stage, rootMargin: '400px 0px', threshold: 0 });
   pages.forEach((p) => observer.observe(p.el));
 
-  const saved = mediaId ? await readPos(mediaId) : 1;
+  const saved = mediaId ? Number(await idb.get('state', posKey(mediaId))) || 1 : 1;
+  setCurrent(1);
   if (saved > 1 && saved <= total) goTo(saved, false);
-  else setCurrent(1);
+  bindInk();
+  buildThumbs();
 
-  /* ─────────── الرسم ─────────── */
+  /* ─────────── المقاس والتخطيط ─────────── */
+
+  /**
+   * كل صفحة تملأ عرض الشاشة بمقياسها الخاصّ — هكذا تبدو الصفحات منتظمة
+   * على الهاتف حتى لو اختلفت أحجامها داخل الملف (عمودية وأفقية معًا).
+   */
+  function computeFit() {
+    const avail = Math.max(120, stage.clientWidth - PAD * 2);
+    fitScale = avail;                       // العرض المتاح؛ مقياس كل صفحة = fitScale / p.w
+    pages.forEach((p) => { p.fit = avail / p.w; });
+  }
+
+  // تعريف دالة (لا ثابت) لأنّها تُستدعى قبل هذا الموضع في تسلسل الإقلاع
+  function scaleOf(p) { return (p.fit || 1) * zoom; }
+
+  /** يضبط صناديق الصفحات حسب التكبير الحالي دون إعادة رسم (فوري). */
+  function layout() {
+    for (const p of pages) {
+      const s = scaleOf(p);
+      p.box.w = Math.round(p.w * s);
+      p.box.h = Math.round(p.h * s);
+      p.el.style.width = `${p.box.w}px`;
+      p.el.style.height = `${p.box.h}px`;
+      p.canvas.style.width = `${p.box.w}px`;
+      p.canvas.style.height = `${p.box.h}px`;
+      p.ink.style.width = `${p.box.w}px`;
+      p.ink.style.height = `${p.box.h}px`;
+    }
+    zoomLabel.textContent = `${Math.round(zoom * 100)}% · ${current || 1}/${total}`;
+  }
+
+  /** مرساة القراءة: أي صفحة في منتصف الشاشة وأين منها بالضبط. */
+  function anchor() {
+    const mid = stage.scrollTop + stage.clientHeight / 2;
+    for (const p of pages) {
+      const top = p.el.offsetTop;
+      if (mid <= top + p.el.offsetHeight) {
+        return { n: p.n, frac: (mid - top) / Math.max(1, p.el.offsetHeight) };
+      }
+    }
+    return { n: total, frac: 0.5 };
+  }
+
+  function restore(a) {
+    const p = pages[a.n - 1];
+    if (!p) return;
+    stage.scrollTop = p.el.offsetTop + a.frac * p.el.offsetHeight - stage.clientHeight / 2;
+  }
+
+  function setZoom(z, keep = null) {
+    const next = Math.min(6, Math.max(0.3, z));
+    if (Math.abs(next - zoom) < 0.005) return;
+    const a = keep || anchor();
+    zoom = next;
+    layout();
+    restore(a);
+    repaintAllInk();
+    scheduleRerender();
+    haptic();
+  }
+
+  function fitWidth() {
+    const a = anchor();
+    computeFit();
+    zoom = 1;
+    layout();
+    restore(a);
+    repaintAllInk();
+    scheduleRerender();
+  }
+
+  /* ─────────── رسم الصفحات ─────────── */
+
+  function scheduleRerender() {
+    clearTimeout(rerenderTimer);
+    rerenderTimer = setTimeout(() => {
+      // أعِد رسم ما يظهر الآن فقط بالمقياس الجديد
+      for (const p of pages) if (p.rendered && Math.abs(p.scale - scaleOf(p)) > 0.01) p.rendered = false;
+      visiblePages().forEach(queue);
+    }, 180);
+  }
+
+  function visiblePages() {
+    const top = stage.scrollTop - 400;
+    const bottom = stage.scrollTop + stage.clientHeight + 400;
+    return pages.filter((p) => p.el.offsetTop + p.el.offsetHeight > top && p.el.offsetTop < bottom);
+  }
+
+  function cancel(p) {
+    try { p.task?.cancel(); } catch { /* تجاهل */ }
+    p.task = null;
+  }
+
+  /** يفرّغ لوحات الصفحات البعيدة حتى لا تمتلئ الذاكرة في الملفات الكبيرة. */
+  function trim() {
+    const live = pages.filter((p) => p.rendered);
+    if (live.length <= MAX_LIVE_CANVAS) return;
+    live
+      .sort((a, b) => Math.abs(a.n - current) - Math.abs(b.n - current))
+      .slice(MAX_LIVE_CANVAS)
+      .forEach((p) => {
+        cancel(p);
+        p.rendered = false;
+        p.scale = 0;
+        p.canvas.width = 0;
+        p.canvas.height = 0;
+        p.el.classList.remove('ready');
+      });
+  }
+
+  function queue(p) {
+    if (p.rendered || closed || pending.includes(p)) return;
+    pending.push(p);
+    pump();
+  }
+
+  function pump() {
+    while (running < 2 && pending.length) {
+      // الأقرب إلى الصفحة الحالية أولًا
+      pending.sort((a, b) => Math.abs(a.n - current) - Math.abs(b.n - current));
+      const p = pending.shift();
+      running++;
+      renderPage(p).finally(() => { running--; pump(); });
+    }
+  }
 
   async function renderPage(p) {
     if (p.rendered || closed) return;
+    const scale = scaleOf(p);
     p.rendered = true;
+    p.scale = scale;
     try {
       const page = await doc.getPage(p.n);
-      const scale = baseScale * zoom;
       const vp = page.getViewport({ scale });
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      p.canvas.width = Math.floor(vp.width * dpr);
-      p.canvas.height = Math.floor(vp.height * dpr);
-      p.canvas.style.width = `${Math.floor(vp.width)}px`;
-      p.canvas.style.height = `${Math.floor(vp.height)}px`;
+      const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+      p.canvas.width = Math.round(vp.width * dpr);
+      p.canvas.height = Math.round(vp.height * dpr);
       const ctx = p.canvas.getContext('2d', { alpha: false });
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       p.task = page.render({ canvasContext: ctx, viewport: vp });
       await p.task.promise;
       p.el.classList.add('ready');
+      paintPageInk(p);
+      trim();
     } catch (err) {
-      if (err?.name !== 'RenderingCancelledException') p.rendered = false;
+      if (err?.name !== 'RenderingCancelledException') { p.rendered = false; p.scale = 0; }
+    } finally {
+      p.task = null;
     }
   }
 
-  /** يضبط أبعاد كل الصفحات حسب التكبير الحالي (قبل رسمها). */
-  async function applyZoom() {
-    const scale = baseScale * zoom;
-    const vp = first.getViewport({ scale });
-    pages.forEach((p) => {
-      p.el.style.width = `${Math.floor(vp.width)}px`;
-      p.el.style.minHeight = `${Math.floor(vp.height)}px`;
-    });
-    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
-  }
-
-  /** يلغي ما رُسم ويعيد بناء الصفحات بالمقياس الجديد، ويبقى عند نفس الصفحة. */
-  function refresh() {
-    const at = current;
-    pages.forEach((p) => {
-      try { p.task?.cancel(); } catch { /* تجاهل */ }
-      p.rendered = false;
-      p.el.classList.remove('ready');
-    });
-    applyZoom();
-    goTo(at, false);
-    renderPage(pages[at - 1]);
-    haptic();
-  }
-
-  function setZoom(z) {
-    const next = Math.min(5, Math.max(0.35, z));
-    if (Math.abs(next - zoom) < 0.01) return;
-    zoom = next;
-    refresh();
-  }
-
-  function fitWidth() {
-    baseScale = Math.max(0.2, (stage.clientWidth - 16) / vp1.width);
-    zoom = 1;
-    refresh();
-  }
+  /* ─────────── التنقّل ─────────── */
 
   function setCurrent(n) {
     if (n === current) return;
     current = n;
     pageInfo.textContent = `صفحة ${n} من ${total}`;
-    if (mediaId) writePos(mediaId, n);
+    zoomLabel.textContent = `${Math.round(zoom * 100)}% · ${n}/${total}`;
+    if (mediaId) idb.set('state', posKey(mediaId), n);
+    [...thumbsBar.children].forEach((b) => b.classList.toggle('on', Number(b.dataset.n) === n));
+    const on = thumbsBar.querySelector('.on');
+    if (on && !thumbsBar.hidden) on.scrollIntoView({ inline: 'center', block: 'nearest' });
   }
 
   function goTo(n, smooth = true) {
     const p = pages[Math.min(total, Math.max(1, n)) - 1];
     if (!p) return;
-    renderPage(p);
-    p.el.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+    queue(p);
+    stage.scrollTo({ top: p.el.offsetTop - PAD, behavior: smooth ? 'smooth' : 'auto' });
     setCurrent(p.n);
   }
 
   function step(d) { goTo(current + d); }
 
-  function jumpTo() {
-    const input = h('input', { type: 'number', min: 1, max: total, value: current, inputmode: 'numeric' });
-    const box = h('div.pdf-jump', [
-      h('span.muted', `من ١ إلى ${total}`),
-      input,
-      h('button.btn.sm.primary', {
-        onclick: () => { goTo(Number(input.value) || 1); box.remove(); },
-      }, 'اذهب'),
-      h('button.btn.sm.ghost', { onclick: () => box.remove() }, '✕'),
-    ]);
-    overlay.append(box);
-    input.focus();
-    input.select();
+  async function jumpTo() {
+    const v = await promptSheet(`اذهب إلى صفحة (١–${total})`, { value: String(current), okText: 'اذهب' });
+    if (v) goTo(Number(v) || 1);
+  }
+
+  // الصفحة الحالية تُشتقّ من موضع التمرير نفسه — أدقّ وأثبت من ترتيب أحداث المراقب
+  stage.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      setCurrent(anchor().n);
+      scheduleTrim();
+    });
+  }, { passive: true });
+
+  function scheduleTrim() { clearTimeout(trimTimer); trimTimer = setTimeout(trim, 500); }
+
+  /* ─────────── المصغّرات ─────────── */
+
+  function buildThumbs() {
+    fill(thumbsBar, pages.map((p) => h('button.pdf-thumb', {
+      dataset: { n: String(p.n) },
+      onclick: () => goTo(p.n),
+    }, [
+      h('span.box', { style: { aspectRatio: `${p.w} / ${p.h}` } }),
+      h('span.n', String(p.n)),
+    ])));
+  }
+
+  function toggleThumbs() {
+    thumbsBar.hidden = !thumbsBar.hidden;
+    if (!thumbsBar.hidden) setTimeout(() => thumbsBar.querySelector('.on')?.scrollIntoView({ inline: 'center' }), 30);
   }
 
   /* ─────────── البحث ─────────── */
@@ -259,10 +540,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
     const q = h('input', { type: 'search', placeholder: 'ابحث في نصّ الملف…' });
     const results = h('div.pdf-hits');
     fill(searchBar, [
-      h('div.row', { style: { gap: '8px' } }, [
-        q,
-        h('button.btn.sm.primary', { onclick: () => run() }, 'ابحث'),
-      ]),
+      h('div.row', { style: { gap: '8px' } }, [q, h('button.btn.sm.primary', { onclick: () => run() }, 'ابحث')]),
       results,
     ]);
     q.focus();
@@ -270,15 +548,14 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
 
     async function run() {
       const needle = q.value.trim();
-      if (needle.length < 2) { toast('اكتب كلمتين على الأقل', 'err'); return; }
+      if (needle.length < 2) { toast('اكتب حرفين على الأقل', 'err'); return; }
       fill(results, [h('div.muted', 'جارٍ البحث…')]);
       const hits = [];
       for (let n = 1; n <= total && hits.length < 60; n++) {
         let text = textCache.get(n);
         if (text == null) {
           try {
-            const page = await doc.getPage(n);
-            const tc = await page.getTextContent();
+            const tc = await (await doc.getPage(n)).getTextContent();
             text = tc.items.map((it) => it.str).join(' ');
           } catch { text = ''; }
           textCache.set(n, text);
@@ -294,15 +571,276 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
     }
   }
 
+  /* ─────────── الرسم والكتابة ─────────── */
+
+
+  function paintPageInk(p) {
+    const list = notes.pages[p.n];
+    const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    if (!list?.length && p.ink.width === 0) return;
+    p.ink.width = Math.max(1, Math.round(p.box.w * dpr));
+    p.ink.height = Math.max(1, Math.round(p.box.h * dpr));
+    paintInk(p.ink.getContext('2d'), list, p.box.w, p.box.h, dpr);
+  }
+
+  function repaintAllInk() { pages.forEach(paintPageInk); }
+
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveNotes(mediaId, notes), 400);
+  }
+
+  function pushUndo(n) {
+    undoStack.push({ n, before: JSON.parse(JSON.stringify(notes.pages[n] || [])) });
+    if (undoStack.length > 60) undoStack.shift();
+    redoStack.length = 0;
+    refreshInkBar();
+  }
+
+  function undo() {
+    const e = undoStack.pop();
+    if (!e) return;
+    redoStack.push({ n: e.n, before: JSON.parse(JSON.stringify(notes.pages[e.n] || [])) });
+    notes.pages[e.n] = e.before;
+    paintPageInk(pages[e.n - 1]);
+    persist(); refreshInkBar();
+  }
+
+  function redo() {
+    const e = redoStack.pop();
+    if (!e) return;
+    undoStack.push({ n: e.n, before: JSON.parse(JSON.stringify(notes.pages[e.n] || [])) });
+    notes.pages[e.n] = e.before;
+    paintPageInk(pages[e.n - 1]);
+    persist(); refreshInkBar();
+  }
+
+  function setMode(m) {
+    mode = m;
+    overlay.classList.toggle('inking', m === 'ink');
+    inkBar.hidden = m !== 'ink';
+    modeBtn.classList.toggle('on', m === 'ink');
+    modeBtn.textContent = m === 'ink' ? '📖' : '✍️';
+    modeBtn.title = m === 'ink' ? 'وضع القراءة' : 'الرسم والكتابة';
+    if (m === 'ink') { refreshInkBar(); repaintAllInk(); }
+    haptic();
+  }
+
+  function refreshInkBar() {
+    fill(inkBar, [
+      h('div.row.tools', TOOLS.map((t) => h('button' + (tool === t.id ? '.on' : ''), {
+        title: t.label, onclick: () => { tool = t.id; refreshInkBar(); },
+      }, t.icon))),
+
+      h('div.row.tools', [
+        ...WIDTHS.map((w) => h('button.w' + (width === w ? '.on' : ''), {
+          title: `سماكة ${w}`, onclick: () => { width = w; refreshInkBar(); },
+        }, h('i', { style: { width: `${Math.min(18, 4 + w)}px`, height: `${Math.min(18, 4 + w)}px`, background: color } }))),
+        h('div.grow'),
+        h('button', { title: 'تراجع', disabled: !undoStack.length, onclick: undo }, '↶'),
+        h('button', { title: 'إعادة', disabled: !redoStack.length, onclick: redo }, '↷'),
+        h('button', { title: 'امسح الصفحة', onclick: clearPage }, '🗑'),
+      ]),
+
+      h('div.pdf-colors', INK_COLORS.map((c) => h('button' + (color === c ? '.on' : ''), {
+        style: { background: c }, title: c, onclick: () => { color = c; refreshInkBar(); },
+      }))),
+    ]);
+  }
+
+  async function clearPage() {
+    if (!notes.pages[current]?.length) { toast('لا رسم في هذه الصفحة', 'err'); return; }
+    if (!await confirmSheet('امسح رسم الصفحة', `سيُحذف كل ما رسمته في صفحة ${current}.`)) return;
+    pushUndo(current);
+    notes.pages[current] = [];
+    paintPageInk(pages[current - 1]);
+    persist();
+  }
+
+  /** يحوّل حدث المؤشّر إلى إحداثيات نسبية داخل صفحة. */
+  function local(p, e) {
+    const r = p.ink.getBoundingClientRect();
+    return [
+      Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+      Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
+      e.pressure > 0 && e.pointerType === 'pen' ? e.pressure : 0.5,
+    ];
+  }
+
+  function bindInk() {
+    let penSeen = false;
+
+    pages.forEach((p) => {
+      p.ink.addEventListener('pointerdown', (e) => {
+        if (mode !== 'ink') return;
+        if (e.pointerType === 'pen' && !penSeen) { penSeen = true; overlay.classList.add('pen'); }
+        // رفض راحة اليد: بعد أوّل لمسة قلم يبقى الإصبع للتمرير فقط
+        if (penSeen && e.pointerType === 'touch') return;
+        e.preventDefault();
+
+        const pt = local(p, e);
+
+        if (tool === 'text') { addText(p, pt); return; }
+
+        if (tool === 'erase') {
+          pushUndo(p.n);
+          drawing = { p, erase: true };
+          eraseAt(p, pt);
+          return;
+        }
+
+        pushUndo(p.n);
+        const stroke = { tool, color, w: width, pts: [pt] };
+        strokesOf(p.n).push(stroke);
+        drawing = { p, stroke };
+        p.ink.setPointerCapture(e.pointerId);
+        paintPageInk(p);
+      });
+
+      p.ink.addEventListener('pointermove', (e) => {
+        if (!drawing || drawing.p !== p) return;
+        e.preventDefault();
+        const pt = local(p, e);
+        if (drawing.erase) { eraseAt(p, pt); return; }
+        const pts = drawing.stroke.pts;
+        const last = pts[pts.length - 1];
+        if (Math.hypot(pt[0] - last[0], pt[1] - last[1]) < 0.0015) return;
+        pts.push(pt);
+        paintPageInk(p);
+      });
+
+      const end = () => {
+        if (!drawing) return;
+        if (drawing.stroke && drawing.stroke.pts.length === 0) strokesOf(p.n).pop();
+        drawing = null;
+        persist();
+      };
+      p.ink.addEventListener('pointerup', end);
+      p.ink.addEventListener('pointercancel', end);
+      p.ink.addEventListener('pointerleave', end);
+    });
+  }
+
+  /** يُلغي المسار الجاري (عند وضع إصبع ثانٍ للتمرير أو التكبير). */
+  function abortStroke() {
+    if (!drawing) return;
+    const { p, stroke } = drawing;
+    drawing = null;
+    if (stroke) {
+      const list = notes.pages[p.n] || [];
+      const i = list.indexOf(stroke);
+      if (i >= 0) list.splice(i, 1);
+      undoStack.pop();
+      paintPageInk(p);
+      refreshInkBar();
+    }
+  }
+
+  function eraseAt(p, pt) {
+    const list = notes.pages[p.n] || [];
+    const ratio = p.box.h / Math.max(1, p.box.w);
+    const hit = 0.02;
+    const kept = list.filter((s) => nearStroke(s, pt[0], pt[1], ratio) > hit);
+    if (kept.length !== list.length) {
+      notes.pages[p.n] = kept;
+      paintPageInk(p);
+    }
+  }
+
+  async function addText(p, pt) {
+    const v = await promptSheet('اكتب على الصفحة', { multiline: true, okText: 'أضف' });
+    if (!v || !v.trim()) return;
+    pushUndo(p.n);
+    strokesOf(p.n).push({ type: 'text', x: pt[0], y: pt[1], text: v.trim(), color, size: 0.012 + width * 0.004 });
+    paintPageInk(p);
+    persist();
+  }
+
+  /* ─────────── التكبير بإصبعين ─────────── */
+
+
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    active.set(e.pointerId, e);
+    if (active.size === 2) {
+      abortStroke();            // إصبعان يعنيان تمريرًا وتكبيرًا، لا رسمًا
+      const [a, b] = [...active.values()];
+      pinch = {
+        d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        midY: (a.clientY + b.clientY) / 2,
+        z: zoom, a: anchor(),
+      };
+    }
+  }, { passive: true });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (!active.has(e.pointerId)) return;
+    active.set(e.pointerId, e);
+    if (!pinch || active.size < 2) return;
+    const [a, b] = [...active.values()];
+
+    // إصبعان = تمرير أيضًا، فيمكن التنقّل حتى ووضع الرسم مفتوح
+    const midY = (a.clientY + b.clientY) / 2;
+    const dy = midY - pinch.midY;
+    if (Math.abs(dy) > 0.5) {
+      stage.scrollTop -= dy;
+      pinch.midY = midY;
+      pinch.a = anchor();
+    }
+
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const next = Math.min(6, Math.max(0.3, pinch.z * (d / Math.max(1, pinch.d))));
+    if (Math.abs(next - zoom) < 0.01) return;
+    zoom = next;
+    layout();
+    restore(pinch.a);
+  }, { passive: true });
+
+  function endPinch(e) {
+    active.delete(e.pointerId);
+    if (active.size < 2 && pinch) {
+      pinch = null;
+      repaintAllInk();
+      scheduleRerender();
+    }
+  }
+  stage.addEventListener('pointerup', endPinch, { passive: true });
+  stage.addEventListener('pointercancel', endPinch, { passive: true });
+
   /* ─────────── ضغطتان للتكبير ─────────── */
 
-  let lastTap = 0;
   stage.addEventListener('pointerup', (e) => {
-    if (e.pointerType === 'mouse') return;
+    if (e.pointerType === 'mouse' || mode === 'ink' || active.size) return;
     const now = Date.now();
-    if (now - lastTap < 300) setZoom(zoom > 1.2 ? 1 : 2);
+    if (now - lastTap < 280) setZoom(zoom > 1.2 ? 1 : 2.2);
     lastTap = now;
   });
 
-  return { close, goTo };
+  window.addEventListener('resize', () => {
+    if (closed) return;
+    const a = anchor();
+    computeFit();
+    layout();
+    restore(a);
+    repaintAllInk();
+    scheduleRerender();
+  });
+
+  return { close, goTo, setMode };
+}
+
+/** يعرض معلومات ملاحظات ملف (للاستعمال في الواجهات). */
+export async function pdfNotesCount(mediaId) {
+  const n = await loadNotes(mediaId);
+  return Object.values(n.pages).reduce((s, arr) => s + (arr?.length || 0), 0);
+}
+
+/** ورقة معلومات سريعة عن ميزات العارض. */
+export function pdfHelpSheet() {
+  sheet('عارض الملفات', h('div', [
+    h('div.card.tight', h('div.card-s', 'اسحب لتقرأ، وقرّب بإصبعين أو بضغطتين سريعتين.')),
+    h('div.card.tight', h('div.card-s', 'زرّ ✍️ يفتح الرسم: قلم ومُبرِز وخط وإطار ونصّ وممحاة، و٢٤ لونًا.')),
+    h('div.card.tight', h('div.card-s', 'رسمك يُحفظ لكل صفحة ويبقى مع الملف.')),
+    h('div.card.tight', h('div.card-s', 'زرّ ☰ يعرض شريط الصفحات للتنقّل السريع، و🔎 يبحث في النصّ.')),
+  ]));
 }

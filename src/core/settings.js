@@ -57,6 +57,7 @@ export function openSettings(onChange) {
           { value: 's2', label: '🧭 نظام S2' },
           { value: 'study', label: '📚 المذاكرة' },
           { value: 'workout', label: '🏋 التمارين' },
+          { value: 'improve', label: '🚀 Improve' },
           { value: 'money', label: '💰 المصاريف' },
           { value: 'commit', label: '🎯 التزاماتي' },
           { value: 'places', label: '🗺 الأماكن' },
@@ -105,7 +106,7 @@ export function openSettings(onChange) {
       h('h2.sec', 'عن التطبيق'),
       h('div.card.tight', [
         h('div.card-t', 'Your World'),
-        h('div.card-s', 'عشرة أقسام: أغانيك، وقتك، نظام S2، مذاكرتك، تمارينك، مصاريفك، التزاماتك، أماكنك، غرفتك، وإنتاجيتك — '
+        h('div.card-s', 'أحد عشر قسمًا: أغانيك، وقتك، نظام S2، مذاكرتك، تمارينك، تطوير نفسك، مصاريفك، التزاماتك، أماكنك، غرفتك، وإنتاجيتك — '
           + 'وكلّها تعمل دون إنترنت. الشبكة تُستعمل فقط إن طلبت تنزيل صور خريطة لمنطقتك.'),
       ]),
     ]);

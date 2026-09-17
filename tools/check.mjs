@@ -6,11 +6,14 @@
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const SHOTS = process.argv.includes('--shots');
 const SHOT_DIR = 'docs/shots';
 const BROWSER = process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium';
+const TEST_PDF = join(tmpdir(), 'yw-check.pdf');
 
 const SECTIONS = [
   { id: 'music', tabs: ['tracks', 'new', 'favorites', 'playlists', 'artists', 'albums'] },
@@ -18,6 +21,7 @@ const SECTIONS = [
   { id: 's2', tabs: ['today', 'plan', 'week', 'setup'] },
   { id: 'study', tabs: ['groups', 'recent', 'search'] },
   { id: 'workout', tabs: ['plan', 'protein', 'log'] },
+  { id: 'improve', tabs: ['areas', 'today', 'progress'] },
   { id: 'money', tabs: ['overview', 'items', 'subs', 'report'] },
   { id: 'commit', tabs: ['today', 'library', 'routines', 'progress'] },
   { id: 'places', tabs: ['map', 'list', 'offline'] },
@@ -248,6 +252,118 @@ async function runFlows(page) {
   await go('workout');
   await tab(0);
   await expect('اسم عربي كامل بعد إعادة التشغيل', page.getByText(NAME, { exact: true }).first());
+
+  /* ───── قسم Improve: خطوة، متطلّبات، إنجاز بتأكيد، وربط بالتقويم ───── */
+
+  const tasksBefore = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('yw.state.v1')).time.tasks.length);
+
+  // الأوراق تتراكم هنا (محرّر ← ورقة فرعية)، فنعمل دائمًا على الورقة العليا
+  const top = () => page.locator('.sheet').last();
+
+  await go('improve');
+  await tab(0);
+  await page.getByText('＋ خطوة جديدة').click();
+  await sleep(400);
+  await top().locator('input').first().fill('أقرأ ٢٠ صفحة');
+  await top().getByText('＋ أضف سطر «أحتاج»').click();
+  await sleep(400);
+  await top().locator('input').first().fill('اشتراك مكتبة');
+  await top().locator('input[type="number"]').first().fill('15000');
+  await top().getByText('أضف', { exact: true }).click();
+  await sleep(450);
+  await expect('سطر «أحتاج» في الخطوة', page.locator('.imp-need'));
+
+  // ربط بالتقويم — يُنشئ مهمّة جديدة فقط
+  await top().getByText('🗓 ضعها في التقويم').click();
+  await sleep(450);
+  await top().locator('.chip').filter({ hasText: 'كل يوم' }).first().click();
+  await sleep(300);
+  await top().getByText('🗓 أضفها إلى التقويم').click();
+  await sleep(600);
+  await top().getByText('💾 حفظ').click();
+  await sleep(600);
+  await expect('إضافة خطوة تطوير', page.locator('.imp-item'));
+
+  const tasksAfter = await page.evaluate(() => {
+    const t = JSON.parse(localStorage.getItem('yw.state.v1')).time.tasks;
+    return { n: t.length, improve: t.filter((x) => x.source === 'improve').length, old: t.some((x) => x.title === 'اختبار آلي') };
+  });
+  if (tasksAfter.n !== tasksBefore + 1 || tasksAfter.improve !== 1 || !tasksAfter.old) {
+    throw new Error(`ربط التقويم أخلّ بالمهام: ${JSON.stringify(tasksAfter)} (كانت ${tasksBefore})`);
+  }
+  console.log('  ✓ ربط التقويم يضيف مهمّة ولا يمسّ القديمة');
+
+  // الإنجاز لا يُقبل بلا تأكيد
+  await page.locator('.imp-item .check').first().click();
+  await sleep(500);
+  await top().getByText('✓ نعم، نفّذتها').click();
+  await sleep(400);
+  if (!await page.locator('.imp-item.done').count()) console.log('  ✓ التأكيد يمنع «صح» بلا دليل');
+  else throw new Error('قُبل الإنجاز بلا دليل');
+  await top().locator('textarea').first().fill('قرأت ٢٢ صفحة من كتاب اليوم');
+  await top().getByText('✓ نعم، نفّذتها').click();
+  await sleep(700);
+  await expect('إنجاز موثّق في Improve', page.locator('.imp-item.done'));
+
+  /* ───── عارض PDF داخل التطبيق: ترتيب ثابت ورسم يُحفظ ───── */
+
+  await go('study');
+  await tab(0);
+  // القسم يتذكّر آخر موضع، فنشقّ طريقنا حتى نصل إلى محرّر صفحة
+  if (await page.locator('.grp').count()) { await page.locator('.grp').first().click(); await sleep(450); }
+  if (!await page.locator('.add-strip').count() && await page.locator('.page-row').count()) {
+    await page.locator('.page-row').first().click();
+    await sleep(450);
+  }
+  await expect('محرّر صفحة المذاكرة مفتوح', page.locator('.add-strip'));
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('.add-strip button').nth(3).click();
+  await (await chooser).setFiles(TEST_PDF);
+  await sleep(1400);
+  await page.locator('.file').first().click();
+  await sleep(4000);
+  await expect('فتح PDF داخل التطبيق', page.locator('.pdf-page'), 3);
+
+  const widths = await page.evaluate(() =>
+    [...document.querySelectorAll('.pdf-page')].slice(0, 5).map((el) => el.offsetWidth));
+  if (new Set(widths).size !== 1) throw new Error(`عرض الصفحات غير موحّد: ${widths.join(',')}`);
+  console.log('  ✓ صفحات PDF بعرض موحّد');
+
+  const tops1 = await page.evaluate(() => [...document.querySelectorAll('.pdf-page')].map((e) => e.offsetTop));
+  await page.evaluate(() => { document.querySelector('.pdf-stage').scrollTop = 2400; });
+  await sleep(1500);
+  const tops2 = await page.evaluate(() => [...document.querySelectorAll('.pdf-page')].map((e) => e.offsetTop));
+  if (JSON.stringify(tops1) !== JSON.stringify(tops2)) throw new Error('ترتيب صفحات PDF تغيّر أثناء التمرير');
+  const atPage = await page.locator('.pdf-top .sub').textContent();
+  await page.locator('.pdf-bottom button[title="تكبير"]').click();
+  await sleep(1200);
+  if (await page.locator('.pdf-top .sub').textContent() !== atPage) throw new Error('التكبير أزاح موضع القراءة');
+  console.log('  ✓ ترتيب PDF ثابت والتكبير يحافظ على الصفحة');
+
+  await page.locator('.pdf-top button[title="الرسم والكتابة"]').click();
+  await sleep(500);
+  await expect('٢٤ لونًا للرسم على PDF', page.locator('.pdf-colors button'), 24);
+  await page.evaluate(() => { document.querySelector('.pdf-stage').scrollTop = 0; });
+  await sleep(700);
+  const bb = await page.locator('.pdf-page').first().boundingBox();
+  await page.mouse.move(bb.x + 40, bb.y + 60);
+  await page.mouse.down();
+  for (let i = 0; i < 20; i++) await page.mouse.move(bb.x + 40 + i * 9, bb.y + 60 + Math.sin(i / 3) * 18);
+  await page.mouse.up();
+  await sleep(800);
+  const inked = await page.evaluate(() => new Promise((res) => {
+    const r = indexedDB.open('yourworld');
+    r.onsuccess = () => {
+      const g = r.result.transaction('pdfnotes').objectStore('pdfnotes').getAll();
+      g.onsuccess = () => res(g.result.reduce((s, v) => s + Object.values(v.pages).reduce((t, a) => t + a.length, 0), 0));
+    };
+    r.onerror = () => res(0);
+  }));
+  if (!inked) throw new Error('لم يُحفظ الرسم على PDF');
+  console.log('  ✓ الرسم على PDF يُحفظ');
+  await page.locator('.pdf-top button[title="إغلاق"]').click();
+  await sleep(400);
 }
 
 /** بيانات نسخة قديمة من التطبيق (localStorage وحده، بلا طابع زمني). */
@@ -309,6 +425,9 @@ async function checkMigration(browser, url) {
 async function main() {
   console.log('▸ بناء الإصدار…');
   await run('npx', ['vite', 'build']);
+
+  // ملف PDF للاختبار: صفحات بأحجام مختلفة لنتأكّد أنّ العارض يرتّبها بلا قفز
+  await run('node', ['tools/dev/make-test-pdf.mjs', TEST_PDF, '12']);
 
   console.log('▸ تشغيل خادم المعاينة…');
   const server = spawn('npx', ['vite', 'preview', '--port', '4173', '--host', '127.0.0.1'], { stdio: 'ignore' });

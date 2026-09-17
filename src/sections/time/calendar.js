@@ -201,6 +201,8 @@ export function taskRow(task, key, rerender) {
       h('div.t', task.title || 'مهمّة'),
       h('div.s', [
         task.time ? `⏰ ${task.time} · ` : '',
+        // مهام أنشأها قسم Improve تُعلَّم لتُميَّز عمّا كتبته أنت هنا
+        task.source === 'improve' ? '🚀 ' : '',
         task.tag,
         task.repeat?.type !== 'none' ? ` · 🔁 ${describe(task.repeat)}` : '',
       ].join('')),

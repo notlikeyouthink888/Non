@@ -105,6 +105,23 @@ export const defaults = {
     },
   },
 
+  improve: {
+    // مجالات التطوير — مثل أيام التمارين لكن بلا حدّ لعدد العناصر
+    areas: [
+      { id: 'a1', name: 'العقل والمعرفة', icon: '🧠' },
+      { id: 'a2', name: 'الجسد والصحّة', icon: '💪' },
+      { id: 'a3', name: 'مهارة أتعلّمها', icon: '🛠' },
+      { id: 'a4', name: 'الروح والعادات', icon: '🕌' },
+      { id: 'a5', name: 'العمل والمال', icon: '💼' },
+      { id: 'a6', name: 'الناس حولي', icon: '🤝' },
+    ],
+    // { id, areaId, title, note, media[], drawing, needs[], target, calendar, createdAt, order }
+    items: [],
+    log: {},              // 'YYYY-MM-DD' -> [itemId]  ما أُنجز فعلًا
+    proofs: {},           // 'itemId|YYYY-MM-DD' -> { at, note, mediaId }  دليل الإنجاز
+    requireProof: true,   // لا يُحسب الإنجاز إلا بتأكيد
+  },
+
   s2: {
     // السبت=6، الأحد=0، الاثنين=1، الثلاثاء=2، الأربعاء=3، الخميس=4، الجمعة=5
     workDays: [6, 0, 1, 2, 3],

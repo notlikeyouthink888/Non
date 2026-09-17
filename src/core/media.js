@@ -8,18 +8,21 @@ import { uid } from './store.js';
 
 const MAX_IMAGE_PX = 1600;
 const IMAGE_QUALITY = 0.82;
-export const MAX_VIDEO_BYTES = 80 * 1024 * 1024;   // 80 م.ب
+export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;   // 200 م.ب
 
 const urlCache = new Map();   // id -> objectURL
 
-/** يحفظ ملفًا ويعيد معرّفه. */
-export async function saveMedia(file) {
+/**
+ * يحفظ ملفًا ويعيد معرّفه.
+ * `maxBytes` يرفع أو يخفض الحدّ لحالة معيّنة (فيديو طويل في قسم التطوير مثلًا).
+ */
+export async function saveMedia(file, { maxBytes = MAX_VIDEO_BYTES } = {}) {
   if (!file) return null;
   const isImage = file.type.startsWith('image/');
   const blob = isImage ? await shrinkImage(file) : file;
 
-  if (!isImage && blob.size > MAX_VIDEO_BYTES) {
-    throw new Error(`الملف كبير (${(blob.size / 1048576).toFixed(0)} م.ب). الحدّ ${MAX_VIDEO_BYTES / 1048576} م.ب.`);
+  if (!isImage && blob.size > maxBytes) {
+    throw new Error(`الملف كبير (${(blob.size / 1048576).toFixed(0)} م.ب). الحدّ ${Math.round(maxBytes / 1048576)} م.ب.`);
   }
 
   const id = uid(isImage ? 'img_' : 'vid_');

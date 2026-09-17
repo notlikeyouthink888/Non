@@ -134,7 +134,14 @@ export async function removePage(id, quiet = false) {
 }
 
 async function disposeBlock(b) {
-  if (b.type === 'image' || b.type === 'file') { if (b.mediaId) await deleteMedia(b.mediaId); }
+  if (b.type === 'image' || b.type === 'file') {
+    if (b.mediaId) {
+      await deleteMedia(b.mediaId);
+      // ما رسمته فوق ملف PDF يذهب معه
+      const { deletePdfNotes } = await import('../../core/pdf.js');
+      await deletePdfNotes(b.mediaId);
+    }
+  }
   if (b.type === 'draw' && b.drawingId) await deleteDrawing(b.drawingId);
 }
 

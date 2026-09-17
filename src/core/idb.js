@@ -1,8 +1,8 @@
 /** غلاف صغير حول IndexedDB لتخزين البيانات الكبيرة (مكتبة الأغاني، بلاطات الخريطة). */
 
 const DB = 'yourworld';
-const VERSION = 3;
-const STORES = ['library', 'tiles', 'blobs', 'drawings', 'state', 'backups'];
+const VERSION = 4;
+const STORES = ['library', 'tiles', 'blobs', 'drawings', 'state', 'backups', 'pdfnotes'];
 
 let dbPromise = null;
 

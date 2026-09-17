@@ -11,6 +11,7 @@ import time from './sections/time/index.js';
 import s2 from './sections/s2/index.js';
 import study from './sections/study/index.js';
 import workout from './sections/workout/index.js';
+import improve from './sections/improve/index.js';
 import money from './sections/money/index.js';
 import commit from './sections/commit/index.js';
 import places from './sections/places/index.js';
@@ -18,7 +19,7 @@ import room from './sections/room/index.js';
 import growth from './sections/growth/index.js';
 
 /** كل الأقسام بترتيب العرض في ورقة «الأقسام». */
-export const SECTIONS = [music, time, s2, study, workout, money, commit, places, room, growth];
+export const SECTIONS = [music, time, s2, study, workout, improve, money, commit, places, room, growth];
 
 const PIN_COUNT = 4;
 

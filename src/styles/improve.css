@@ -1,0 +1,65 @@
+/* قسم Improve — تطوير الذات */
+
+.imp-areas {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;
+}
+.imp-area {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 5px; border-radius: 13px; font-size: 12px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--fg-2);
+}
+.imp-area .ic { font-size: 18px; line-height: 1.1; }
+.imp-area .nm { max-width: 100%; font-weight: 600; }
+.imp-area small { font-size: 10px; color: var(--fg-3); }
+.imp-area.on {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  border-color: var(--accent); color: var(--fg);
+}
+
+.imp-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 13px;
+}
+.imp-item .t { font-weight: 600; font-size: 13.5px; }
+.imp-item .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+.imp-item .grow { min-width: 0; cursor: pointer; }
+.imp-item.done { opacity: .68; }
+.imp-item.done .t { text-decoration: line-through; }
+
+.imp-item .check,
+.imp-need .check {
+  width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ok, #34d399);
+  font-size: 15px; font-weight: 700;
+}
+.imp-item.done .check,
+.imp-need.done .check {
+  background: color-mix(in srgb, #34d399 26%, var(--surface-2)); border-color: #34d399;
+}
+
+.imp-item .thumb {
+  width: 46px; height: 46px; flex: none; border-radius: 11px; overflow: hidden;
+  background: var(--surface-2); display: grid; place-items: center; font-size: 19px;
+}
+.imp-item .thumb img, .imp-item .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.imp-need {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 11px;
+}
+.imp-need .grow { min-width: 0; }
+.imp-need .u { font-size: 11px; color: var(--fg-3); margin-top: 2px; }
+.imp-need .g { color: var(--accent-2); font-variant-numeric: tabular-nums; flex: none; }
+.imp-need.done { opacity: .6; }
+.imp-need.done .grow > div:first-child { text-decoration: line-through; }
+
+.imp-proof { display: flex; flex-direction: column; gap: 8px; }
+
+.imp-heat { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 4px; }
+.imp-heat .cell {
+  aspect-ratio: 1; border-radius: 8px; display: grid; place-items: center;
+  font-size: 10.5px; color: var(--fg-3); background: var(--surface); border: 1px solid var(--line);
+}
+.imp-heat .cell.l1 { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--fg-2); }
+.imp-heat .cell.l2 { background: color-mix(in srgb, var(--accent) 45%, var(--surface)); color: var(--fg); }
+.imp-heat .cell.l3 { background: var(--accent); color: #fff; font-weight: 700; }
