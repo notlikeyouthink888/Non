@@ -31,6 +31,9 @@ const SECTIONS = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** موارد pdf.js المحمَّلة — تُطلَب من داخل عامل الخيط، فلا تظهر في performance. */
+const pdfAssetHits = [];
+
 /** ينتقل إلى قسم سواء كان مثبّتًا في الشريط أو داخل ورقة «الأقسام». */
 async function goSection(page, id) {
   const pinned = page.locator(`.nav button[data-id="${id}"]`);
@@ -341,9 +344,31 @@ async function runFlows(page) {
   if (await page.locator('.pdf-top .sub').textContent() !== atPage) throw new Error('التكبير أزاح موضع القراءة');
   console.log('  ✓ ترتيب PDF ثابت والتكبير يحافظ على الصفحة');
 
+  // الخطوط المضمّنة تُقرأ من داخل التطبيق لا من الشبكة
+  if (!pdfAssetHits.length) throw new Error('لم تُطلب خطوط pdf.js المضمّنة');
+  if (pdfAssetHits.some((r) => r.startsWith('4') || r.startsWith('5'))) {
+    throw new Error(`تعذّر تحميل موارد pdf.js: ${pdfAssetHits.join(', ')}`);
+  }
+  console.log(`  ✓ خطوط pdf.js تُقرأ من داخل التطبيق (${pdfAssetHits.length})`);
+
+  await page.locator('.pdf-top button[title="الصفحات"]').click();
+  await sleep(450);
+  await expect('لوحة جودة النصّ', page.locator('.pdf-panel b'));
+  await page.locator('.pdf-top button[title="الصفحات"]').click();
+  await sleep(300);
+
   await page.locator('.pdf-top button[title="الرسم والكتابة"]').click();
   await sleep(500);
   await expect('٢٤ لونًا للرسم على PDF', page.locator('.pdf-colors button'), 24);
+
+  const lock = page.locator('.pdf-ink .tools button').filter({ hasText: /🔒|🔓/ });
+  if (await lock.textContent() !== '🔒') throw new Error('قفل التكبير غير مفعّل افتراضيًا في وضع الرسم');
+  await lock.click();
+  await sleep(400);
+  if (await lock.textContent() !== '🔓') throw new Error('زرّ قفل التكبير لا يتبدّل');
+  await lock.click();
+  await sleep(400);
+  console.log('  ✓ قفل التكبير أثناء الرسم');
   await page.evaluate(() => { document.querySelector('.pdf-stage').scrollTop = 0; });
   await sleep(700);
   const bb = await page.locator('.pdf-page').first().boundingBox();
@@ -446,6 +471,9 @@ async function main() {
       if (m.type() === 'error') errors.push(`console: ${m.text()}`);
     });
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    page.on('response', (r) => {
+      if (r.url().includes('/pdfjs/')) pdfAssetHits.push(`${r.status()} ${r.url().split('/pdfjs/')[1]}`);
+    });
 
     await page.goto('http://127.0.0.1:4173/', { waitUntil: 'load' });
     await page.waitForSelector('.nav button', { timeout: 15000 });

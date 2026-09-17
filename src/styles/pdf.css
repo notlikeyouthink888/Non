@@ -1,7 +1,13 @@
 /* عارض PDF داخل التطبيق — قراءة ورسم */
 
 /* هذه الأشرطة display:flex، فنؤكّد إخفاءها حين hidden */
-.pdf-thumbs[hidden], .pdf-bar[hidden], .pdf-ink[hidden] { display: none !important; }
+.pdf-thumbs[hidden], .pdf-bar[hidden], .pdf-ink[hidden], .pdf-panel[hidden] { display: none !important; }
+
+/* لوحة إعدادات العارض فوق شريط الصفحات */
+.pdf-panel {
+  flex: none; padding: 8px 12px; background: var(--bg-2);
+  border-bottom: 1px solid var(--line); display: block;
+}
 
 .pdf-overlay {
   position: fixed; inset: 0; z-index: 150; display: flex; flex-direction: column;

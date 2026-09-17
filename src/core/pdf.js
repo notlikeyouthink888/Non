@@ -167,9 +167,14 @@ function nearStroke(s, x, y, ratio) {
  * يفتح ملف PDF محفوظًا داخل الجهاز.
  * @param {{ mediaId?: string, blob?: Blob, name?: string, onExternal?: () => void }} opts
  */
-export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = null }) {
+export async function openPdf(opts) {
+  const { mediaId, blob, name = 'ملف', onExternal = null } = opts;
   const data = blob || (mediaId ? await idb.get('blobs', mediaId) : null);
   if (!data) { toast('تعذّر فتح الملف', 'err'); return null; }
+
+  // تفضيلات العارض محفوظة بين الجلسات
+  const exactText = (await idb.get('state', 'pdfExactText')) !== false;
+  let zoomLocked = (await idb.get('state', 'pdfLockZoom')) !== false;
 
   /* الهيكل */
   const stage = h('div.pdf-stage');
@@ -182,6 +187,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
   const searchBar = h('div.pdf-bar', { hidden: true });
   const inkBar = h('div.pdf-ink', { hidden: true });
   const thumbsBar = h('div.pdf-thumbs', { hidden: true });
+  const panelBar = h('div.pdf-panel', { hidden: true });
 
   const modeBtn = h('button', { title: 'الرسم والكتابة', onclick: () => setMode(mode === 'read' ? 'ink' : 'read') }, '✍️');
 
@@ -194,6 +200,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
       modeBtn,
     ]),
     searchBar,
+    panelBar,
     thumbsBar,
     stage,
     inkBar,
@@ -264,10 +271,23 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
     const lib = await engine();
     const buf = await data.arrayBuffer();
     if (closed) return null;
+    const base = document.baseURI;
     doc = await lib.getDocument({
       data: buf,
       isEvalSupported: false,
-      standardFontDataUrl: new URL('pdfjs/standard_fonts/', document.baseURI).href,
+      standardFontDataUrl: new URL('pdfjs/standard_fonts/', base).href,
+      // جداول الترميز لازمة للخطوط العريضة (CID) وإلا ظهرت حروف ناقصة
+      cMapUrl: new URL('pdfjs/cmaps/', base).href,
+      cMapPacked: true,
+      // لا نثق بخطوط النظام: بدائلها في أندرويد تكسر تشكيل العربية
+      useSystemFonts: false,
+      /**
+       * «النصّ الدقيق»: يرسم كل حرف من مخطّطات الخطّ المضمَّن في الملف مباشرة،
+       * فلا يمرّ عبر محرّك الخطوط في WebView. هذا ما يمنع تبعثر الحروف العربية
+       * وسقوط بعضها (وهو ما يصيب اللاتيني أيضًا: clay تصير chy). أبطأ قليلًا
+       * لكنّه مطابق للملف الأصلي.
+       */
+      disableFontFace: exactText,
     }).promise;
   } catch (err) {
     console.warn('[pdf]', err);
@@ -322,6 +342,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
   if (saved > 1 && saved <= total) goTo(saved, false);
   bindInk();
   buildThumbs();
+  renderPanel();
 
   /* ─────────── المقاس والتخطيط ─────────── */
 
@@ -528,7 +549,34 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
 
   function toggleThumbs() {
     thumbsBar.hidden = !thumbsBar.hidden;
+    panelBar.hidden = thumbsBar.hidden;
     if (!thumbsBar.hidden) setTimeout(() => thumbsBar.querySelector('.on')?.scrollIntoView({ inline: 'center' }), 30);
+  }
+
+  /**
+   * مفتاح جودة النصّ. «دقيق» يرسم الحروف من مخطّطات خطّ الملف نفسه فلا يتدخّل
+   * محرّك خطوط النظام — وهو ما يمنع تبعثر العربية وسقوط حروف. تغييره يعيد فتح
+   * الملف لأنّ الخيار يُقرَأ عند التحميل.
+   */
+  function renderPanel() {
+    fill(panelBar, [
+      h('div.row.between', [
+        h('div', { style: { minWidth: '0' } }, [
+          h('b', { style: { fontSize: '12.5px' } }, exactText ? 'النصّ: دقيق' : 'النصّ: سريع'),
+          h('div.muted', { style: { fontSize: '10.5px' } }, exactText
+            ? 'يرسم الحروف من خطّ الملف — أدقّ للعربية'
+            : 'يستعمل خطوط النظام — أسرع وقد يبعثر العربية'),
+        ]),
+        h('button.btn.sm', {
+          onclick: async () => {
+            await idb.set('state', 'pdfExactText', !exactText);
+            toast('يُعاد فتح الملف…');
+            close();
+            openPdf(opts);
+          },
+        }, exactText ? 'جرّب السريع' : 'جرّب الدقيق'),
+      ]),
+    ]);
   }
 
   /* ─────────── البحث ─────────── */
@@ -637,6 +685,10 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
           title: `سماكة ${w}`, onclick: () => { width = w; refreshInkBar(); },
         }, h('i', { style: { width: `${Math.min(18, 4 + w)}px`, height: `${Math.min(18, 4 + w)}px`, background: color } }))),
         h('div.grow'),
+        h('button' + (zoomLocked ? '.on' : ''), {
+          title: zoomLocked ? 'التكبير مقفل — اضغط لفتحه' : 'اقفل التكبير أثناء الرسم',
+          onclick: () => setZoomLock(!zoomLocked),
+        }, zoomLocked ? '🔒' : '🔓'),
         h('button', { title: 'تراجع', disabled: !undoStack.length, onclick: undo }, '↶'),
         h('button', { title: 'إعادة', disabled: !redoStack.length, onclick: redo }, '↷'),
         h('button', { title: 'امسح الصفحة', onclick: clearPage }, '🗑'),
@@ -646,6 +698,15 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
         style: { background: c }, title: c, onclick: () => { color = c; refreshInkBar(); },
       }))),
     ]);
+  }
+
+  /** قفل التكبير: يمنع التصغير والتكبير بإصبعين ويُبقي التمرير. */
+  function setZoomLock(on) {
+    zoomLocked = on;
+    idb.set('state', 'pdfLockZoom', on);
+    refreshInkBar();
+    toast(on ? 'قُفل التكبير — الرسم وحده' : 'فُتح التكبير', 'ok');
+    haptic();
   }
 
   async function clearPage() {
@@ -684,7 +745,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
 
         if (tool === 'erase') {
           pushUndo(p.n);
-          drawing = { p, erase: true };
+          drawing = { p, erase: true, type: e.pointerType };
           eraseAt(p, pt);
           return;
         }
@@ -692,7 +753,7 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
         pushUndo(p.n);
         const stroke = { tool, color, w: width, pts: [pt] };
         strokesOf(p.n).push(stroke);
-        drawing = { p, stroke };
+        drawing = { p, stroke, type: e.pointerType };
         p.ink.setPointerCapture(e.pointerId);
         paintPageInk(p);
       });
@@ -761,6 +822,11 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
 
   stage.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
+
+    // القلم يرسم الآن: كل لمسة إصبع هي راحة يد — تُتجاهَل تمامًا،
+    // فلا تُلغي المسار ولا تُشغّل التكبير.
+    if (drawing && drawing.type === 'pen') return;
+
     active.set(e.pointerId, e);
     if (active.size === 2) {
       abortStroke();            // إصبعان يعنيان تمريرًا وتكبيرًا، لا رسمًا
@@ -787,6 +853,8 @@ export async function openPdf({ mediaId, blob, name = 'ملف', onExternal = nul
       pinch.midY = midY;
       pinch.a = anchor();
     }
+
+    if (mode === 'ink' && zoomLocked) return;   // القفل يخصّ الرسم: يوقف التكبير ويُبقي التمرير
 
     const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     const next = Math.min(6, Math.max(0.3, pinch.z * (d / Math.max(1, pinch.d))));
