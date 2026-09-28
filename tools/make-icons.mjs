@@ -74,6 +74,10 @@ for (const d of DENSITIES) {
   await render(svg({ size: d.size, foregroundOnly: true }), d.size, `${RES}/${d.dir}/ic_launcher_foreground.png`);
 }
 
+// أيقونة نسخة الحاسبة (electron-builder يريد ٢٥٦ فأكثر)
+mkdirSync('desktop', { recursive: true });
+await render(svg({ size: 512 }), 512, 'desktop/icon.png');
+
 // معاينة كبيرة للتوثيق
 mkdirSync('docs/shots', { recursive: true });
 await render(svg({ size: 512 }), 512, 'docs/shots/app-icon.png');

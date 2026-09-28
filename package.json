@@ -3,23 +3,84 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Your World — تطبيق أندرويد شخصي يعمل دون إنترنت: مشغّل أغاني، وقت ومنبهات وتقويم، التزامات، أماكن، وإنتاجية.",
+  "description": "Your World — عالمك الشخصي دون إنترنت: أغانيك، وقتك، مذاكرتك، تمارينك، تطوير نفسك، ومصاريفك.",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "check": "node tools/check.mjs",
     "android:sync": "npm run build && npx cap sync android",
-    "android:apk": "bash tools/build-apk.sh"
+    "android:apk": "bash tools/build-apk.sh",
+    "desktop": "npm run build && electron .",
+    "desktop:build": "npm run build && electron-builder --publish never",
+    "check:desktop": "node tools/check-desktop.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/cli": "^7.0.0",
     "@capacitor/core": "^7.0.0",
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8",
     "playwright-core": "^1.56.0",
     "vite": "^7.1.0"
   },
   "dependencies": {
     "pdfjs-dist": "4.10.38"
-  }
+  },
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "com.yourworld.app",
+    "productName": "Your World",
+    "directories": {
+      "output": "release",
+      "buildResources": "desktop"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist",
+        "to": "dist"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Your World",
+      "artifactName": "YourWorld-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "YourWorld-Portable.exe"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "desktop/icon.png",
+      "artifactName": "YourWorld-${version}.${ext}"
+    }
+  },
+  "author": "Your World"
 }

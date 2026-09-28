@@ -1,0 +1,121 @@
+name: بناء نسخة الحاسبة
+
+on:
+  push:
+    branches:
+      - main
+      - claude/your-world-android-app-sxo5zu
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # فحص نسخة الحاسبة على لينكس (شاشة وهمية) قبل أي بناء
+  check:
+    name: فحص نسخة الحاسبة
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: تثبيت الحزم
+        run: npm ci
+      - name: مكتبات النظام للتشغيل بلا شاشة
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libxshmfence1 libcups2 || true
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2 || true
+      - name: الفحص
+        run: xvfb-run -a --server-args="-screen 0 1280x900x24" npm run check:desktop
+
+  build:
+    name: بناء ${{ matrix.label }}
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: ويندوز
+            out: 'release/*.exe'
+          - os: ubuntu-latest
+            label: لينكس
+            out: 'release/*.AppImage'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      - name: بناء التطبيق
+        run: npm run desktop:build
+        env:
+          # لا توقيع رقمي — نسخة شخصية
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: رفع الناتج
+        uses: actions/upload-artifact@v4
+        with:
+          name: YourWorld-${{ matrix.label }}
+          path: ${{ matrix.out }}
+          if-no-files-found: error
+
+  release:
+    name: نشر للتنزيل
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: جلب النواتج
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: out
+
+      - name: تجميع الملفات
+        run: |
+          mkdir -p dist-files
+          find out -type f \( -name '*.exe' -o -name '*.AppImage' \) -exec cp {} dist-files/ \; || true
+          ls -la dist-files
+          test -n "$(ls -A dist-files)"
+
+      - name: نشره في إصدار
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: desktop-r${{ github.run_number }}
+        run: |
+          gh release create "$TAG" dist-files/* \
+            --target "$GITHUB_SHA" \
+            --title "Your World للحاسبة — بناء ${{ github.run_number }}" \
+            --notes "نسخة الحاسبة من Your World — نفس التطبيق بكل أقسامه، يعمل دون إنترنت.
+
+          **ويندوز**
+          - \`YourWorld-Portable.exe\` — شغّله مباشرة بلا تثبيت.
+          - \`YourWorld-Setup-*.exe\` — مثبِّت يضع اختصارًا على سطح المكتب.
+
+          **لينكس**
+          - \`YourWorld-*.AppImage\` — أعطه صلاحية التنفيذ ثم شغّله.
+
+          مبني من: \`$GITHUB_SHA\`
+
+          > ويندوز قد يعرض تحذير SmartScreen لأن الملف غير موقّع رقميًا
+          > (النسخة شخصية ولا تُنشر على متجر). اضغط **More info** ثم **Run anyway**.
+
+          **نقل بياناتك من التلفون:** من التطبيق على التلفون ⚙ ← 🗄 النسخ الاحتياطي ←
+          احفظ نسخة، وانقل الملف إلى الحاسبة، ثم من نسخة الحاسبة ⚙ ← 🗄 ← «اختر ملف نسخة يدويًا»."

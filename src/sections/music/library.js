@@ -6,7 +6,7 @@
  * ثم يعيد القراءة من MediaStore ويخبرك بعدد الأغاني الجديدة.
  */
 
-import { Music, isNative } from '../../core/native.js';
+import { Music, isNative, isDesktop } from '../../core/native.js';
 import { idb } from '../../core/idb.js';
 import { emit, state, save } from '../../core/store.js';
 
@@ -98,7 +98,55 @@ export async function scanLibrary({ deep = false } = {}) {
     emit('library');
   }
 
+  if (isDesktop()) fillDurations();
   return { tracks, added };
+}
+
+/**
+ * على الحاسبة نقرأ أسماء الملفات فقط (سريع)، فتبقى المدد صفرًا.
+ * هنا نكملها في الخلفية بقراءة ترويسة كل ملف عبر عنصر صوت واحد،
+ * ونحدّث المكتبة على دفعات حتى لا نُرهق الواجهة.
+ */
+let durationsRun = 0;
+
+async function fillDurations() {
+  const run = ++durationsRun;
+  const probe = new Audio();
+  probe.preload = 'metadata';
+  let changed = 0;
+
+  for (const t of tracks) {
+    if (run !== durationsRun) return;           // بدأ مسح جديد
+    if (t.durationMs) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const ms = await readDuration(probe, t.uri);
+    if (ms) { t.durationMs = ms; changed++; }
+    if (changed && changed % 25 === 0) { emit('library'); }
+  }
+
+  if (run !== durationsRun) return;
+  if (changed) {
+    emit('library');
+    await idb.set('library', CACHE_KEY, { tracks, at: Date.now() });
+  }
+}
+
+function readDuration(probe, uri) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; clear(); resolve(v); } };
+    const onMeta = () => finish(Number.isFinite(probe.duration) ? Math.round(probe.duration * 1000) : 0);
+    const onErr = () => finish(0);
+    const timer = setTimeout(() => finish(0), 4000);
+    function clear() {
+      clearTimeout(timer);
+      probe.removeEventListener('loadedmetadata', onMeta);
+      probe.removeEventListener('error', onErr);
+    }
+    probe.addEventListener('loadedmetadata', onMeta);
+    probe.addEventListener('error', onErr);
+    probe.src = uri;
+  });
 }
 
 /** بديل المتصفّح: إضافة ملفات يدويًا. */
@@ -109,6 +157,7 @@ export async function addFromBrowser() {
   lastNewIds = tracks.filter((t) => !before.has(t.id)).map((t) => t.id);
   loaded = true;
   emit('library');
+  if (isDesktop()) fillDurations();
   return { tracks, added: lastNewIds.length };
 }
 

@@ -4,6 +4,7 @@ import './styles/base.css';
 import { mountApp } from './app.js';
 import { state, save, flush, initStore, onStoreError } from './core/store.js';
 import { applyAccent, toast } from './core/ui.js';
+import { isDesktop } from './core/native.js';
 import { startUsage, onSummaryReady } from './core/usage.js';
 import { initPlayer } from './sections/music/player.js';
 import { initAlarms } from './sections/time/alarms.js';
@@ -13,6 +14,9 @@ async function boot() {
   // نقرأ التخزين الدائم قبل رسم الواجهة حتى لا تُبنى الشاشات على بيانات ناقصة.
   await initStore();
   onStoreError((msg) => toast(msg, 'err'));
+
+  // نسخة الحاسبة تحصل على تخطيط بعمود مركزي يناسب الشاشة العريضة
+  if (isDesktop()) document.documentElement.classList.add('is-desktop');
 
   applyAccent(state.settings.accent || '#7c5cff');
 

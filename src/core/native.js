@@ -12,6 +12,11 @@ const Cap = () => (typeof window !== 'undefined' ? window.Capacitor : undefined)
 
 export const isNative = () => !!Cap()?.isNativePlatform?.();
 
+/** جسر نسخة الحاسبة (Electron) — موجود فقط داخل تطبيق سطح المكتب. */
+const Desk = () => (typeof window !== 'undefined' ? window.desktop : undefined);
+
+export const isDesktop = () => !!Desk()?.isDesktop;
+
 /** يحوّل مسار/‏content URI إلى رابط يقرأه WebView. */
 export function toSrc(uri) {
   const c = Cap();
@@ -46,6 +51,20 @@ export const Music = {
     return !!r?.granted;
   },
 
+  /** على الحاسبة: مجلّد الأغاني المختار، أو null إن لم يُختر بعد. */
+  async folder() {
+    const d = Desk();
+    return d ? d.musicFolder() : null;
+  },
+
+  /** على الحاسبة: يفتح منتقي مجلّد ثم يمسحه ويتذكّره. */
+  async pickFolder() {
+    const d = Desk();
+    if (!d) return [];
+    const r = await d.musicPickFolder();
+    return r?.tracks || [];
+  },
+
   /**
    * يمسح كل أغاني الجهاز.
    * @returns {Promise<Array<{id,title,artist,album,durationMs,uri,artUri,size,year,track,path,addedAt}>>}
@@ -54,6 +73,11 @@ export const Music = {
     const p = plugin('MusicLibrary');
     if (p) {
       const r = await p.scan({ minDurationMs: opts.minDurationMs ?? 20000 });
+      return r?.tracks ?? [];
+    }
+    const d = Desk();
+    if (d) {
+      const r = await d.musicScan();
       return r?.tracks ?? [];
     }
     return webLib ? webLib.tracks : [];
@@ -71,12 +95,13 @@ export const Music = {
 
   /** بديل الويب: اختيار ملفات/مجلد من المتصفّح. */
   async pickFromBrowser() {
+    if (Desk()) return this.pickFolder();
     const { pickAudioFiles } = await import('./webfallback/library.js');
     webLib = await pickAudioFiles(webLib);
     return webLib.tracks;
   },
 
-  isBrowserFallback() { return !plugin('MusicLibrary'); },
+  isBrowserFallback() { return !plugin('MusicLibrary') && !Desk(); },
 };
 
 /* ────────────────────────── المشغّل ────────────────────────── */
@@ -189,8 +214,16 @@ export const Scheduler = {
  * في المتصفّح يعيد false ليستعمل المستدعي البديل (فتح في تبويب).
  */
 export async function openFile({ name, mime, blob }) {
+  if (!blob) return false;
+  const d = Desk();
+  if (d) {
+    try {
+      const r = await d.openExternalFile(name, mime, await blobToBase64(blob));
+      return !!r?.opened;
+    } catch (err) { console.warn('[files] تعذّر الفتح', err); return false; }
+  }
   const p = plugin('Files');
-  if (!p || !blob) return false;
+  if (!p) return false;
   try {
     const data = await blobToBase64(blob);
     const r = await p.openFile({ name, mime, data });
@@ -206,6 +239,11 @@ export async function openFile({ name, mime, blob }) {
  * يعيد المسار الظاهر للمستخدم، أو null في المتصفّح.
  */
 export async function saveToDownloads({ name, mime = 'application/json', text }) {
+  const d = Desk();
+  if (d) {
+    const r = await d.saveText(name, text);
+    return r?.saved ? r.path : null;
+  }
   const p = plugin('Files');
   if (!p?.saveToDownloads) return null;
   const r = await p.saveToDownloads({ name, mime, data: toBase64(text) });
@@ -214,6 +252,11 @@ export async function saveToDownloads({ name, mime = 'application/json', text })
 
 /** يبحث عن النسخ الاحتياطية المحفوظة في الجهاز. */
 export async function listBackupFiles() {
+  const d = Desk();
+  if (d) {
+    try { return (await d.findBackups())?.files || []; }
+    catch (err) { console.warn('[files] تعذّر البحث', err); return []; }
+  }
   const p = plugin('Files');
   if (!p?.listBackups) return [];
   try {
@@ -227,6 +270,11 @@ export async function listBackupFiles() {
 
 /** يقرأ نصّ ملف من مسار أو content:// */
 export async function readTextFile(uri) {
+  const d = Desk();
+  if (d) {
+    const r = await d.readText(uri);
+    return r?.text ?? null;
+  }
   const p = plugin('Files');
   if (!p?.readText) return null;
   const r = await p.readText({ uri });

@@ -6,7 +6,7 @@ import { dur, durMs, bytes } from '../../core/fmt.js';
 import { state, save, uid, subscribe } from '../../core/store.js';
 import { sheet, toast, confirmSheet, promptSheet, haptic } from '../../core/ui.js';
 import { openSettings } from '../../core/settings.js';
-import { isNative } from '../../core/native.js';
+import { isNative, isDesktop, Music } from '../../core/native.js';
 import {
   loadLibrary, scanLibrary, addFromBrowser, allTracks, search, byArtist, byAlbum,
   recentlyAdded, libraryStats, isScanning, isLoaded, trackById,
@@ -71,6 +71,23 @@ export default {
     }
 
     async function rescan() {
+      if (isDesktop()) {
+        // على الحاسبة: أوّل مرّة نسأل عن مجلّد الأغاني، وبعدها نعيد مسحه
+        const folder = await Music.folder();
+        if (!folder) {
+          await addFromBrowser();
+          renderContent();
+          const chosen = await Music.folder();
+          toast(chosen ? `مجلّدك: ${chosen}` : 'لم يُختر مجلّد', chosen ? 'ok' : 'err');
+          return;
+        }
+        toast('جارٍ فحص مجلّدك…');
+        const { added } = await scanLibrary({ deep: false });
+        toast(added > 0 ? `وُجدت ${added} أغنية جديدة` : `لا جديد · ${allTracks().length} أغنية`, 'ok');
+        if (added > 0) { tab = 'new'; syncTabs(); }
+        renderContent();
+        return;
+      }
       if (isNative()) {
         toast('جارٍ البحث عن ملفات جديدة…');
         const { added } = await scanLibrary({ deep: true });
@@ -125,8 +142,11 @@ function buildTab(which, q, rerender, rescan) {
         : h('div.card', [
           empty('🎵', isNative()
             ? 'لم يُعثر على أغانٍ بعد. اسمح بالوصول إلى ملفات الصوت ثم افحص الجهاز.'
-            : 'أنت في المتصفّح — اختر ملفات صوتية لتجربة المشغّل. على أندرويد تُقرأ كل أغاني الجهاز تلقائيًا.'),
-          h('button.btn.primary.block', { onclick: rescan }, isNative() ? 'افحص الجهاز الآن' : 'اختر ملفات'),
+            : isDesktop()
+              ? 'اختر مجلّد أغانيك مرّة واحدة، وسيتذكّره التطبيق ويفحصه كلّما ضغطت التحديث.'
+              : 'أنت في المتصفّح — اختر ملفات صوتية لتجربة المشغّل. على أندرويد تُقرأ كل أغاني الجهاز تلقائيًا.'),
+          h('button.btn.primary.block', { onclick: rescan },
+            isNative() ? 'افحص الجهاز الآن' : isDesktop() ? '📁 اختر مجلّد الأغاني' : 'اختر ملفات'),
         ]),
     ]);
   }
@@ -176,8 +196,9 @@ function newTab(rerender, rescan) {
   return h('div', [
     h('div.card.glow', [
       h('div.card-t', '⟳ ابحث عن أغانٍ جديدة'),
-      h('div.card-s', 'بعد تنزيل أغنية من تيليجرام أو أي تطبيق، اضغط الزر ليعيد النظام فهرسة الملفات '
-        + 'ويضيفها إلى مكتبتك.'),
+      h('div.card-s', isDesktop()
+        ? 'كلّما أضفت أغنية إلى مجلّدك، اضغط الزر ليعيد التطبيق فحصه ويضيفها.'
+        : 'بعد تنزيل أغنية من تيليجرام أو أي تطبيق، اضغط الزر ليعيد النظام فهرسة الملفات ويضيفها إلى مكتبتك.'),
       h('button.btn.primary.block', {
         style: { marginTop: '10px' },
         onclick: rescan,

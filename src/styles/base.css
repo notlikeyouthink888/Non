@@ -228,3 +228,23 @@ html[dir="ltr"] .switch.on::after { transform: translateX(18px); }
 .toast.err { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 
 ::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ─────────── نسخة الحاسبة ─────────── */
+/* الشاشة عريضة والتطبيق مصمَّم للهاتف: نجمع المحتوى في عمود مركزي
+   بدل أن يتمدّد سطرًا واحدًا عبر الشاشة كلّها. */
+.is-desktop .screen > * { max-width: 640px; margin-inline: auto; }
+.is-desktop .screen { padding-top: 18px; }
+.is-desktop .nav {
+  inset-inline: auto; left: 50%; transform: translateX(-50%);
+  width: min(640px, 100%); border-radius: 18px 18px 0 0;
+  border: 1px solid var(--line); border-bottom: none;
+}
+.is-desktop .sheet { inset-inline: auto; left: 50%; transform: translateX(-50%); width: min(640px, 100%); }
+.is-desktop #mini-host { inset-inline: auto; left: 50%; transform: translateX(-50%); width: min(640px, 100%); }
+.is-desktop #toast-root { inset-inline: auto; left: 50%; transform: translateX(-50%); width: min(640px, 100%); }
+
+/* شريط تمرير رفيع يليق بسطح المكتب */
+.is-desktop ::-webkit-scrollbar { width: 10px; height: 10px; }
+.is-desktop ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; border: 3px solid var(--bg); }
+.is-desktop ::-webkit-scrollbar-thumb:hover { background: var(--line); }
+.is-desktop ::-webkit-scrollbar-track { background: transparent; }
