@@ -1,16 +1,45 @@
-name: بناء APK
+name: بناء APK — أساس
 
 on:
   push:
     branches:
       - main
-      - claude/your-world-android-app-sxo5zu
+      - ccr-ba3f6671-bl9elf
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    name: الفحص الآلي (محاكاة Claude والصور)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تهيئة Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: تهيئة Python (لفحص ملف Word الناتج)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: تثبيت الحزم
+        run: |
+          npm ci
+          python -m pip install --quiet python-docx
+
+      - name: تشغيل الفحص
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+        run: npm run check
+
   apk:
     name: بناء ملف التثبيت
     runs-on: ubuntu-latest
@@ -60,28 +89,31 @@ jobs:
         id: name
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk out/YourWorld.apk
-          echo "size=$(du -h out/YourWorld.apk | cut -f1)" >> "$GITHUB_OUTPUT"
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/Asas.apk
+          echo "size=$(du -h out/Asas.apk | cut -f1)" >> "$GITHUB_OUTPUT"
 
       - name: رفع الملف كمُخرَج
         uses: actions/upload-artifact@v4
         with:
-          name: YourWorld-APK
-          path: out/YourWorld.apk
+          name: Asas-APK
+          path: out/Asas.apk
           if-no-files-found: error
 
       - name: نشره في إصدار للتنزيل المباشر
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create apk-latest out/YourWorld.apk \
+          gh release delete asas-apk-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create asas-apk-latest out/Asas.apk \
             --target "$GITHUB_SHA" \
-            --title "Your World — أحدث نسخة" \
+            --title "أساس — تقارير الهندسة المدنية (أحدث نسخة)" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
 
-          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`YourWorld.apk\` ←
+          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Asas.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
+
+          **تفعيل الذكاء الاصطناعي:** من الإعدادات داخل التطبيق أضف مفتاح Claude API
+          (من console.anthropic.com). بدونه يعمل التطبيق بالمحتوى الجاهز والقوالب.
 
           نسخة تجريبية (debug) موقّعة بمفتاح التطوير — تعمل كاملة، لكنها ليست للنشر على المتجر."

@@ -1,37 +1,26 @@
-/** نقطة الدخول — Your World */
+/** نقطة الدخول — أساس: تقارير الهندسة المدنية. */
 
-import './styles/base.css';
+import './styles/fonts.css';
+import './styles/app.css';
 import { mountApp } from './app.js';
-import { state, save } from './core/store.js';
-import { applyAccent } from './core/ui.js';
-import { startUsage, onSummaryReady } from './core/usage.js';
-import { initPlayer } from './sections/music/player.js';
-import { initAlarms } from './sections/time/alarms.js';
-import { showSummarySheet } from './sections/time/summary.js';
+import { state, save, subscribe } from './core/store.js';
+import { applyTheme } from './core/ui.js';
 
-async function boot() {
-  applyAccent(state.settings.accent || '#7c5cff');
+function boot() {
+  applyTheme(state.ui);
+  subscribe('ui', () => applyTheme(state.ui));
+  matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => applyTheme(state.ui));
 
-  const root = document.getElementById('app');
-  mountApp(root);
+  mountApp(document.getElementById('app'));
 
-  startUsage();
-  onSummaryReady((summary) => showSummarySheet(summary));
-
-  // إعادة جدولة المنبهات وربط المشغّل — الاثنان يعملان دون إنترنت.
-  await Promise.allSettled([initPlayer(), initAlarms()]);
-
-  // ملخّص اليوم السابق إن لم يُعرض بعد
-  const pending = state.time.lastSummaryDay;
-  if (pending && state.time.summaries[pending] && !state.time.summaries[pending].seen) {
-    setTimeout(() => showSummarySheet(state.time.summaries[pending]), 900);
-  }
-
-  document.getElementById('boot')?.classList.add('gone');
-  setTimeout(() => document.getElementById('boot')?.remove(), 600);
+  const bootEl = document.getElementById('boot');
+  bootEl?.classList.add('gone');
+  setTimeout(() => bootEl?.remove(), 500);
 }
 
-window.addEventListener('error', (e) => console.error('[YW]', e.error || e.message));
+window.addEventListener('error', (e) => console.error('[asas]', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => console.error('[asas] وعد مرفوض', e.reason));
 window.addEventListener('beforeunload', () => save(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(true); });
 
 boot();

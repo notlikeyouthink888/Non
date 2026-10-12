@@ -1,0 +1,22 @@
+{
+  "name": "your-world",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Your World — تطبيق أندرويد شخصي يعمل دون إنترنت: مشغّل أغاني، وقت ومنبهات وتقويم، التزامات، أماكن، وإنتاجية.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "check": "node tools/check.mjs",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:apk": "bash tools/build-apk.sh"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "playwright-core": "^1.56.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
+  }
+}

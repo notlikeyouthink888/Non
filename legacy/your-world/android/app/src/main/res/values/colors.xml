@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="yw_bg">#FF0B0E14</color>
+    <color name="yw_surface">#FF151A24</color>
+    <color name="yw_fg">#FFE9EDF5</color>
+    <color name="yw_muted">#FF9AA6BD</color>
+    <color name="yw_accent">#FF7C5CFF</color>
+    <color name="yw_danger">#FFF87171</color>
+    <color name="colorPrimary">#FF7C5CFF</color>
+    <color name="colorPrimaryDark">#FF0B0E14</color>
+    <color name="colorAccent">#FF22D3EE</color>
+</resources>

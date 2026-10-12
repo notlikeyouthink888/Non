@@ -1,101 +1,51 @@
-/** تنسيق الأوقات والتواريخ بالعربية — بلا اعتماد على أي شبكة. */
+/** تنسيق التواريخ والأرقام — أرقام لاتينية كما في التقارير الهندسية، وأشهر عراقية. */
 
-export const AR_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-export const AR_DAYS_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
-export const AR_MONTHS = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيار', 'حزيران', 'تموز', 'آب', 'أيلول', 'تشرين الأول', 'تشرين الثاني', 'كانون الأول'];
+const dateFmt = new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
+const shortFmt = new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { month: 'short', day: 'numeric' });
 
-export const pad = (n) => String(n).padStart(2, '0');
-
-/** 'YYYY-MM-DD' بالتوقيت المحلي. */
-export function dayKey(d = new Date()) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export function fmtDate(ts = Date.now()) {
+  try { return dateFmt.format(new Date(ts)); } catch { return new Date(ts).toLocaleDateString(); }
 }
 
-export function fromDayKey(key) {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d);
+export function fmtShort(ts) {
+  try { return shortFmt.format(new Date(ts)); } catch { return ''; }
 }
 
-export function addDays(d, n) {
-  const c = new Date(d);
-  c.setDate(c.getDate() + n);
-  return c;
+/** «منذ ٥ دقائق» بأرقام لاتينية. */
+export function ago(ts) {
+  const s = Math.max(1, Math.round((Date.now() - ts) / 1000));
+  if (s < 60) return 'الآن';
+  const m = Math.round(s / 60);
+  if (m < 60) return `منذ ${m} ${m === 1 ? 'دقيقة' : m === 2 ? 'دقيقتين' : m <= 10 ? 'دقائق' : 'دقيقة'}`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `منذ ${h} ${h === 1 ? 'ساعة' : h === 2 ? 'ساعتين' : h <= 10 ? 'ساعات' : 'ساعة'}`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `منذ ${d} ${d === 1 ? 'يوم' : d === 2 ? 'يومين' : d <= 10 ? 'أيام' : 'يومًا'}`;
+  return fmtDate(ts);
 }
 
-export function sameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+/** عدد الكلمات في نص (عربي أو إنجليزي). */
+export function countWords(text) {
+  return (String(text || '').match(/[\p{L}\p{N}]+/gu) || []).length;
 }
 
-/** 14:05 أو 2:05 م حسب الإعداد. */
-export function clock(h, m, hour12 = false) {
-  if (!hour12) return `${pad(h)}:${pad(m)}`;
-  const period = h < 12 ? 'ص' : 'م';
-  const hh = h % 12 === 0 ? 12 : h % 12;
-  return `${hh}:${pad(m)} ${period}`;
+export function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-US');
 }
 
-export function clockOf(date, hour12 = false) {
-  return clock(date.getHours(), date.getMinutes(), hour12);
+export function fmtUSD(n) {
+  const v = Number(n || 0);
+  if (v === 0) return '$0';
+  if (v < 0.01) return '< $0.01';
+  return '$' + v.toFixed(v < 1 ? 3 : 2);
 }
 
-/** مدّة بالمللي ثانية → mm:ss أو h:mm:ss */
-export function dur(ms) {
-  if (!Number.isFinite(ms) || ms < 0) ms = 0;
-  const total = Math.floor(ms / 1000);
-  const s = total % 60, m = Math.floor(total / 60) % 60, hh = Math.floor(total / 3600);
-  return hh > 0 ? `${hh}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+/** اسم ملف آمن من عنوان عربي. */
+export function safeFileName(title, ext) {
+  const base = String(title || 'تقرير')
+    .replace(/[\\/:*?"<>|#%{}~&]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || 'تقرير';
+  return `${base}.${ext}`;
 }
-
-/** مدّة بالدقائق → «3 س 20 د» */
-export function durMin(min) {
-  min = Math.max(0, Math.round(min));
-  const h = Math.floor(min / 60), m = min % 60;
-  if (h && m) return `${h} س ${m} د`;
-  if (h) return `${h} س`;
-  return `${m} د`;
-}
-
-export function durMs(ms) {
-  return durMin(ms / 60000);
-}
-
-/** تاريخ مقروء: «الإثنين 3 آذار» */
-export function longDate(d) {
-  return `${AR_DAYS[d.getDay()]} ${d.getDate()} ${AR_MONTHS[d.getMonth()]}`;
-}
-
-export function shortDate(d) {
-  return `${d.getDate()} ${AR_MONTHS[d.getMonth()]}`;
-}
-
-/** «اليوم» / «غدًا» / «أمس» أو التاريخ. */
-export function relativeDay(d, now = new Date()) {
-  if (sameDay(d, now)) return 'اليوم';
-  if (sameDay(d, addDays(now, 1))) return 'غدًا';
-  if (sameDay(d, addDays(now, -1))) return 'أمس';
-  const diff = Math.round((d - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-  if (diff > 1 && diff < 7) return `${AR_DAYS[d.getDay()]} القادم`;
-  return longDate(d);
-}
-
-/** «بعد 3 س 12 د» لفارق زمني بالمللي. */
-export function untilText(ms) {
-  if (ms <= 0) return 'الآن';
-  const min = Math.round(ms / 60000);
-  if (min < 1) return 'بعد أقل من دقيقة';
-  const d = Math.floor(min / 1440);
-  if (d >= 1) return `بعد ${d} يوم${d > 1 ? 'ًا' : ''} و${durMin(min % 1440)}`;
-  return `بعد ${durMin(min)}`;
-}
-
-/** حجم بالبايت → نص. */
-export function bytes(n) {
-  if (!n) return '—';
-  const u = ['ب', 'ك.ب', 'م.ب', 'غ.ب'];
-  let i = 0;
-  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
-  return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
-}
-
-/** أرقام بفواصل. */
-export const num = (n) => Number(n || 0).toLocaleString('en-US');

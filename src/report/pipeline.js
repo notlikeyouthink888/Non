@@ -1,0 +1,329 @@
+/**
+ * خط إنتاج التقرير: كتابة النص (ذكاء اصطناعي متدفق أو قاعدة المعرفة دون اتصال)
+ * بالتوازي مع تخطيط الصور والبحث عنها والتحقق منها ثم حفظ كل شيء في الجهاز.
+ * المهام النشطة محفوظة في الذاكرة حتى تعود الشاشة لمتابعتها لو غادرها المستخدم.
+ */
+
+import { state, aiReady, uid, save } from '../core/store.js';
+import { putReport } from '../core/db.js';
+import { getKB } from '../data/kb/index.js';
+import { TOPIC_BY_ID } from '../data/topics.js';
+import { getType } from '../data/types.js';
+import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
+import { streamText, jsonCall, aiErrorMessage } from '../ai/client.js';
+import { splitSections, wordsOf } from './md.js';
+import { composeOffline, planFiguresOffline } from './compose.js';
+import { missingSections } from './model.js';
+import { findCandidates, verifyLoadable, storeCandidate, toBase64Jpeg, slimCandidate, pool } from '../images/pipeline.js';
+
+const jobs = new Map();
+
+export const PHASES = [
+  { id: 'write', label: 'كتابة التقرير' },
+  { id: 'plan', label: 'تخطيط الصور' },
+  { id: 'search', label: 'البحث عن الصور وتنزيلها' },
+  { id: 'check', label: 'التحقق من مطابقة الصور' },
+  { id: 'save', label: 'الحفظ في الجهاز' },
+];
+
+export function jobOf(id) { return jobs.get(id) || null; }
+
+export function subscribeJob(job, fn) {
+  job.listeners.add(fn);
+  return () => job.listeners.delete(fn);
+}
+
+function emit(job, type) {
+  job.listeners.forEach((fn) => { try { fn(type, job); } catch (err) { console.warn('[pipeline] مستمع فشل', err); } });
+}
+
+function setPhase(job, id, status, detail = '') {
+  job.phases[id] = { status, detail };
+  emit(job, 'phase');
+}
+
+/**
+ * يبدأ توليد تقرير جديد أو إعادة توليده.
+ * mode: 'ai' | 'offline'
+ */
+export function startGeneration(report, mode = 'ai') {
+  const job = {
+    id: report.id,
+    report,
+    mode,
+    phases: Object.fromEntries(PHASES.map((p) => [p.id, { status: 'wait', detail: '' }])),
+    listeners: new Set(),
+    ctrl: new AbortController(),
+    startedAt: Date.now(),
+    done: false,
+  };
+  jobs.set(report.id, job);
+  job.promise = run(job)
+    .catch((err) => {
+      const r = job.report;
+      settleFigures(r);
+      if (job.mode === 'images') {
+        // فشل جلب الصور لا يمسّ النص: يبقى التقرير جاهزًا
+        r.status = 'ready';
+        if (!job.ctrl.signal.aborted) r.notes = [...(r.notes || []), 'تعذّر جلب الصور الآن — تحقق من الاتصال ثم أعد المحاولة.'];
+        return putReport(r);
+      }
+      r.error = job.ctrl.signal.aborted ? 'أُلغي التوليد.' : aiErrorMessage(err);
+      r.status = r.sections.some((s) => s.md.trim()) ? 'partial' : 'error';
+      job.ctrl.abort(); // نوقف جلب الصور الجاري لتقرير لم يكتمل
+      return putReport(r);
+    })
+    .finally(() => {
+      job.done = true;
+      jobs.delete(report.id);
+      emit(job, 'done');
+    });
+  return job;
+}
+
+export function cancelJob(id) {
+  jobs.get(id)?.ctrl.abort();
+}
+
+async function run(job) {
+  if (job.mode === 'images') return runImagesOnly(job);
+  const r = job.report;
+  const signal = job.ctrl.signal;
+  const kb = getKB(r.topicId);
+  const topic = r.topicId ? TOPIC_BY_ID[r.topicId] : null;
+  const useAI = job.mode === 'ai' && aiReady();
+
+  r.status = 'generating';
+  r.error = '';
+  r.notes = [];
+  r.source = useAI ? 'ai' : 'offline';
+  r.model = useAI ? state.ai.model : null;
+  await putReport(r);
+
+  let lastSave = 0;
+  const saveSoon = () => {
+    const now = Date.now();
+    if (now - lastSave > 2500) { lastSave = now; putReport(r).catch(() => {}); }
+  };
+
+  // ── الصور تعمل بالتوازي مع الكتابة ──
+  const wantImages = state.images.enabled && r.options.images > 0;
+  const imagesFlow = wantImages
+    ? planFigures(job, { useAI, kb, topic, signal }).then((figs) => runImages(job, figs, { useAI, signal }))
+    : Promise.resolve().then(() => { ['plan', 'search', 'check'].forEach((p) => setPhase(job, p, 'skip')); });
+  imagesFlow.catch(() => {}); // يُعالَج لاحقًا؛ هذا يمنع «وعد مرفوض» إن فشلت الكتابة أولًا
+
+  // ── الكتابة ──
+  setPhase(job, 'write', 'run', useAI ? 'يتصل بالذكاء الاصطناعي…' : 'يبني التقرير من قاعدة المعرفة…');
+  if (useAI) {
+    let pending = null;
+    let raf = 0;
+    const flush = () => {
+      raf = 0;
+      if (pending === null) return;
+      r.sections = splitSections(pending);
+      r.words = wordsOf(r.sections);
+      pending = null;
+      emit(job, 'text');
+      saveSoon();
+    };
+    const res = await streamText({
+      system: SYSTEM,
+      prompt: reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, kb, meta: r.meta }),
+      effort: state.ai.effort,
+      maxTokens: 64000,
+      signal,
+      onText: (snap) => {
+        pending = snap;
+        if (!raf) raf = setTimeout(flush, 120);
+      },
+      onPhase: (p) => setPhase(job, 'write', 'run', p === 'thinking' ? 'يفكّر ويخطط للتقرير…' : p === 'fallback' ? 'تحويل الطلب إلى نموذج بديل…' : 'يكتب التقرير…'),
+    });
+    clearTimeout(raf);
+    r.sections = splitSections(res.text);
+    r.words = wordsOf(r.sections);
+    r.usage.cost = (r.usage.cost || 0) + (res.cost || 0);
+    r.usage.output = (r.usage.output || 0) + (res.usage?.output_tokens || 0);
+    if (res.model) r.model = res.model;
+    if (res.stopReason === 'max_tokens') r.notes.push('توقف التوليد عند الحد الأقصى للطول، وقد يكون القسم الأخير ناقصًا. يمكنك إعادة توليد القسم من أدوات التحرير.');
+    const miss = missingSections(r);
+    if (miss.length) r.notes.push(`أقسام لم تظهر بعنوانها المتوقع: ${miss.join('، ')}`);
+    emit(job, 'text');
+    setPhase(job, 'write', 'done', `${r.words} كلمة`);
+  } else {
+    const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb });
+    r.sections = sections;
+    r.words = wordsOf(sections);
+    if (coverage < 0.6) r.notes.push('هذه نسخة دون اتصال: بعض الأقسام قالب بإرشادات بين أقواس معقوفة لتكملها، أو فعّل الذكاء الاصطناعي لكتابة التقرير كاملًا.');
+    emit(job, 'text');
+    setPhase(job, 'write', 'done', kb ? 'من قاعدة المعرفة' : 'قالب منظّم');
+  }
+  await putReport(r);
+
+  // ── انتظار الصور ثم الحفظ ──
+  await imagesFlow.catch((err) => {
+    if (signal.aborted) throw err;
+    console.warn('[pipeline] الصور', err);
+    setPhase(job, 'search', 'error', 'تعذّر جلب الصور — يمكنك إعادة المحاولة لاحقًا');
+  });
+  setPhase(job, 'save', 'run');
+  r.status = 'ready';
+  r.words = wordsOf(r.sections);
+  await putReport(r);
+  if (useAI) { state.ai.usage.reports += 1; save(); }
+  setPhase(job, 'save', 'done');
+}
+
+/** يحدد الصور المطلوبة: من الذكاء الاصطناعي أو من قاعدة المعرفة. */
+async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null }) {
+  const r = job.report;
+  const count = Math.max(0, Math.min(6, wanted ?? r.options.images));
+  const type = getType(r.typeId);
+  setPhase(job, 'plan', 'run');
+  let figs = [];
+  if (useAI) {
+    try {
+      const res = await jsonCall({
+        system: SYSTEM,
+        prompt: figurePrompt({ title: r.title, typeId: r.typeId, count, kb }),
+        schema: FIGURE_SCHEMA,
+        effort: 'low',
+        signal,
+      });
+      figs = (res.figures || []).slice(0, count).map((f) => ({
+        sec: Math.max(0, Math.min(type.sections.length - 1, f.section | 0)),
+        secTitle: type.sections[Math.max(0, Math.min(type.sections.length - 1, f.section | 0))].h,
+        caption: String(f.caption_ar || r.title).trim(),
+        queries: (f.queries_en || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3),
+        mustShow: f.must_show || '',
+      })).filter((f) => f.queries.length);
+    } catch (err) {
+      if (signal.aborted) throw err;
+      console.warn('[pipeline] تخطيط الصور بالذكاء الاصطناعي فشل', err);
+    }
+  }
+  if (!figs.length) {
+    figs = planFiguresOffline({ typeId: r.typeId, count, kb, topic, title: r.title })
+      .map((f) => ({ ...f, secTitle: type.sections[f.sec]?.h || '' }));
+    if (!figs.length) {
+      // عنوان مخصّص دون قاعدة معرفة ولا ذكاء: نبحث بالعنوان نفسه
+      figs = [{ sec: 0, secTitle: type.sections[0].h, caption: r.title, queries: [r.imgHint, r.title].filter(Boolean), mustShow: '' }];
+    }
+  }
+  setPhase(job, 'plan', 'done', `${figs.length} صورة`);
+  return figs;
+}
+
+async function runImages(job, figs, { useAI, signal, append = false }) {
+  const r = job.report;
+  const sources = state.images.sources;
+  const targets = figs.map((f) => (f.id
+    ? Object.assign(f, { status: 'pending', note: '' })
+    : { id: uid('fig_'), ...f, img: null, cands: [], status: 'pending', note: '' }));
+  r.figures = append ? [...r.figures.filter((f) => !targets.includes(f)), ...targets] : targets;
+  emit(job, 'figures');
+
+  setPhase(job, 'search', 'run', 'يبحث في ويكيبيديا وويكيميديا كومنز…');
+  const working = new Map();
+  await pool(targets, 2, async (fig) => {
+    fig.status = 'searching';
+    emit(job, 'figures');
+    try {
+      const cands = await findCandidates({ queries: fig.queries, arQuery: /[\u0600-\u06FF]/.test(fig.caption) ? fig.caption : '', sources, signal });
+      const ok = await verifyLoadable(cands, { signal, need: 4 });
+      working.set(fig.id, ok);
+      if (!ok.length) { fig.status = 'none'; fig.note = 'لم نجد صورة سليمة مطابقة'; }
+    } catch {
+      fig.status = 'none';
+      fig.note = 'تعذّر الوصول إلى مصادر الصور';
+    }
+    emit(job, 'figures');
+  });
+  if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+  const found = targets.filter((f) => working.get(f.id)?.length);
+  setPhase(job, 'search', 'done', `${found.length} من ${targets.length}`);
+
+  // الاختيار: الذكاء الاصطناعي يرى المرشحين ويحكم، وإلا فالترتيب التلقائي
+  const choice = new Map(found.map((f) => [f.id, 0]));
+  if (useAI && state.ai.verifyImages && found.length) {
+    setPhase(job, 'check', 'run', 'الذكاء الاصطناعي يراجع الصور بصريًا…');
+    try {
+      const payload = await Promise.all(found.map(async (f) => ({
+        caption: f.caption,
+        mustShow: f.mustShow,
+        cands: await Promise.all(working.get(f.id).slice(0, 4).map(async (c) => ({ b64: await toBase64Jpeg(c.thumbBlob) }))),
+      })));
+      const res = await jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal });
+      let rejected = 0;
+      for (const ch of res.choices || []) {
+        const f = found[ch.figure];
+        if (!f) continue;
+        const n = working.get(f.id).slice(0, 4).length;
+        if (ch.best >= 0 && ch.best < n) choice.set(f.id, ch.best);
+        else { choice.set(f.id, -1); rejected++; f.status = 'none'; f.note = ch.reason || 'لا يوجد مرشح مطابق للموضوع'; }
+      }
+      setPhase(job, 'check', 'done', rejected ? `استُبعدت ${rejected} صورة غير مطابقة` : 'كل الصور مطابقة');
+    } catch (err) {
+      if (signal.aborted) throw err;
+      console.warn('[pipeline] التحقق البصري فشل', err);
+      setPhase(job, 'check', 'error', 'تعذّر التحقق الذكي — اعتُمد الترتيب التلقائي');
+    }
+  } else {
+    setPhase(job, 'check', 'skip', useAI ? 'التحقق الذكي معطّل' : 'يحتاج الذكاء الاصطناعي');
+  }
+
+  // التخزين في الجهاز مع بديل إن فشل تنزيل المختار
+  await pool(found, 2, async (f) => {
+    const list = working.get(f.id);
+    const idx = choice.get(f.id);
+    f.cands = list.map(slimCandidate);
+    if (idx < 0) { emit(job, 'figures'); return; }
+    const order = [list[idx], ...list.filter((_, i) => i !== idx)];
+    for (const c of order) {
+      try {
+        const saved = await storeCandidate(c, { signal });
+        Object.assign(f, { img: saved.id, w: saved.w, h: saved.h, status: 'ok', note: '', credit: { source: c.source, author: c.author, license: c.license, page: c.page } });
+        break;
+      } catch (err) {
+        if (signal.aborted) throw err;
+      }
+    }
+    if (!f.img) { f.status = 'none'; f.note = 'تعذّر تنزيل الصورة'; }
+    emit(job, 'figures');
+  });
+  settleFigures(r);
+  emit(job, 'figures');
+  await putReport(r);
+}
+
+/** لا تبقى صورة «قيد البحث» إلى الأبد: ما لم يكتمل يُعلَّم بلا صورة. */
+export function settleFigures(r) {
+  (r.figures || []).forEach((f) => {
+    if (!f.img && (f.status === 'pending' || f.status === 'searching')) {
+      f.status = 'none';
+      f.note = f.note || 'لم يكتمل البحث عن الصورة';
+    }
+  });
+}
+
+/** إعادة البحث عن الصور الناقصة فقط دون المساس بالنص. */
+async function runImagesOnly(job) {
+  const r = job.report;
+  const signal = job.ctrl.signal;
+  const useAI = aiReady();
+  // النص لا يتغيّر، فيبقى التقرير «جاهزًا» حتى لو أُغلق التطبيق أثناء جلب الصور
+  setPhase(job, 'write', 'skip', 'النص محفوظ كما هو');
+  let targets = r.figures.filter((f) => !f.img);
+  if (!targets.length) {
+    const kb = getKB(r.topicId);
+    const topic = r.topicId ? TOPIC_BY_ID[r.topicId] : null;
+    targets = await planFigures(job, { useAI, kb, topic, signal, count: r.options.images || getType(r.typeId).figures });
+  } else {
+    setPhase(job, 'plan', 'skip', 'مواضع الصور محددة مسبقًا');
+  }
+  await runImages(job, targets, { useAI, signal, append: true });
+  r.status = 'ready';
+  setPhase(job, 'save', 'run');
+  await putReport(r);
+  setPhase(job, 'save', 'done');
+}
