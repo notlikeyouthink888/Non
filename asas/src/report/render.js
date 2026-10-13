@@ -5,7 +5,9 @@ import { icon } from '../core/icons.js';
 import { imageURL } from '../core/db.js';
 import { parseBlocks, inline } from './md.js';
 import { bidi } from '../core/arabic.js';
-import { figuresOf, figureNumbers, coverLines } from './model.js';
+import { figuresOf, figureNumbers } from './model.js';
+import { renderCoverHTML, renderNoCover, hasCover } from './covers.js';
+import { state } from '../core/store.js';
 
 /** يحوّل مقاطع التنسيق الداخلي إلى عُقد. */
 export function runsToNodes(text) {
@@ -42,17 +44,9 @@ export function blocksToNodes(blocks) {
   });
 }
 
-/** الغلاف. */
+/** الغلاف بنمطه المختار، أو رأس مختصر إن كان التقرير بلا غلاف. */
 export function renderCover(report) {
-  const c = coverLines(report);
-  return h('div.cover', [
-    c.gov.length ? h('div.gov', c.gov.map((l) => h('div', l))) : null,
-    c.org.length ? h('div.org', c.org.map((l) => h('div', l))) : null,
-    h('span.kind', bidi(c.kind)),
-    h('h1', bidi(report.title)),
-    c.by.length ? h('div.by', c.by.map((l) => h('div', bidi(l)))) : null,
-    c.year ? h('div.year', c.year) : null,
-  ]);
+  return hasCover(report, state.exportOpts.cover !== false) ? renderCoverHTML(report) : renderNoCover(report);
 }
 
 export function renderToc(report) {

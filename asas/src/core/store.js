@@ -57,6 +57,10 @@ export const defaults = {
     group: '',                 // الشعبة أو المجموعة
     supervisor: '',
     ministry: true,            // ترويسة «جمهورية العراق — وزارة التعليم العالي والبحث العلمي»
+    enabled: true,             // صفحة غلاف للتقارير الجديدة (تُغيَّر لكل تقرير)
+    style: 'classic',          // نمط الغلاف الافتراضي (report/covers.js)
+    logo: '',                  // شعار الجامعة (صورة مصغّرة data URL) — اختياري
+    logoAR: 1,                 // نسبة ارتفاع الشعار إلى عرضه
   },
   prefs: { length: 'medium', level: 'student' },
   exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true },

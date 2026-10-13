@@ -13,7 +13,9 @@ import { getImage } from '../core/db.js';
 import { getType } from '../data/types.js';
 import { parseBlocks, inline } from '../report/md.js';
 import { bidi } from '../core/arabic.js';
-import { figuresOf, figureNumbers, coverLines } from '../report/model.js';
+import { figuresOf, figureNumbers } from '../report/model.js';
+import { hasCover } from '../report/covers.js';
+import { coverSection } from './cover-docx.js';
 
 const ACCENT = 'B45309';
 const BODY_SIZE = 28; // 14pt
@@ -139,21 +141,6 @@ async function figureParas(fig, num) {
   return out;
 }
 
-function coverParas(report) {
-  const c = coverLines(report);
-  const out = [];
-  c.gov.forEach((l) => out.push(para([run(l, { b: true, size: 26 })], { align: AlignmentType.CENTER, after: 20 })));
-  if (c.gov.length) out.push(para([run('')], { after: 120 }));
-  c.org.forEach((l) => out.push(para([run(l, { b: true, size: 30 })], { align: AlignmentType.CENTER, after: 40 })));
-  out.push(para([run('')], { before: 1200 }));
-  out.push(para(runs(c.kind, { size: 30, color: ACCENT }), { align: AlignmentType.CENTER, after: 240 }));
-  out.push(para(runs(report.title, { b: true, size: 44 }), { align: AlignmentType.CENTER, after: 1200, line: 420 }));
-  c.by.forEach((l) => out.push(para(runs(l, { size: 28 }), { align: AlignmentType.CENTER, after: 80 })));
-  if (c.year) out.push(para([run(c.year, { size: 26 })], { align: AlignmentType.CENTER, before: 600 }));
-  out.push(new Paragraph({ children: [new PageBreak()] }));
-  return out;
-}
-
 function tocParas(report) {
   const out = [heading('المحتويات', 1)];
   report.sections.forEach((s, i) => {
@@ -166,10 +153,11 @@ function tocParas(report) {
 export async function buildDocx(report) {
   const opts = state.exportOpts;
   const nums = figureNumbers(report);
+  const withCover = hasCover(report, opts.cover !== false);
   const children = [];
 
-  if (opts.cover) children.push(...coverParas(report));
-  else children.push(para(runs(report.title, { b: true, size: 36, color: ACCENT }), { align: AlignmentType.CENTER, after: 300 }));
+  // بلا غلاف: يبدأ التقرير بعنوانه ونوعه
+  if (!withCover) children.push(para(runs(report.title, { b: true, size: 36, color: ACCENT }), { align: AlignmentType.CENTER, after: 300 }));
   if (opts.toc && report.sections.filter((s) => s.h).length >= 3) children.push(...tocParas(report));
 
   for (let i = 0; i < report.sections.length; i++) {
@@ -193,8 +181,6 @@ export async function buildDocx(report) {
       children: [run(report.title, { size: 18, color: '888888' })],
     })],
   });
-  const empty = new Footer({ children: [new Paragraph({ children: [] })] });
-  const emptyHeader = new Header({ children: [new Paragraph({ children: [] })] });
 
   const doc = new Document({
     creator: report.meta?.author || 'أساس',
@@ -208,15 +194,21 @@ export async function buildDocx(report) {
         },
       },
     },
-    sections: [{
-      properties: {
-        titlePage: !!opts.cover,
-        page: { margin: { top: 1300, bottom: 1300, left: 1300, right: 1300, header: 600, footer: 600 } },
+    sections: [
+      // الغلاف قسم مستقل بلا ترويسة ولا ترقيم، فيبدأ ترقيم الصفحات من 1 بعده
+      ...(withCover ? [coverSection(report, { run, runs, para })] : []),
+      {
+        properties: {
+          page: {
+            margin: { top: 1300, bottom: 1300, left: 1300, right: 1300, header: 600, footer: 600 },
+            ...(withCover ? { pageNumbers: { start: 1 } } : {}),
+          },
+        },
+        headers: { default: header },
+        footers: { default: footer },
+        children,
       },
-      headers: opts.cover ? { default: header, first: emptyHeader } : { default: header },
-      footers: opts.cover ? { default: footer, first: empty } : { default: footer },
-      children,
-    }],
+    ],
   });
   return Packer.toBlob(doc);
 }

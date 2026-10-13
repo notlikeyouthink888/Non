@@ -12,6 +12,7 @@ import { TOPICS } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
+import { coverPicker, pickLogo } from '../report/covers.js';
 import { freeModels, cachedModels, modelName } from '../ai/openrouter.js';
 
 export default {
@@ -246,8 +247,28 @@ function coverCard() {
       h('div.grid2', [inp('author', 'اسمك', 'يظهر في الغلاف'), inp('group', 'الشعبة / المجموعة')]),
       inp('supervisor', 'المشرف (اختياري)'),
       settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(c.ministry !== false, (v) => update((st) => { st.cover.ministry = v; }, 'cover'))),
+      settingRow('صفحة غلاف للتقارير الجديدة', 'تستطيع إلغاءها أو تغيير نمطها لكل تقرير', toggle(c.enabled !== false, (v) => { update((st) => { st.cover.enabled = v; }, 'cover'); render(); })),
+      c.enabled !== false ? field('نمط الغلاف الافتراضي', coverPicker(sample, c.style || 'classic', (v) => update((st) => { st.cover.style = v; }, 'cover'))) : null,
+      h('div.logo-row', [
+        c.logo ? h('img', { src: c.logo, alt: 'الشعار' }) : null,
+        h('button.btn.sm', {
+          type: 'button',
+          onclick: async () => {
+            try {
+              const l = await pickLogo();
+              if (l) { update((st) => { st.cover.logo = l.src; st.cover.logoAR = l.ar; }, 'cover'); render(); }
+            } catch { toast('تعذّرت قراءة الصورة', 'err'); }
+          },
+        }, [icon('image', 15), c.logo ? 'تغيير شعار الجامعة' : 'شعار الجامعة (اختياري)']),
+        c.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { update((st) => { st.cover.logo = ''; }, 'cover'); render(); } }, 'إزالة') : null,
+      ]),
     ]);
   }
+  // تقرير نموذجي لمعاينة الأنماط ببيانات الطالب المحفوظة
+  const sample = () => ({
+    title: 'فحص الشد للحديد (Tension Test)', typeId: 'lab', catId: 'strength', options: { cover: true },
+    meta: { ...state.cover, coverStyle: state.cover.style, subject: 'مقاومة المواد', expNo: '3', date: '', year: '', submitDate: '' },
+  });
   render();
   return box;
 }
@@ -258,7 +279,6 @@ function exportCard() {
   const sel = h('select', { onchange: () => update((s) => { s.exportOpts.wordFont = sel.value; }, 'export') }, fonts.map((f) => h('option', { value: f, selected: f === e.wordFont }, f)));
   return h('div.card', [
     field('خط ملف Word', sel, 'الخط المعتاد في تقارير الجامعات العراقية: Simplified Arabic بحجم 14.'),
-    settingRow('صفحة الغلاف', 'العنوان والجامعة واسم الطالب والمشرف', toggle(e.cover, (v) => update((s) => { s.exportOpts.cover = v; }, 'export'))),
     settingRow('فهرس المحتويات', null, toggle(e.toc, (v) => update((s) => { s.exportOpts.toc = v; }, 'export'))),
     settingRow('ذكر مصدر الصور ورخصتها', 'مستحسن أكاديميًا ومطلوب في بعض الرخص', toggle(e.attribution, (v) => update((s) => { s.exportOpts.attribution = v; }, 'export'))),
   ]);

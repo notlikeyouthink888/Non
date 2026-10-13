@@ -7,16 +7,17 @@
 ## 1. الفكرة العامة
 
 واجهة ويب (Vite + جافاسكربت خالص بلا إطار عمل) مغلّفة بـ Capacitor 7 لأندرويد.
-الذكاء الاصطناعي عبر مكتبة Anthropic الرسمية (`@anthropic-ai/sdk`) من داخل الجهاز مباشرة
-(أو عبر خادم وسيط اختياري)، والصور من واجهات ويكيميديا وOpenverse المفتوحة، والتصدير إلى Word بمكتبة `docx`.
+الذكاء الاصطناعي بمزوّدين يختار الطالب بينهما: OpenRouter بنماذجه المجانية (واجهة متوافقة مع OpenAI عبر fetch)،
+أو Claude عبر مكتبة Anthropic الرسمية (`@anthropic-ai/sdk`) — كلاهما من داخل الجهاز مباشرة (ولـ Claude خادم وسيط اختياري).
+والصور من واجهات ويكيميديا وOpenverse المفتوحة، والتصدير إلى Word بمكتبة `docx`.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ screens/   home · browse · create · report · library · settings │
 ├──────────────────────────────────────────────────────────────┤
-│ report/    pipeline (خط الإنتاج) · compose (دون اتصال) · md · render · sheets │
-│ ai/        client (Claude) · prompts            images/  sources · pipeline │
-│ search/    محرك البحث العربي                     export/  docx · text        │
+│ report/    pipeline · compose (دون اتصال) · md · render · covers · sheets   │
+│ ai/        client (موحّد) · openrouter · claude · prompts   images/ sources · pipeline │
+│ search/    محرك البحث العربي            export/  docx · cover-docx · text     │
 ├──────────────────────────────────────────────────────────────┤
 │ data/      types (12) · categories (5) · universities (3) · topics (120) · kb (120) │
 │ core/      store · db (IndexedDB) · arabic · dom · ui · nav · native · fmt   │
@@ -95,12 +96,23 @@ startGeneration(report, mode)            mode: ai | offline | images
 - **الغلاف**: `coverLines(report)` في `report/model.js` مصدر واحد لأسطر الغلاف في العرض وPDF وWord
   (ترويسة الوزارة، الجامعة والكلية والقسم، «تقرير مختبر … — التجربة رقم (n)»، الطالب والمرحلة والشعبة والمشرف، السنة الدراسية).
 
+### الغلاف — `report/covers.js` و`export/cover-docx.js`
+ثمانية أنماط (كلاسيكي، إطار مزدوج، ترويسة رسمية، جدول معلومات، شريط ملوّن، شريط جانبي، ورقة مختبر، بسيط) تُبنى
+كلها من `coverData(report)`:
+- **العرض وPDF**: صفحة بنسب A4 (`aspect-ratio: 210/297`) بخطوط بوحدات `cqw` النسبية لعرضها، فالمعاينة المصغّرة في
+  شبكة الاختيار والعرض في التقرير والطباعة (ارتفاع 258 ملم) متطابقة. لون المادة متغيّر CSS ‏`--cc` (يُضبط بـ `setProperty`)،
+  و`print-color-adjust: exact` يطبع الأشرطة الملوّنة.
+- **Word**: الغلاف قسم مستقل بلا ترويسة ولا تذييل، ويبدأ ترقيم الصفحات من 1 في القسم التالي. الإطار المزدوج حدود صفحة
+  حقيقية (`w:pgBorders`)، والأشرطة خلايا جداول مظلّلة، وجدول المعلومات جدول Word حقيقي.
+- الغلاف اختياري لكل تقرير (`options.cover`)، والنمط والشعار في `meta` (`coverStyle`, `logo`, `logoAR`)، والافتراضي من الإعدادات.
+  التقرير بلا غلاف يبدأ بعنوانه في العرض وWord.
+
 ### شكل التقرير المحفوظ
 ```js
 { id, title, typeId, topicId, catId,
-  options: { length, level, images, details, readings },
+  options: { length, level, images, details, readings, cover },
   meta: { uni, university, college, department, stage, group, author, supervisor, ministry,
-          subject, expNo, date, year, org, project, location },
+          coverStyle, logo, logoAR, subject, expNo, date, submitDate, year, org, project, location },
   source: 'ai' | 'offline', model, status: 'generating'|'ready'|'partial'|'error', error, notes[],
   sections: [{ h, md }],
   figures: [{ id, sec, secTitle, caption, queries[], mustShow, img, w, h, credit, cands[], status, note }],
@@ -111,7 +123,25 @@ startGeneration(report, mode)            mode: ai | offline | images
 
 ## 4. الذكاء الاصطناعي — `ai/`
 
-كل الطلبات تبنيها `buildParams`:
+`ai/client.js` واجهة موحّدة (`streamText`, `jsonCall`, `testConnection`, `aiErrorMessage`) تختار المزوّد حسب
+`state.ai.provider`؛ بقية التطبيق لا يعرف أي مزوّد يعمل. المستخدمون الذين حفظوا مفتاح Claude قبل إضافة OpenRouter يبقون على Claude.
+
+### OpenRouter — `ai/openrouter.js`
+
+| الجانب | التنفيذ |
+|---|---|
+| قائمة النماذج | `GET /api/v1/models` حيّة كل 12 ساعة (ونسخة محفوظة دون اتصال)؛ تُصفّى المجانية (`:free` أو تسعير صفري) القادرة على المحادثة، وتُستبعد مصنِّفات الأمان والتضمين وتوليد الصور، وتُرتَّب بالعائلة والحجم والسياق |
+| البدائل | كل طلب يحمل `models` بثلاثة: المختار أو الأفضل، ثم نموذج من عائلة أخرى، ثم الموجّه `openrouter/free`؛ والسياق أقل من 16 ألف رمز لا يدخل السلسلة |
+| الكتابة | بث SSE: تُتجاهل تعليقات `: OPENROUTER PROCESSING` وتُعرض مرحلة «يفكّر»، والخطأ أثناء البث (`error` و`finish_reason: error`) يُلتقط، و`<think>…</think>` يُحذف، ومهلة توقف دقيقتان |
+| JSON | `response_format` بمخطط صارم إن دعمه النموذج (`structured_outputs`) أو وضع JSON، مع قراءة متسامحة (علامات \`\`\`، شرح قبل JSON، فواصل زائدة) ومطابقة متسامحة للمخطط ومحاولة إصلاح واحدة |
+| الصور | `image_url` بـ data URL، ونموذج يرى الصور، ومراجعة كل صورتين (3 مرشحات لكل منهما) في طلب |
+| الأخطاء | 401 مفتاح، 402 رصيد سالب، 403 فلتر محتوى، 404 قيود الخصوصية للنماذج المجانية أو نموذج اختفى، 429 حد الدقيقة أو اليوم أو ازدحام المزوّد، 5xx — كلها برسائل عربية |
+| أندرويد | إن منع WebView الطلب يُعاد عبر `CapacitorHttp` الأصلي (بلا بث) ويُتذكّر ذلك للجلسة |
+| اختبار الاتصال | `GET /api/v1/key` ثم طلب JSON صغير فعلي يكشف قيود الخصوصية والحصة |
+
+### Claude — `ai/claude.js`
+
+كل طلبات Claude تبنيها `buildParams`:
 
 | المعامل | القيمة | السبب |
 |---|---|---|
@@ -153,6 +183,9 @@ startGeneration(report, mode)            mode: ai | offline | images
   (لأن `window.print` لا يعمل داخل WebView) فيظهر خيار «حفظ بتنسيق PDF».
 - **المشاركة والحفظ**: `@capacitor/share` و`@capacitor/filesystem` في أندرويد، والتنزيل في المتصفح.
 
+مشكلة أخرى عولجت: خانة المفتاح كانت تعتمد على حدث `input` الذي لا تُطلقه بعض لوحات مفاتيح أندرويد عند اللصق،
+وكان `captureInput` في إعداد Capacitor يستعمل اتصال إدخال بدائيًا؛ أُلغي، وصارت الخانة تُقرأ وتُنظَّف قبل كل استعمال.
+
 مشكلة شائعة عولجت: النص اللاتيني بين قوسين في جملة عربية «(Deflection of Beams)» تنقلب أقواسه في آخر السطر
 أو تتكسّر إذا التفّ السطر داخله؛ `bidi()` تضمّنه باتجاه من اليسار لليمين (LRE … PDF) في العرض وفي Word.
 
@@ -167,6 +200,10 @@ startGeneration(report, mode)            mode: ai | offline | images
   والتحقق البصري المحاكى يرفض آخر صورة للتأكد من أنها لا تُعرض.
 - ملف Word الناتج يُفحص بـ python-docx: نسبة الفقرات RTL، عدد الصور، الجداول، التعليقات، غلاف الجامعة وترويسة الوزارة.
 - محاكي Claude يحتفظ بآخر طلب كتابة ليتأكد الفحص أن قراءات الطالب وصلت إلى النموذج.
+- **OpenRouter**: قائمة نماذج فيها مدفوع ومصنِّف أمان وموجّه، و`/key`، وبث فيه تعليقات وأفكار وعناوين بصيغ مختلفة،
+  وJSON داخل شرح وعلامات \`\`\`، ومفاتيح تحاكي أخطاء الخصوصية والمفتاح الخاطئ والحصة؛ ويتحقق من شكل كل طلب
+  (مفتاح، سلسلة مجانية تنتهي بالموجّه، بلا حقول Claude، صور data URL).
+- أغلفة Word تُفحص ببنية الملف: عدد الأقسام، `w:pgBorders`، وجدول المعلومات.
 
 يعمل الفحص في GitHub Actions بوظيفة مستقلة عن بناء APK.
 

@@ -143,7 +143,7 @@ export default {
       const toc = paper.querySelector('.toc');
       const newToc = renderToc(report);
       if (toc && newToc) toc.replaceWith(newToc);
-      else if (!toc && newToc) paper.querySelector('.cover').after(newToc);
+      else if (!toc && newToc) paper.querySelector('.cover, .cover-off')?.after(newToc);
     }
 
     function renderGen() {

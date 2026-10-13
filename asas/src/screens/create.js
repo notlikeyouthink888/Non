@@ -19,6 +19,7 @@ import { newReport } from '../report/model.js';
 import { startGeneration } from '../report/pipeline.js';
 import { topbar, kbBadge } from './common.js';
 import { modelName } from '../ai/openrouter.js';
+import { coverPicker, pickLogo, COVER_BY_ID } from '../report/covers.js';
 import { bidi } from '../core/arabic.js';
 import { fmtDate } from '../core/fmt.js';
 
@@ -48,7 +49,8 @@ export default {
       images: null,
       details: '',
       readings: '',
-      meta: { ...state.cover, expNo: '', date: fmtDate(), year: academicYear(), org: '', project: '', location: '' },
+      meta: (({ enabled, style, ...cv }) => ({ ...cv, coverStyle: style || 'classic', expNo: '', date: fmtDate(), submitDate: '', year: academicYear(), org: '', project: '', location: '' }))(state.cover),
+      cover: state.cover.enabled !== false,
       saveCover: false,
     };
     st.images = getType(st.typeId).figures;
@@ -119,10 +121,34 @@ export default {
       return field(label, h('input', { value: st.meta[key] || '', placeholder: ph, oninput: (e) => { st.meta[key] = e.target.value; } }));
     }
 
+    const coverSum = h('span');
+    const updateCoverSum = () => { coverSum.textContent = `الغلاف — ${st.cover ? COVER_BY_ID[st.meta.coverStyle]?.name || '' : 'بدون غلاف'} • ${st.meta.university || 'الجامعة'}`; };
+    const previewReport = () => ({
+      title: st.title.trim() || 'عنوان التقرير', typeId: st.typeId, catId: st.catId, options: { cover: true },
+      meta: { ...st.meta, subject: CAT_BY_ID[st.catId]?.name || '' },
+    });
+
     function renderMeta() {
       const site = ['training', 'visit'].includes(st.typeId);
+      const labLike = ['lab', 'field'].includes(st.typeId);
       const other = !UNI_BY_ID[st.meta.uni];
+      updateCoverSum();
       fill(metaBox, [
+        settingRow('صفحة غلاف', st.cover ? 'غلاف بالنمط المختار في العرض وPDF وWord' : 'التقرير يبدأ بالعنوان مباشرة دون صفحة غلاف', toggle(st.cover, (v) => { st.cover = v; renderMeta(); })),
+        st.cover ? field('نمط الغلاف', coverPicker(previewReport, st.meta.coverStyle, (v) => { st.meta.coverStyle = v; updateCoverSum(); }), 'المعاينة ببيانات تقريرك؛ تستطيع تغيير النمط لاحقًا من «تعديل العنوان وبيانات الغلاف».') : null,
+        st.cover ? h('div.logo-row.mb', [
+          st.meta.logo ? h('img', { src: st.meta.logo, alt: 'الشعار' }) : null,
+          h('button.btn.sm', {
+            type: 'button',
+            onclick: async () => {
+              try {
+                const l = await pickLogo();
+                if (l) { st.meta.logo = l.src; st.meta.logoAR = l.ar; renderMeta(); }
+              } catch { toast('تعذّرت قراءة الصورة', 'err'); }
+            },
+          }, [icon('image', 15), st.meta.logo ? 'تغيير الشعار' : 'شعار الجامعة (اختياري)']),
+          st.meta.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { st.meta.logo = ''; renderMeta(); } }, 'إزالة') : null,
+        ]) : null,
         field('الجامعة', chipGroup(
           [...UNIVERSITIES.map((u) => ({ value: u.id, label: u.name })), { value: 'other', label: 'أخرى' }],
           other ? 'other' : st.meta.uni,
@@ -135,7 +161,8 @@ export default {
         other ? h('div.grid2', [metaInput('university', 'اسم الجامعة'), metaInput('college', 'الكلية')]) : null,
         h('div.grid2', [metaInput('department', 'القسم'), metaInput('stage', 'المرحلة', 'الثانية')]),
         h('div.grid2', [metaInput('author', 'اسم الطالب', 'اسمك الثلاثي'), metaInput('group', 'الشعبة / المجموعة', 'مثال: أ')]),
-        h('div.grid2', [metaInput('supervisor', 'بإشراف', 'اسم الأستاذ أو المشرف'), metaInput('date', 'التاريخ')]),
+        h('div.grid2', [metaInput('supervisor', 'بإشراف', 'اسم الأستاذ أو المشرف'), metaInput('date', labLike ? 'تاريخ التجربة' : 'التاريخ')]),
+        labLike ? h('div.grid2', [metaInput('submitDate', 'تاريخ التسليم', 'اختياري'), h('div')]) : null,
         site ? h('div.grid2', [metaInput('org', 'الجهة / الشركة'), metaInput('location', 'الموقع')]) : null,
         settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(st.meta.ministry !== false, (v) => { st.meta.ministry = v; })),
         h('label.row', { style: { gap: '8px', fontSize: '13px' } }, [
@@ -188,13 +215,13 @@ export default {
           h('p.hint', 'كلما أعطيت تفاصيل حقيقية كان التقرير أقرب لما يطلبه أستاذك. ما لا تذكره يُكتب بين أقواس [ ] لتعدّله.'),
         ]),
         h('details.more-opts', [
-          h('summary', [icon('file', 18), `بيانات الغلاف — ${st.meta.university || 'الجامعة'}`]),
+          h('summary', [icon('file', 18), coverSum]),
           metaBox,
         ]),
 
         ai
           ? h('p.hint', state.ai.provider === 'openrouter'
-            ? `سيُكتب مجانًا عبر OpenRouter (${modelName(state.ai.openrouter.model)}، مع بديلين تلقائيين). النماذج المجانية أقل دقة من Claude في الحسابات، فراجع الأرقام.`
+            ? `سيُكتب مجانًا عبر OpenRouter مع بديلين تلقائيين إن ازدحم النموذج. النماذج المجانية أقل دقة من Claude في الحسابات، فراجع الأرقام. نموذج الكتابة: ${modelName(state.ai.openrouter.model)}`
             : `سيُكتب بنموذج ${modelInfo().name} بمستوى تفكير «${{ low: 'سريع', medium: 'متوازن', high: 'عميق' }[state.ai.effort]}». يمكنك تغييرهما من الإعدادات.`)
           : h('div.notice.warn', [icon('key', 18), h('div.grow', [
             kb ? 'هذا الموضوع له محتوى كامل دون اتصال مع أسئلة المناقشة. ' : 'دون ذكاء اصطناعي ستحصل على قالب بهيكل النوع وإرشادات لكل قسم. ',
@@ -215,13 +242,17 @@ export default {
       update((s) => {
         s.prefs.length = st.length;
         s.prefs.level = st.level;
-        if (st.saveCover) ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'ministry'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
+        if (st.saveCover) {
+          ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'ministry', 'logo', 'logoAR'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
+          s.cover.style = st.meta.coverStyle;
+          s.cover.enabled = st.cover;
+        }
       }, 'prefs');
       const report = newReport({
         title,
         typeId: st.typeId,
         topicId: topic?.id || null,
-        options: { length: st.length, level: st.level, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId },
+        options: { length: st.length, level: st.level, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId, cover: st.cover },
         meta: { ...st.meta, subject: CAT_BY_ID[st.catId]?.name || '' },
       });
       if (imgHint) report.imgHint = imgHint;

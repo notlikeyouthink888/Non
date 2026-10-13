@@ -323,14 +323,80 @@ ol.steps-mini a { color: var(--accent-2); }
   background: var(--paper); color: var(--paper-fg); border: 1px solid var(--line); border-radius: 18px;
   padding: 22px 18px; margin: 12px 0; font-family: var(--font-doc); font-size: calc(var(--fs) + 1.5px); line-height: 2;
 }
-.cover { text-align: center; padding: 10px 6px 18px; border-bottom: 1px solid var(--paper-line); margin-bottom: 14px; }
-.cover .org { font-family: var(--font); color: var(--fg-3); font-size: 13px; line-height: 1.7; }
-.cover h1 { font-size: 23px; line-height: 1.6; margin: 14px 0 6px; color: var(--paper-fg); }
-.cover .kind { display: inline-block; font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 99px; }
-.cover .by { font-family: var(--font); font-size: 13px; color: var(--fg-2); margin-top: 12px; line-height: 1.9; }
-.cover .gov { font-family: var(--font); color: var(--fg-3); font-size: 12px; line-height: 1.7; margin-bottom: 6px; }
-.cover .year { font-family: var(--font); font-size: 12.5px; color: var(--fg-3); margin-top: 10px; }
-.cover .kind + h1 { margin-top: 10px; }
+/* ── الغلاف: صفحة بنسب A4، والخطوط نسبية لعرضها (cqw) فتتطابق المعاينة والعرض والطباعة ── */
+.cover {
+  container-type: inline-size; position: relative; aspect-ratio: 210 / 297; width: 100%; max-width: 560px; margin: 0 auto 18px;
+  background: #fff; color: #111827; border-radius: 6px; box-shadow: 0 6px 24px rgba(0, 0, 0, .28); overflow: hidden;
+  font-family: var(--font-doc); -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.cover .cv { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 9cqw 8cqw; text-align: center; line-height: 1.6; }
+.cover .cv-top, .cover .cv-mid, .cover .cv-bot { display: flex; flex-direction: column; align-items: center; gap: .8cqw; }
+.cover .cv-gov { font-size: 2.9cqw; font-weight: 700; }
+.cover .cv-org { font-size: 3.3cqw; font-weight: 700; }
+.cover .cv-kind { font-size: 3.1cqw; font-weight: 700; color: var(--cc); }
+.cover .cv-title { font-size: 5.6cqw; line-height: 1.55; margin: 1.2cqw 0 0; color: #111827; font-weight: 800; }
+.cover .cv-by { font-size: 3cqw; line-height: 1.85; }
+.cover .cv-year { font-size: 2.8cqw; color: #4b5563; margin-top: 1.2cqw; }
+.cover .cv-sub { font-size: 3cqw; color: #4b5563; }
+.cover .cv-logo { width: 15cqw; height: 15cqw; object-fit: contain; margin-bottom: .8cqw; }
+.cover .cv-table { border-collapse: collapse; width: 100%; font-size: 2.85cqw; line-height: 1.5; }
+.cover .cv-table th, .cover .cv-table td { border: .25cqw solid #9ca3af; padding: 1.2cqw 2cqw; text-align: start; }
+.cover .cv-table th { width: 32%; background: color-mix(in srgb, var(--cc) 12%, #fff); font-weight: 700; }
+/* كلاسيكي */
+.cs-classic .cv-kind { border: .35cqw solid var(--cc); border-radius: 99px; padding: .6cqw 3cqw; }
+/* إطار مزدوج */
+.cs-frame .cv { padding: 12cqw 11cqw; }
+.cs-frame .cv::before { content: ""; position: absolute; inset: 4cqw; border: 1.2cqw double var(--cc); pointer-events: none; }
+.cs-frame .cv-kind { letter-spacing: 0; }
+/* ترويسة رسمية */
+.cs-letterhead .cv { justify-content: flex-start; }
+.cs-letterhead .cv-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2cqw; border-bottom: .6cqw solid var(--cc); padding-bottom: 2.5cqw; }
+.cs-letterhead .cv-hs { text-align: start; font-size: 2.45cqw; font-weight: 700; }
+.cs-letterhead .cv-he { text-align: end; font-size: 2.45cqw; color: #374151; }
+.cs-letterhead .cv-emblem { width: 13cqw; height: 13cqw; border-radius: 50%; border: .6cqw solid var(--cc); color: var(--cc); display: grid; place-items: center; font-size: 6cqw; font-weight: 800; }
+.cs-letterhead .cv-hc .cv-logo { margin: 0; }
+.cs-letterhead .cv-mid { flex: 1; justify-content: center; }
+.cs-letterhead .cv-bot { align-items: flex-start; text-align: start; border-inline-start: .8cqw solid var(--cc); padding-inline-start: 3cqw; }
+/* شريط ملوّن */
+.cs-band .cv { padding: 0; }
+.cs-band .cv-band { background: var(--cc); color: #fff; padding: 7cqw 8cqw 6cqw; display: flex; flex-direction: column; align-items: center; gap: .8cqw; font-size: 3.3cqw; font-weight: 700; }
+.cs-band .cv-band .cv-logo { background: #fff; border-radius: 50%; padding: 1.2cqw; }
+.cs-band .cv-mid, .cs-band .cv-bot { padding: 0 8cqw; }
+.cs-band .cv-kind { font-size: 3.4cqw; }
+.cs-band .cv-foot { display: flex; justify-content: space-between; gap: 2cqw; border-top: .5cqw solid var(--cc); margin: 0 8cqw 6cqw; padding-top: 1.5cqw; font-size: 2.4cqw; color: #374151; }
+/* شريط جانبي */
+.cs-side .cv { flex-direction: row; padding: 0; }
+.cs-side .cv-side { width: 22%; background: var(--cc); color: #fff; display: flex; flex-direction: column; justify-content: space-between; padding: 8cqw 2.5cqw; }
+.cs-side .cv-side-sub { font-size: 3.3cqw; font-weight: 800; line-height: 1.5; }
+.cs-side .cv-side-kind { font-size: 2.6cqw; margin-top: 2cqw; opacity: .92; }
+.cs-side .cv-side-year { font-size: 2.4cqw; opacity: .92; }
+.cs-side .cv-main { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 9cqw 6.5cqw; }
+.cs-side .cv-top, .cs-side .cv-mid, .cs-side .cv-bot { align-items: flex-start; text-align: start; }
+.cs-side .cv-title { font-size: 5.8cqw; }
+/* ورقة مختبر */
+.cs-lab .cv-expno { display: flex; align-items: center; justify-content: center; gap: 2.5cqw; font-size: 3.6cqw; font-weight: 700; color: var(--cc); }
+.cs-lab .cv-expno strong { display: grid; place-items: center; min-width: 13cqw; height: 13cqw; border-radius: 50%; background: var(--cc); color: #fff; font-size: 6.4cqw; padding: 0 2cqw; }
+/* بسيط */
+.cs-minimal .cv { justify-content: center; }
+.cs-minimal .cv-title { font-size: 6.4cqw; }
+.cs-minimal .cv-rule { width: 18cqw; height: .7cqw; background: var(--cc); margin: 3cqw auto; border-radius: 1cqw; }
+.cs-minimal .cv-name { font-size: 3.6cqw; font-weight: 700; }
+.cs-minimal .cv-meta { font-size: 2.7cqw; color: #4b5563; margin-top: 1.5cqw; }
+/* بلا غلاف */
+.cover-off { text-align: center; padding: 4px 6px 14px; border-bottom: 1px solid var(--paper-line); margin-bottom: 14px; }
+.cover-off h1 { font-size: 22px; line-height: 1.6; margin: 6px 0; color: var(--paper-fg); }
+.cover-off .cv-kind { font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.cover-off .muted { font-family: var(--font); font-size: 12.5px; }
+/* اختيار نمط الغلاف */
+.cover-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 440px) { .cover-picker { grid-template-columns: repeat(3, 1fr); } }
+.cp { display: flex; flex-direction: column; gap: 5px; padding: 5px; border-radius: 11px; border: 2px solid transparent; background: var(--surface-2); }
+.cp.on { border-color: var(--accent); background: var(--accent-soft); }
+.cp-page { pointer-events: none; }
+.cp-page .cover { margin: 0; border-radius: 3px; box-shadow: 0 1px 5px rgba(0, 0, 0, .35); }
+.cp-name { font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.4; }
+.logo-row { display: flex; align-items: center; gap: 10px; }
+.logo-row img { width: 46px; height: 46px; object-fit: contain; background: #fff; border-radius: 10px; padding: 3px; }
 .toc { font-family: var(--font); font-size: 13.5px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
 .toc ol { margin: 6px 0 0; padding-inline-start: 22px; }
 .toc li { padding: 2px 0; }
@@ -440,13 +506,8 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
   .nav, .topbar, .dock, .rsec .tools, .fig-tools, .fig-pending, .no-print, #toast-root, #sheet-root, .notice, .gen-panel { display: none !important; }
   .wrap { max-width: none; padding: 0; }
   .paper { border: none; border-radius: 0; padding: 0; margin: 0; font-size: 14pt; line-height: 1.9; }
-  .cover { min-height: 245mm; display: flex; flex-direction: column; justify-content: center; border-bottom: none; page-break-after: always; break-after: page; }
-  .cover h1 { font-size: 26pt; }
-  .cover .kind { align-self: center; }
-  .cover .org { font-size: 13pt; color: #000; font-weight: 700; }
-  .cover .by { font-size: 12pt; color: #000; }
-  .cover .gov { font-size: 12pt; color: #000; font-weight: 700; }
-  .cover .year { font-size: 12pt; color: #000; }
+  .cover { max-width: none; width: 100%; aspect-ratio: auto; height: 258mm; margin: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
+  .cover-off { border-bottom: 1px solid #999; }
   .toc { background: none; border: 1px solid #ccc; page-break-after: always; break-after: page; }
   .rsec h2 { page-break-after: avoid; break-after: avoid; font-size: 17pt; }
   figure.fig, .tbl-wrap, .eq { page-break-inside: avoid; break-inside: avoid; }

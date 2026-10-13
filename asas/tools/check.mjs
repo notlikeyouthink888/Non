@@ -107,7 +107,7 @@ async function flows(page) {
   assert(await page.locator('.rsec ol li').count() >= 10, 'خطوات العمل مرقّمة (10 خطوات)');
   assert(await page.locator('.eq').count() >= 1, 'المعادلات تُعرض في كتلة مستقلة');
   assert(await page.locator('.rsec h3', { hasText: 'أسئلة المناقشة' }).count() === 1, 'المناقشة: أسئلة المناقشة مع أجوبتها');
-  const cover = await page.locator('.cover').innerText();
+  const cover = await page.locator('.paper > .cover').innerText();
   assert(cover.includes('جمهورية العراق') && cover.includes('جامعة بغداد') && cover.includes('التجربة رقم (3)') && cover.includes('مقاومة المواد'), 'الغلاف بصيغة الجامعة: الوزارة والجامعة والمادة ورقم التجربة');
   // الصور تُحمَّل كسولًا (loading=lazy)، فننزل إلى أول صورة كما يفعل المستخدم
   await page.locator('figure.fig').first().scrollIntoViewIfNeeded();
@@ -116,6 +116,60 @@ async function flows(page) {
   const offImgs = await page.locator('figure.fig img').count();
   assert(offImgs >= 1, `الصور تُجلب وتُعرض حتى دون ذكاء اصطناعي (${offImgs})`);
   await shot(page, '05-report-offline');
+
+  /* ── 3ج. الغلاف اختياري وبأنماط متعددة ───────── */
+  const openCover = async () => {
+    const det = page.locator('details.more-opts', { has: page.locator('summary', { hasText: 'الغلاف' }) });
+    if (!(await det.evaluate((d) => d.open))) await det.locator('summary').click();
+  };
+  const makeOffline = async (topic, style) => {
+    await page.goto(BASE + '#/library');
+    await page.goto(BASE + `#/create?topic=${topic}`);
+    await page.waitForSelector('.type-card.on');
+    await openCover();
+    if (style === 'none') await page.locator('.row-set', { hasText: 'صفحة غلاف' }).locator('.switch').click();
+    else await page.locator(`.cp[data-id="${style}"]`).click();
+    await page.getByText(/أنشئ التقرير \(محتوى كامل دون اتصال\)|نسخة دون اتصال/).first().click();
+    await page.waitForURL(/#\/report\//);
+    await waitDone(page);
+  };
+  const exportWord = async (name) => {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.locator('.dock button', { hasText: 'Word' }).click()]);
+    mkdirSync(OUT, { recursive: true });
+    const path = join(OUT, name);
+    await dl.saveAs(path);
+    return docxInfo(path);
+  };
+  await page.goto(BASE + '#/create?topic=compression_test');
+  await page.waitForSelector('.type-card.on');
+  await openCover();
+  assert(await page.locator('.cover-picker .cp').count() === 8, 'الغلاف: 8 أنماط بمعاينة حيّة لبيانات التقرير');
+  await page.locator('.cover-picker').scrollIntoViewIfNeeded();
+  await shot(page, '14-cover-styles');
+
+  await makeOffline('compression_test', 'none');
+  assert(await page.locator('.paper > .cover').count() === 0 && (await page.locator('.paper > .cover-off h1').innerText()).includes('فحص الانضغاط'), 'الغلاف اختياري: تقرير بلا غلاف يبدأ بعنوانه');
+  let info = await exportWord('no-cover.docx');
+  assert(info.sections === 1 && !info.text.includes('وزارة التعليم العالي'), 'Word بلا غلاف: قسم واحد يبدأ بالعنوان');
+
+  await makeOffline('compression_test', 'frame');
+  assert(await page.locator('.paper > .cover.cs-frame').count() === 1, 'نمط «إطار مزدوج» في العرض');
+  info = await exportWord('frame.docx');
+  assert(info.sections === 2 && info.pgBorders === 1, 'Word: الغلاف قسم مستقل بإطار صفحة مزدوج حقيقي، والترقيم يبدأ بعده');
+
+  await makeOffline('compression_test', 'table');
+  assert(await page.locator('.paper > .cover.cs-table .cv-table tr').count() >= 6, 'نمط «جدول معلومات»: جدول الطالب والتواريخ في الغلاف');
+  info = await exportWord('table.docx');
+  assert(info.firstTable.includes('اسم الطالب') && info.firstTable.includes('تاريخ التسليم'), 'Word: جدول معلومات الغلاف');
+
+  await page.locator('.topbar .icon-btn').last().click();
+  await page.locator('.action-item', { hasText: 'تعديل العنوان وبيانات الغلاف' }).click();
+  await page.locator('.sheet .cp[data-id="band"]').click();
+  await page.locator('.sheet button.btn.primary', { hasText: 'حفظ' }).click();
+  // معاينات الأنماط داخل الورقة المنبثقة أغلفة أيضًا: ننتظر إغلاقها ونفحص غلاف التقرير نفسه
+  await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
+  await appear(page.locator('.paper > .cover.cs-band'));
+  assert(await page.locator('.paper > .cover.cs-band .cv-band').count() === 1, 'تغيير نمط غلاف تقرير محفوظ من «تعديل بيانات الغلاف»');
 
   /* ── 3ب. مفتاح خاطئ: رسالة عربية واضحة لا انهيار ── */
   await page.goto(BASE + '#/settings');
@@ -232,7 +286,7 @@ async function flows(page) {
   assert(await page.locator('span', { hasText: 'مفتاح OpenRouter غير صحيح' }).count() === 1, 'OpenRouter: مفتاح خاطئ برسالة عربية واضحة');
   await setKey('sk-or-v1-good-0123456789abcdef0123456789');
   await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
-  await page.waitForSelector('text=تم الاتصال — يكتب بـ Qwen3 235B', { timeout: 10000 });
+  await page.waitForSelector('text=والكتابة بـ Qwen3 235B', { timeout: 10000 });
   ok('OpenRouter: اختبار الاتصال ناجح مع اسم النموذج والحد اليومي');
   await shot(page, '13-settings-openrouter');
 
@@ -276,6 +330,19 @@ async function flows(page) {
   assert(stats.claude.length >= 5, `طلبات Claude المرسلة: ${stats.claude.length} (${[...new Set(stats.claude.map((c) => c.kind))].join('، ')})`);
   assert(!bad.length, 'كل طلبات Claude سليمة: opus-5-5، تفكير تكيّفي، جهد صريح، بديل تلقائي، تخزين مؤقت' + (bad.length ? ' — ' + JSON.stringify(bad[0]) : ''));
   assert(stats.claude.some((c) => c.kind === 'choices' && c.images >= 3), 'التحقق البصري أرسل صور المرشحين للنموذج');
+}
+
+/** بنية ملف Word: عدد الأقسام، حدود الصفحة، نص الفقرات، ونص أول جدول. */
+function docxInfo(path) {
+  const py = `
+import sys, json, zipfile, docx
+z = zipfile.ZipFile(sys.argv[1]).read('word/document.xml').decode('utf8')
+d = docx.Document(sys.argv[1])
+t = d.tables[0] if d.tables else None
+first = ' '.join(c.text for r in t.rows for c in r.cells) if t else ''
+print(json.dumps({'sections': z.count('<w:sectPr'), 'pgBorders': int('<w:pgBorders' in z), 'text': '\\n'.join(p.text for p in d.paragraphs), 'firstTable': first}, ensure_ascii=False))
+`;
+  return JSON.parse(execFileSync('python3', ['-c', py, path]).toString());
 }
 
 /** يفحص ملف Word الناتج: اتجاه من اليمين لليسار، صور مضمّنة، نصوص عربية. */

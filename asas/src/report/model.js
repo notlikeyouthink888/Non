@@ -11,6 +11,7 @@ export function newReport({ title, typeId, topicId = null, options = {}, meta = 
   const topic = topicId ? TOPIC_BY_ID[topicId] : null;
   const type = getType(typeId);
   const catId = topic?.cat || options.catId || null;
+  const { enabled: coverOn, style: coverStyle, ...coverMeta } = state.cover;
   return {
     id: uid('r_'),
     title: title.trim(),
@@ -23,12 +24,15 @@ export function newReport({ title, typeId, topicId = null, options = {}, meta = 
       images: Number.isFinite(options.images) ? options.images : type.figures,
       details: options.details || '',
       readings: options.readings || '',
+      cover: options.cover ?? coverOn !== false,
     },
     meta: {
-      ...state.cover,
+      ...coverMeta,
+      coverStyle: coverStyle || 'classic',
       subject: catName(catId),
       expNo: '',
       date: fmtDate(),
+      submitDate: '',
       year: academicYear(),
       org: '', project: '', location: '',
       ...meta,

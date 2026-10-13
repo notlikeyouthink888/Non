@@ -9,6 +9,7 @@ import { SYSTEM, EDIT_ACTIONS, editPrompt } from '../ai/prompts.js';
 import { streamText, aiErrorMessage } from '../ai/client.js';
 import { parseBlocks, wordsOf } from './md.js';
 import { blocksToNodes } from './render.js';
+import { coverPicker, pickLogo, hasCover } from './covers.js';
 import { findCandidates, verifyLoadable, storeCandidate, storeLocalFile } from '../images/pipeline.js';
 
 /** يزيل عنوان القسم إن كرّره النموذج في بداية الرد. */
@@ -244,23 +245,46 @@ export function openAddFigure(report, onChanged) {
 /* ── بيانات الغلاف ─────────────────────────────── */
 
 export function openCoverEditor(report, onSaved) {
-  const m = { ...report.meta };
+  const m = { coverStyle: 'classic', ...report.meta };
+  let coverOn = hasCover(report, state.exportOpts.cover !== false);
   const titleIn = h('textarea', { rows: 2, value: report.title });
   const inp = (k, label, ph = '') => field(label, h('input', { value: m[k] || '', placeholder: ph, oninput: (e) => { m[k] = e.target.value; } }));
+  const labLike = ['lab', 'field'].includes(report.typeId);
+  const coverBox = h('div');
+  const preview = () => ({ ...report, title: titleIn.value.trim() || report.title, meta: { ...m }, options: { ...report.options, cover: true } });
+  function renderCoverBox() {
+    fill(coverBox, [
+      settingRow('صفحة غلاف', coverOn ? 'غلاف بالنمط المختار' : 'التقرير يبدأ بالعنوان مباشرة', toggle(coverOn, (v) => { coverOn = v; renderCoverBox(); })),
+      coverOn ? field('نمط الغلاف', coverPicker(preview, m.coverStyle, (v) => { m.coverStyle = v; })) : null,
+      coverOn ? h('div.logo-row.mb', [
+        m.logo ? h('img', { src: m.logo, alt: 'الشعار' }) : null,
+        h('button.btn.sm', {
+          type: 'button',
+          onclick: async () => {
+            try { const l = await pickLogo(); if (l) { m.logo = l.src; m.logoAR = l.ar; renderCoverBox(); } } catch { toast('تعذّرت قراءة الصورة', 'err'); }
+          },
+        }, [icon('image', 15), m.logo ? 'تغيير الشعار' : 'شعار الجامعة (اختياري)']),
+        m.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { m.logo = ''; renderCoverBox(); } }, 'إزالة') : null,
+      ]) : null,
+    ]);
+  }
+  renderCoverBox();
   sheet('العنوان وبيانات الغلاف', ({ close }) => h('div', [
     field('العنوان', titleIn),
+    coverBox,
     h('div.grid2', [inp('university', 'الجامعة'), inp('college', 'الكلية')]),
     h('div.grid2', [inp('department', 'القسم'), inp('subject', 'المادة')]),
     h('div.grid2', [inp('stage', 'المرحلة'), inp('group', 'الشعبة / المجموعة')]),
     h('div.grid2', [inp('expNo', 'رقم التجربة'), inp('author', 'اسم الطالب')]),
-    h('div.grid2', [inp('supervisor', 'بإشراف'), inp('date', 'التاريخ')]),
-    h('div.grid2', [inp('year', 'السنة الدراسية'), inp('org', 'الجهة (للتدريب والزيارة)')]),
+    h('div.grid2', [inp('supervisor', 'بإشراف'), inp('date', labLike ? 'تاريخ التجربة' : 'التاريخ')]),
+    h('div.grid2', [labLike ? inp('submitDate', 'تاريخ التسليم') : inp('org', 'الجهة (للتدريب والزيارة)'), inp('year', 'السنة الدراسية')]),
     settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(m.ministry !== false, (v) => { m.ministry = v; })),
     h('button.btn.primary.block.mt', {
       type: 'button',
       onclick: async () => {
         report.title = titleIn.value.trim() || report.title;
         report.meta = m;
+        report.options = { ...report.options, cover: coverOn };
         await putReport(report);
         close();
         onSaved?.();
