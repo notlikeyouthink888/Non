@@ -9,7 +9,8 @@ import { SYSTEM, EDIT_ACTIONS, editPrompt } from '../ai/prompts.js';
 import { streamText, aiErrorMessage } from '../ai/client.js';
 import { parseBlocks, wordsOf } from './md.js';
 import { blocksToNodes } from './render.js';
-import { coverPicker, pickLogo, hasCover } from './covers.js';
+import { coverPicker, hasCover, peopleFields, logosRow } from './covers.js';
+import { formatControls } from './format.js';
 import { findCandidates, verifyLoadable, storeCandidate, storeLocalFile } from '../images/pipeline.js';
 
 /** يزيل عنوان القسم إن كرّره النموذج في بداية الرد. */
@@ -48,7 +49,7 @@ export function openSectionEditor(report, i, onSaved) {
         system: SYSTEM,
         prompt: editPrompt({
           title: report.title, typeId: report.typeId, sectionTitle: headIn.value.trim() || sec.h,
-          md: before, otherHeadings: report.sections.map((s) => s.h).filter(Boolean), instruction,
+          md: before, otherHeadings: report.sections.map((s) => s.h).filter(Boolean), instruction, options: report.options,
         }),
         effort: state.ai.effort === 'high' ? 'medium' : state.ai.effort,
         maxTokens: 32000,
@@ -256,16 +257,7 @@ export function openCoverEditor(report, onSaved) {
     fill(coverBox, [
       settingRow('صفحة غلاف', coverOn ? 'غلاف بالنمط المختار' : 'التقرير يبدأ بالعنوان مباشرة', toggle(coverOn, (v) => { coverOn = v; renderCoverBox(); })),
       coverOn ? field('نمط الغلاف', coverPicker(preview, m.coverStyle, (v) => { m.coverStyle = v; })) : null,
-      coverOn ? h('div.logo-row.mb', [
-        m.logo ? h('img', { src: m.logo, alt: 'الشعار' }) : null,
-        h('button.btn.sm', {
-          type: 'button',
-          onclick: async () => {
-            try { const l = await pickLogo(); if (l) { m.logo = l.src; m.logoAR = l.ar; renderCoverBox(); } } catch { toast('تعذّرت قراءة الصورة', 'err'); }
-          },
-        }, [icon('image', 15), m.logo ? 'تغيير الشعار' : 'شعار الجامعة (اختياري)']),
-        m.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { m.logo = ''; renderCoverBox(); } }, 'إزالة') : null,
-      ]) : null,
+      coverOn ? logosRow(m, renderCoverBox, () => toast('تعذّرت قراءة الصورة', 'err')) : null,
     ]);
   }
   renderCoverBox();
@@ -277,6 +269,7 @@ export function openCoverEditor(report, onSaved) {
     h('div.grid2', [inp('stage', 'المرحلة'), inp('group', 'الشعبة / المجموعة')]),
     h('div.grid2', [inp('expNo', 'رقم التجربة'), inp('author', 'اسم الطالب')]),
     h('div.grid2', [inp('supervisor', 'بإشراف'), inp('date', labLike ? 'تاريخ التجربة' : 'التاريخ')]),
+    ...peopleFields(m),
     h('div.grid2', [labLike ? inp('submitDate', 'تاريخ التسليم') : inp('org', 'الجهة (للتدريب والزيارة)'), inp('year', 'السنة الدراسية')]),
     settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(m.ministry !== false, (v) => { m.ministry = v; })),
     h('button.btn.primary.block.mt', {
@@ -293,3 +286,16 @@ export function openCoverEditor(report, onSaved) {
   ]), { full: true });
 }
 
+
+/** تنسيق التقرير: الإطار والعناوين والخط والمسافات والترقيم. يُحفظ فورًا ويظهر في العرض وPDF وWord. */
+export function openFormatSheet(report, onChanged) {
+  sheet('التنسيق والشكل', [
+    h('p.hint', 'يُطبَّق على هذا التقرير في العرض وPDF وWord. القيم الافتراضية للتقارير الجديدة من الإعدادات.'),
+    formatControls(() => report.format || {}, (patch) => {
+      report.format = { ...(report.format || {}), ...patch };
+      report.updatedAt = Date.now();
+      putReport(report).catch(() => {});
+      onChanged?.();
+    }),
+  ]);
+}

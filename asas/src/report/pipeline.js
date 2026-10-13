@@ -14,6 +14,7 @@ import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits } fro
 import { splitSections, wordsOf, normalizeHeadings } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
+import { planSections, humanize, isRefsHeading } from './style.js';
 import { findCandidates, verifyLoadable, storeCandidate, toBase64Jpeg, slimCandidate, pool } from '../images/pipeline.js';
 
 const jobs = new Map();
@@ -116,7 +117,7 @@ async function run(job) {
   // ── الكتابة ──
   setPhase(job, 'write', 'run', useAI ? 'يتصل بالذكاء الاصطناعي…' : 'يبني التقرير من قاعدة المعرفة…');
   if (useAI) {
-    const titles = sectionsOf(getType(r.typeId), r.catId).map((s) => s.h);
+    const titles = (planSections(r.typeId, r.catId, r.options) || []).map((s) => s.h);
     let pending = null;
     let raf = 0;
     const flush = () => {
@@ -142,6 +143,7 @@ async function run(job) {
     });
     clearTimeout(raf);
     r.sections = splitSections(normalizeHeadings(res.text, titles));
+    if (r.options.human !== false) r.sections = r.sections.map((s) => (isRefsHeading(s.h) ? s : { ...s, md: humanize(s.md, r.options) }));
     r.words = wordsOf(r.sections);
     r.usage.cost = (r.usage.cost || 0) + (res.cost || 0);
     r.usage.output = (r.usage.output || 0) + (res.usage?.output_tokens || 0);
@@ -153,7 +155,10 @@ async function run(job) {
     setPhase(job, 'write', 'done', `${r.words} كلمة`);
   } else {
     const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb, meta: r.meta });
-    r.sections = sections;
+    r.sections = r.options.human !== false ? sections.map((s) => (isRefsHeading(s.h) ? s : { ...s, md: humanize(s.md) })) : sections;
+    // دون اتصال: المحتوى عربي بأقسام النوع، فتُسجَّل الخيارات الفعلية حتى يُعرض ويُصدَّر صحيحًا
+    if (r.options.lang === 'en') { r.options.lang = 'mix'; r.notes.push('النسخة دون اتصال بالعربية فقط؛ للتقرير بالإنجليزية أنشئه بالذكاء الاصطناعي.'); }
+    if (r.options.structure === 'free') { r.options.structure = 'fixed'; r.notes.push('العناوين حسب الموضوع تحتاج الذكاء الاصطناعي؛ استُعملت أقسام النوع المعتمدة.'); }
     r.words = wordsOf(sections);
     if (coverage < 0.6) r.notes.push('هذه نسخة دون اتصال: بعض الأقسام قالب بإرشادات بين أقواس معقوفة لتكملها، أو فعّل الذكاء الاصطناعي لكتابة التقرير كاملًا.');
     emit(job, 'text');
@@ -186,7 +191,7 @@ async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null
     try {
       const res = await jsonCall({
         system: SYSTEM,
-        prompt: figurePrompt({ title: r.title, typeId: r.typeId, cat: r.catId, count, kb }),
+        prompt: figurePrompt({ title: r.title, typeId: r.typeId, cat: r.catId, count, kb, lang: r.options.lang }),
         schema: FIGURE_SCHEMA,
         effort: 'low',
         signal,

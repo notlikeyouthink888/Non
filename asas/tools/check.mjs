@@ -147,7 +147,7 @@ async function flows(page) {
   await page.goto(BASE + '#/create?topic=compression_test');
   await page.waitForSelector('.type-card.on');
   await openCover();
-  assert(await page.locator('.cover-picker .cp').count() === 8, 'الغلاف: 8 أنماط بمعاينة حيّة لبيانات التقرير');
+  assert(await page.locator('.cover-picker .cp').count() === 9, 'الغلاف: 9 أنماط بمعاينة حيّة لبيانات التقرير');
   await page.locator('.cover-picker').scrollIntoViewIfNeeded();
   await shot(page, '14-cover-styles');
 
@@ -175,6 +175,32 @@ async function flows(page) {
   await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
   await appear(page.locator('.paper > .cover.cs-band'));
   assert(await page.locator('.paper > .cover.cs-band .cv-band').count() === 1, 'تغيير نمط غلاف تقرير محفوظ من «تعديل بيانات الغلاف»');
+
+  // التنسيق لكل تقرير: إطار مزدوج وعناوين تحتها خط وبلا ترقيم
+  await page.locator('.topbar .icon-btn').last().click();
+  await page.locator('.action-item', { hasText: 'التنسيق والشكل' }).click();
+  await page.locator('.sheet .chip', { hasText: 'مزدوج' }).click();
+  await page.locator('.sheet .chip', { hasText: 'تحتها خط' }).click();
+  await page.locator('.sheet .row-set', { hasText: 'ترقيم الأقسام' }).locator('.switch').click();
+  await page.locator('.sheet .sheet-x').click();
+  await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
+  await appear(page.locator('.paper[data-border="double"][data-heading="underline"]'));
+  assert(await page.locator('.paper[data-border="double"][data-heading="underline"]').count() === 1 && await page.locator('.rsec h2 .n').count() === 0, 'التنسيق: إطار مزدوج وعناوين تحتها خط وأقسام بلا أرقام');
+  info = await exportWord('format.docx');
+  assert(info.pgBorders === 1 && info.sections === 2 && !/^\d+\. المقدمة/m.test(info.text) && /^المقدمة$/m.test(info.text), 'Word: إطار على كل صفحات التقرير وعناوين بلا أرقام');
+
+  // تقرير جماعي: أسماء الطلبة ولقب المشرف ونمط «شعاران»
+  await page.locator('.topbar .icon-btn').last().click();
+  await page.locator('.action-item', { hasText: 'تعديل العنوان وبيانات الغلاف' }).click();
+  await page.locator('.sheet .cp[data-id="logos"]').click();
+  await page.locator('.sheet textarea[placeholder^="اسم في كل سطر"]').fill('علي حسن\nسارة محمد\nزينب كريم');
+  await page.locator('.sheet .chip', { hasText: /^م\.م$/ }).click();
+  await page.locator('.sheet button.btn.primary', { hasText: 'حفظ' }).click();
+  await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
+  await appear(page.locator('.paper > .cover.cs-logos'));
+  assert(await page.locator('.paper > .cover.cs-logos .cv-students li').count() === 3, 'الغلاف: «إعداد الطلاب» قائمة مرقّمة بأسماء المجموعة (نمط شعاران)');
+  info = await exportWord('students.docx');
+  assert(info.text.includes('زينب كريم') && info.text.includes('إعداد الطلاب'), 'Word: أسماء طلبة المجموعة في الغلاف');
 
   // معادلات Word القابلة للتعديل (خيار في الإعدادات)
   const reportUrl = page.url();
@@ -283,6 +309,25 @@ async function flows(page) {
   assert(stats.lastReportPrompt.includes('قراءات الطالب الفعلية') && stats.lastReportPrompt.includes('h1 = 0.352'), 'قراءات الطالب تصل إلى الذكاء الاصطناعي ليحسب منها النتائج');
   assert(await page.locator('.rsec').count() === 9, 'تقرير مختبر الموائع: 9 أقسام (المواصفة خاصة بالخرسانة والمقاومة)');
 
+  /* ── 8ب2. تقرير بالإنجليزية بأسلوب طالب عادي ─── */
+  await page.goto(BASE + '#/create?topic=slump');
+  await page.waitForSelector('.type-card.on');
+  await page.locator('.chip', { hasText: 'English' }).click();
+  await page.locator('.chip', { hasText: 'طالب عادي' }).click();
+  await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+  await page.waitForURL(/#\/report\//);
+  await waitDone(page, 40000);
+  assert(stats.lastReportPrompt.includes('Write the ENTIRE report in English') && stats.lastReportPrompt.includes('طالب عادي') && stats.lastReportPrompt.includes('كتابة طبيعية'), 'الأسلوب واللغة يصلان للذكاء الاصطناعي: إنجليزي بأسلوب طالب عادي وكتابة طبيعية');
+  assert(await page.locator('.paper[dir="ltr"]').count() === 1 && await page.locator('.rsec h2', { hasText: 'Introduction' }).count() === 1, 'تقرير إنجليزي: الورقة من اليسار لليمين وعناوين إنجليزية');
+  assert((await page.locator('.paper > .cover').innerText()).includes('Republic of Iraq'), 'تقرير إنجليزي: الغلاف بالإنجليزية');
+  {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.locator('.dock button', { hasText: 'Word' }).click()]);
+    const path = join(OUT, 'english.docx');
+    await dl.saveAs(path);
+    const en = docxInfo(path);
+    assert(en.all.includes('University of Baghdad') && en.text.includes('Introduction') && en.bidi < 3, `Word إنجليزي: من اليسار لليمين (${en.bidi} فقرة RTL)`);
+  }
+
   /* ── 8ج. OpenRouter المجاني ─────────────────── */
   await page.goto(BASE + '#/settings');
   await page.locator('.prov', { has: page.locator('strong', { hasText: /^OpenRouter$/ }) }).click();
@@ -356,8 +401,14 @@ z = zipfile.ZipFile(sys.argv[1]).read('word/document.xml').decode('utf8')
 d = docx.Document(sys.argv[1])
 t = d.tables[0] if d.tables else None
 first = ' '.join(c.text for r in t.rows for c in r.cells) if t else ''
+W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+def rtl(p):
+  b = p._p.pPr.find(W + 'bidi') if p._p.pPr is not None else None
+  return b is not None and b.get(W + 'val') not in ('false', '0')
 print(json.dumps({'sections': z.count('<w:sectPr'), 'pgBorders': int('<w:pgBorders' in z), 'text': '\\n'.join(p.text for p in d.paragraphs), 'firstTable': first,
-  'eqImgs': z.count('name="معادلة"'), 'omath': z.count('<m:oMath>') + z.count('<m:oMath '), 'mfrac': z.count('<m:f>')}, ensure_ascii=False))
+  'eqImgs': z.count('name="معادلة"'), 'omath': z.count('<m:oMath>') + z.count('<m:oMath '), 'mfrac': z.count('<m:f>'),
+  'all': '\\n'.join([p.text for p in d.paragraphs] + [c.text for t in d.tables for r in t.rows for c in r.cells]),
+  'bidi': sum(1 for p in d.paragraphs if p.text.strip() and rtl(p))}, ensure_ascii=False))
 `;
   return JSON.parse(execFileSync('python3', ['-c', py, path]).toString());
 }

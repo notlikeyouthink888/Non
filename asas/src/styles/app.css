@@ -382,6 +382,19 @@ ol.steps-mini a { color: var(--accent-2); }
 .cs-minimal .cv-rule { width: 18cqw; height: .7cqw; background: var(--cc); margin: 3cqw auto; border-radius: 1cqw; }
 .cs-minimal .cv-name { font-size: 3.6cqw; font-weight: 700; }
 .cs-minimal .cv-meta { font-size: 2.7cqw; color: #4b5563; margin-top: 1.5cqw; }
+/* الطلبة المتعددون (إعداد الطلاب) */
+.cover .cv-students { font-size: 2.9cqw; line-height: 1.75; text-align: start; }
+.cover .cv-sh { font-weight: 700; margin-bottom: .6cqw; }
+.cover .cv-students ol { margin: 0; padding-inline-start: 5cqw; }
+.cover .cv-students ol.two { columns: 2; column-gap: 6cqw; }
+/* شعاران: الجامعة والكلية على الجانبين */
+.cs-logos .cv-logos { display: grid; grid-template-columns: 17cqw 1fr 17cqw; align-items: center; gap: 2cqw; }
+.cs-logos .cv-logos .cv-logo { width: 16cqw; height: 16cqw; margin: 0; }
+.cs-logos .cv-logo-ph { width: 16cqw; height: 16cqw; }
+.cs-logos .cv-org2 { font-size: 2.8cqw; font-weight: 700; line-height: 1.7; }
+.cs-logos .cv-hl { background: color-mix(in srgb, var(--cc) 14%, #fff); border: .4cqw solid var(--cc); border-radius: 1.5cqw; padding: 2cqw 3cqw; }
+.cs-logos .cv-sup { font-size: 3cqw; margin-bottom: 2cqw; }
+.cs-logos .cv-bot { align-items: stretch; }
 /* بلا غلاف */
 .cover-off { text-align: center; padding: 4px 6px 14px; border-bottom: 1px solid var(--paper-line); margin-bottom: 14px; }
 .cover-off h1 { font-size: 22px; line-height: 1.6; margin: 6px 0; color: var(--paper-fg); }
@@ -418,6 +431,22 @@ ol.steps-mini a { color: var(--accent-2); }
 .rsec .tools .icon-btn { width: 34px; height: 34px; }
 .rsec.live h2::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .2; } }
+/* ── تنسيق التقرير (report/format.js) ── */
+.paper { position: relative; }
+.paper[dir="ltr"] { font-family: "Times New Roman", "Liberation Serif", Georgia, serif; }
+.paper[dir="ltr"] .rsec p { text-align: justify; }
+.paper[data-align="start"] .rsec p { text-align: start; }
+.paper[data-heading="color"] .rsec h2 { color: var(--accent); }
+.paper[data-heading="underline"] .rsec h2, .paper[data-heading="underline"] .rsec h2 .n { color: var(--paper-fg); text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1.5px; }
+.paper[data-heading="plain"] .rsec h2, .paper[data-heading="plain"] .rsec h2 .n { color: var(--paper-fg); }
+.paper[data-heading="band"] .rsec h2 { background: var(--accent-soft); border-inline-start: 4px solid var(--accent); padding: 4px 10px; border-radius: 6px; }
+.paper[data-sep="1"] .rsec + .rsec { border-top: 1px solid var(--paper-line); padding-top: 4px; }
+.pframe { display: none; }
+.paper:not([data-border="none"]) .secs { border: 1.5px solid var(--frame); border-radius: 4px; padding: 6px 12px; }
+.paper[data-border="double"] .secs { border: 4px double var(--frame); }
+.paper[data-border="thick"] .secs { border: 4px solid var(--frame); box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--frame); }
+.paper[data-border="art"] .secs { border: 3px solid var(--frame); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--frame), 0 0 0 3px var(--paper), 0 0 0 4px var(--frame); }
+
 /* المعادلات: رسم SVG بحجم الخط ولونه (core/math.js) */
 .eq { text-align: center; margin: 12px 0; padding: 6px 4px; overflow-x: auto; overflow-y: hidden; }
 .eql { margin: 6px 0; line-height: 2.2; font-size: 1.08em; }
@@ -513,7 +542,18 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
   .screen { overflow: visible !important; padding: 0 !important; }
   .nav, .topbar, .dock, .rsec .tools, .fig-tools, .fig-pending, .no-print, #toast-root, #sheet-root, .notice, .gen-panel { display: none !important; }
   .wrap { max-width: none; padding: 0; }
-  .paper { border: none; border-radius: 0; padding: 0; margin: 0; font-size: 14pt; line-height: 1.9; }
+  .paper { border: none; border-radius: 0; padding: 0; margin: 0; font-size: var(--doc-fs, 14pt); line-height: var(--doc-lh, 1.9); }
+  .paper[data-heading="color"] .rsec h2 { color: var(--frame); }
+  .paper[data-heading="color"] .rsec h2 .n { color: var(--frame); }
+  .paper[data-heading="band"] .rsec h2 { border-inline-start-color: var(--frame); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* إطار الصفحات: عنصر ثابت يتكرر على كل صفحة مطبوعة، والمحتوى يبتعد عنه */
+  /* الطابعة تقص ما يخرج عن منطقة المحتوى، فالإطار على حدّها والمحتوى يبتعد عنه بحشوة تتكرر في كل صفحة */
+  .paper:not([data-border="none"]) .secs { border: none !important; box-shadow: none !important; padding: 6mm 7mm; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .paper:not([data-border="none"]) .toc { margin: 6mm 7mm; }
+  .paper:not([data-border="none"]) .pframe { display: block; position: fixed; inset: 0; pointer-events: none; border: 1.5px solid var(--frame); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .paper[data-border="double"] .pframe { border: 4px double var(--frame); }
+  .paper[data-border="thick"] .pframe { border: 4px solid var(--frame); box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px var(--frame); }
+  .paper[data-border="art"] .pframe { border: 3px solid var(--frame); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px var(--frame), inset 0 0 0 7px #fff, inset 0 0 0 8px var(--frame); }
   .cover { max-width: none; width: 100%; aspect-ratio: auto; height: 258mm; margin: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
   .cover-off { border-bottom: 1px solid #999; }
   .toc { background: none; border: 1px solid #ccc; page-break-after: always; break-after: page; }

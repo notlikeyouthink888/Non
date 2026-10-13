@@ -21,12 +21,12 @@ function tint(c, k) {
 const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const cellNoBorders = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER };
 
-function logoRun(d, width = 95) {
-  if (!d.logo) return null;
-  const m = String(d.logo).match(/^data:image\/(png|jpe?g);base64,(.+)$/);
+function logoRun(d, width = 95, key = 'logo') {
+  if (!d[key]) return null;
+  const m = String(d[key]).match(/^data:image\/(png|jpe?g);base64,(.+)$/);
   if (!m) return null;
   const bytes = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
-  const ar = Number(d.logoAR) > 0 ? Number(d.logoAR) : 1;
+  const ar = Number(d[`${key}AR`]) > 0 ? Number(d[`${key}AR`]) : 1;
   return new ImageRun({ type: m[1] === 'png' ? 'png' : 'jpg', data: bytes, transformation: { width, height: Math.round(width * ar) }, altText: { name: 'logo', description: 'شعار', title: 'شعار' } });
 }
 
@@ -37,7 +37,8 @@ function logoRun(d, width = 95) {
  */
 export function coverSection(report, kit) {
   const { run, runs, para } = kit;
-  const d = { ...coverData(report), logoAR: report.meta?.logoAR };
+  const d = { ...coverData(report), logoAR: report.meta?.logoAR, logo2AR: report.meta?.logo2AR };
+  const RTL = !d.en;
   const C = hex(d.color);
   const center = AlignmentType.CENTER;
   const P = (children, o = {}) => para(children, { align: center, after: 60, line: 300, ...o });
@@ -61,13 +62,26 @@ export function coverSection(report, kit) {
     });
     return new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      visuallyRightToLeft: true,
+      visuallyRightToLeft: RTL,
       rows: d.rows.map(([k, v]) => new TableRow({ children: [label(k), value(v)] })),
     });
   }
 
   const top = () => [...logo(90), ...lines(d.gov, { b: true, size: 26 }, { after: 20 }), ...(d.gov.length ? [gap(80)] : []), ...lines(d.org, { b: true, size: 30 }, { after: 40 })];
-  const by = () => lines(d.by, { size: 27 }, { after: 70 });
+  /** «إعداد الطلاب» قائمة مرقّمة (في عمودين إن زادوا على أربعة). */
+  function studentsParas(size = 26) {
+    if (d.students.length < 2) return [];
+    const item = (n, k) => para(runs(`${k + 1}. ${n}`, { size }), { align: AlignmentType.START, after: 20, line: 280 });
+    const head = para(runs(d.studentsHead, { b: true, size }), { align: AlignmentType.START, after: 40, line: 280 });
+    if (d.students.length <= 4) return [head, ...d.students.map(item)];
+    const half = Math.ceil(d.students.length / 2);
+    const col = (arr, off) => new TableCell({ borders: cellNoBorders, width: { size: 50, type: WidthType.PERCENTAGE }, children: arr.map((n, k) => item(n, k + off)) });
+    return [head, new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: RTL, borders: TableBorders.NONE,
+      rows: [new TableRow({ children: [col(d.students.slice(0, half), 0), col(d.students.slice(half), half)] })],
+    })];
+  }
+  const by = () => [...lines(d.by, { size: 27 }, { after: 70 }), ...studentsParas()];
 
   let children;
   let borders;
@@ -98,12 +112,13 @@ export function coverSection(report, kit) {
       });
       children = [
         new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: true, borders: TableBorders.NONE,
+          width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: RTL, borders: TableBorders.NONE,
           rows: [new TableRow({ children: [side([...d.gov, ...d.org], AlignmentType.START), mid, side([d.year, d.subject].filter(Boolean), AlignmentType.END)] })],
         }),
         para([run('')], { after: 0, border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: C, space: 4 } } }),
         gap(3600), kind(), title(), gap(3600),
-        ...d.by.map((l) => para(runs(l, { size: 27 }), { align: AlignmentType.START, after: 60, border: { right: { style: BorderStyle.SINGLE, size: 24, color: C, space: 10 } } })),
+        ...d.by.map((l) => para(runs(l, { size: 27 }), { align: AlignmentType.START, after: 60, border: { [RTL ? 'right' : 'left']: { style: BorderStyle.SINGLE, size: 24, color: C, space: 10 } } })),
+        ...studentsParas(),
       ];
       break;
     }
@@ -116,7 +131,7 @@ export function coverSection(report, kit) {
       const lr = logoRun(d, 70);
       children = [
         new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: true, borders: TableBorders.NONE,
+          width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: RTL, borders: TableBorders.NONE,
           rows: [new TableRow({
             height: { value: 2300, rule: HeightRule.ATLEAST },
             children: [new TableCell({
@@ -157,10 +172,11 @@ export function coverSection(report, kit) {
           S(d.title, { b: true, size: 48 }, { line: 420, after: 120 }),
           para([run('')], { before: 2600, after: 0 }),
           ...d.by.map((l) => S(l, { size: 26 })),
+          ...studentsParas(24),
         ],
       });
       children = [new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: true, borders: TableBorders.NONE,
+        width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: RTL, borders: TableBorders.NONE,
         rows: [new TableRow({ height: { value: 14600, rule: HeightRule.EXACT }, children: [bar, main] })],
       })];
       break;
@@ -183,6 +199,33 @@ export function coverSection(report, kit) {
         text([d.org[0], d.subject, d.year].filter(Boolean).join(' • '), { size: 24, color: '4B5563' }),
       ];
       break;
+
+    case 'logos': {
+      const cell = (children, w) => new TableCell({ borders: cellNoBorders, verticalAlign: VerticalAlignTable.CENTER, width: { size: w, type: WidthType.PERCENTAGE }, children });
+      const l1 = logoRun(d, 85);
+      const l2 = logoRun(d, 85, 'logo2');
+      children = [
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE }, visuallyRightToLeft: RTL, borders: TableBorders.NONE,
+          rows: [new TableRow({ children: [
+            cell([l1 ? P([l1], { after: 0 }) : para([run('')])], 20),
+            cell([...d.gov, ...d.org].map((l) => P(runs(l, { b: true, size: 24 }), { after: 20, line: 260 })), 60),
+            cell([l2 ? P([l2], { after: 0 }) : para([run('')])], 20),
+          ] })],
+        }),
+        gap(2400), kind(),
+        P(runs(d.title, { b: true, size: 46 }), {
+          after: 200, line: 420,
+          shading: { type: ShadingType.CLEAR, color: 'auto', fill: tint(d.color, 0.14) },
+          border: ['top', 'bottom', 'left', 'right'].reduce((o, k) => ({ ...o, [k]: { style: BorderStyle.SINGLE, size: 12, color: C, space: 6 } }), {}),
+        }),
+        gap(2000),
+        ...(d.sup ? [P([run(`${d.supLabel}: `, { b: true, size: 27 }), ...runs(d.sup, { size: 27 })], { after: 160 })] : []),
+        ...(d.students.length > 1 ? studentsParas(27) : lines(d.by.filter((x) => !x.startsWith(d.supLabel)), { size: 27 }, { after: 70 })),
+        ...year(),
+      ];
+      break;
+    }
 
     default: // classic
       children = [...top(), gap(3400), kind(), title(), gap(3400), ...by(), ...year()];

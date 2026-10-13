@@ -62,8 +62,9 @@ export const defaults = {
     logo: '',                  // شعار الجامعة (صورة مصغّرة data URL) — اختياري
     logoAR: 1,                 // نسبة ارتفاع الشعار إلى عرضه
   },
-  prefs: { length: 'medium', level: 'student' },
+  prefs: { length: 'medium', level: 'natural', lang: 'mix', structure: 'fixed', human: true },
   exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true, wordMath: 'image' },
+  format: {},                  // قيم التنسيق الافتراضية للتقارير (report/format.js)
   ui: { theme: 'dark', fontSize: 'm' },
   recent: [],                  // آخر عمليات البحث
 };

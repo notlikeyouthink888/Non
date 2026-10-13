@@ -9,6 +9,7 @@
 import {
   Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, Footer, Header,
   AlignmentType, HeadingLevel, PageNumber, WidthType, ShadingType, BorderStyle, PageBreak, LineRuleType,
+  PageBorderDisplay, PageBorderOffsetFrom,
 } from 'docx';
 import { state } from '../core/store.js';
 import { getImage } from '../core/db.js';
@@ -21,19 +22,25 @@ import { docxMath, hasArabic } from './omml.js';
 import { figuresOf, figureNumbers } from '../report/model.js';
 import { hasCover } from '../report/covers.js';
 import { coverSection } from './cover-docx.js';
+import { fmtOf, frameColor } from '../report/format.js';
+import { isEnglish } from '../report/style.js';
 
-const ACCENT = 'B45309';
-const BODY_SIZE = 28; // 14pt
+let ACCENT = 'B45309';
 const HAS_AR = /[\u0600-\u06FF]/;
+/** إعدادات المستند الحالي (تُضبط في بداية buildDocx): الحجم والمسافة واللغة والتنسيق. */
+let BODY_SIZE = 28; // 14pt بأنصاف النقاط
+let LINE = 360;
+let EN = false;
+let F = fmtOf(null);
 
 function fonts() {
-  const cs = state.exportOpts.wordFont || 'Simplified Arabic';
+  const cs = EN ? 'Times New Roman' : state.exportOpts.wordFont || 'Simplified Arabic';
   return { ascii: 'Times New Roman', hAnsi: 'Times New Roman', cs };
 }
 
 /** مقطع نصي بخصائص الاتجاه والخط الصحيحة. */
 function run(text, o = {}) {
-  const rtl = o.ltr ? false : true;
+  const rtl = !(o.ltr || EN);
   return new TextRun({
     text,
     bold: o.b, boldComplexScript: o.b,
@@ -42,6 +49,7 @@ function run(text, o = {}) {
     font: o.font ? { ascii: o.font, hAnsi: o.font, cs: o.font } : o.mono ? { ascii: 'Consolas', hAnsi: 'Consolas', cs: fonts().cs } : fonts(),
     rightToLeft: rtl,
     color: o.color,
+    underline: o.u ? {} : undefined,
     highlight: o.ph ? 'yellow' : undefined,
     language: { value: 'en-US', bidirectional: 'ar-IQ' },
   });
@@ -149,11 +157,11 @@ function eqPara(line) {
 function para(children, o = {}) {
   // سطر فيه كسر أو معادلة طويلة: المسافة «على الأقل» حتى لا يُقص أعلى المعادلة في بعض البرامج
   const tall = !o.lineRule && children.some((c) => c && c.tallMath);
-  const line = o.line ?? 360;
+  const line = o.line ?? LINE;
   return new Paragraph({
     children,
-    bidirectional: o.ltr ? false : true,
-    alignment: o.align || AlignmentType.BOTH,
+    bidirectional: !(o.ltr || EN),
+    alignment: o.align || (F.align === 'start' ? AlignmentType.START : AlignmentType.BOTH),
     spacing: tall
       ? { after: o.after ?? 120, before: (o.before ?? 0) + 40, line: Math.round(line * 1.35), lineRule: LineRuleType.AT_LEAST }
       : { after: o.after ?? 120, before: o.before ?? 0, line, ...(o.lineRule ? { lineRule: o.lineRule } : {}) },
@@ -166,11 +174,20 @@ function para(children, o = {}) {
   });
 }
 
-function heading(text, level = 1) {
-  const size = level === 1 ? 34 : level === 2 ? 30 : 28;
-  return para(runs(text, { b: true, size, color: level === 1 ? ACCENT : undefined, math: false }), {
+/** عنوان بشكل التنسيق المختار: ملوّن، أو تحته خط، أو أسود عريض، أو شريط مظلّل. */
+function heading(text, level = 1, { sep = false } = {}) {
+  const size = Math.round(BODY_SIZE * (level === 1 ? 1.22 : level === 2 ? 1.08 : 1));
+  const main = level === 1;
+  // لون صريح دائمًا: بدونه يلوّن نمط «عنوان 1» في Word العنوان بالأزرق
+  const color = main && (F.heading === 'color' || F.heading === 'band') ? ACCENT : '111111';
+  const border = {};
+  if (main && sep) border.top = { style: BorderStyle.SINGLE, size: 6, color: 'A0A0A0', space: 10 };
+  if (main && F.heading === 'band') border[EN ? 'left' : 'right'] = { style: BorderStyle.SINGLE, size: 24, color: ACCENT, space: 6 };
+  return para(runs(text, { b: true, size, color, u: main && F.heading === 'underline', math: false }), {
     heading: level === 1 ? HeadingLevel.HEADING_1 : level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
-    align: AlignmentType.START, before: level === 1 ? 320 : 200, after: 120, keepNext: true,
+    align: AlignmentType.START, before: main ? (sep ? 380 : 320) : 200, after: 120, keepNext: true, line: 300,
+    shading: main && F.heading === 'band' ? { type: ShadingType.CLEAR, color: 'auto', fill: 'F3F4F6' } : undefined,
+    border: Object.keys(border).length ? border : undefined,
   });
 }
 
@@ -194,7 +211,7 @@ function table(b) {
   });
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    visuallyRightToLeft: true,
+    visuallyRightToLeft: !EN,
     rows: [
       new TableRow({ tableHeader: true, children: b.head.map((c) => cell(c, true)) }),
       ...b.rows.map((r) => new TableRow({ children: r.map((c) => cell(c, false)) })),
@@ -216,7 +233,7 @@ function blocks(md) {
     else if (b.t === 'eq') b.lines.forEach((l) => out.push(eqPara(l)));
     else if (b.t === 'note') out.push(para(runs(b.text, { size: 26 }), {
       shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'FFF4E0' },
-      border: { right: { style: BorderStyle.SINGLE, size: 18, color: 'D97706', space: 8 } },
+      border: { [EN ? 'left' : 'right']: { style: BorderStyle.SINGLE, size: 18, color: 'D97706', space: 8 } },
     }));
     else if (b.t === 'pre') out.push(para([run(b.lines.join('\n'), { ltr: true, mono: true, size: 20 })], { ltr: true, align: AlignmentType.LEFT }));
   }
@@ -237,25 +254,41 @@ async function figureParas(fig, num) {
   const type = /png/.test(rec.blob.type) ? 'png' : 'jpg';
   const out = [
     para([new ImageRun({ type, data, transformation: { width: w, height: hgt }, altText: { name: fig.caption, description: fig.caption, title: fig.caption } })], { align: AlignmentType.CENTER, after: 60, keepNext: true }),
-    para([run(`شكل (${num}): `, { b: true, size: 24 }), ...runs(fig.caption, { size: 24 })], { align: AlignmentType.CENTER, after: state.exportOpts.attribution ? 20 : 200 }),
+    para([run(EN ? `Figure (${num}): ` : `شكل (${num}): `, { b: true, size: 24 }), ...runs(fig.caption, { size: 24 })], { align: AlignmentType.CENTER, after: state.exportOpts.attribution ? 20 : 200 }),
   ];
   const c = fig.credit || {};
   const credit = [c.source, c.author, c.license].filter(Boolean).join(' — ');
-  if (state.exportOpts.attribution && credit) out.push(para([run(`المصدر: ${credit}`, { size: 18, color: '777777' })], { align: AlignmentType.CENTER, after: 200 }));
+  if (state.exportOpts.attribution && credit) out.push(para([run(`${EN ? 'Source' : 'المصدر'}: ${credit}`, { size: 18, color: '777777' })], { align: AlignmentType.CENTER, after: 200 }));
   return out;
 }
 
 function tocParas(report) {
-  const out = [heading('المحتويات', 1)];
+  const out = [heading(EN ? 'Contents' : 'المحتويات', 1)];
   report.sections.forEach((s, i) => {
-    if (s.h) out.push(para([run(`${i + 1}. `, { b: true, color: ACCENT }), run(s.h)], { align: AlignmentType.START, after: 60 }));
+    if (s.h) out.push(para([F.numbering ? run(`${i + 1}. `, { b: true, color: ACCENT }) : null, run(s.h)].filter(Boolean), { align: AlignmentType.START, after: 60 }));
   });
   out.push(new Paragraph({ children: [new PageBreak()] }));
   return out;
 }
 
+/** إطار الصفحات حسب التنسيق (بأحجام Word بثُمن النقطة). */
+function pageBorders(report) {
+  const style = { single: [BorderStyle.SINGLE, 12], double: [BorderStyle.DOUBLE, 6], thick: [BorderStyle.THICK_THIN_SMALL_GAP, 24], art: [BorderStyle.THIN_THICK_THIN_SMALL_GAP, 24] }[F.border];
+  if (!style) return undefined;
+  const b = { style: style[0], size: style[1], color: frameColor(report, F).replace('#', '').toUpperCase(), space: 24 };
+  return {
+    pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.PAGE },
+    pageBorderTop: b, pageBorderBottom: b, pageBorderLeft: b, pageBorderRight: b,
+  };
+}
+
 export async function buildDocx(report) {
   const opts = state.exportOpts;
+  F = fmtOf(report);
+  EN = isEnglish(report);
+  BODY_SIZE = Math.round((F.fontSize || 14) * 2);
+  LINE = Math.round((F.spacing || 1.5) * 240);
+  ACCENT = F.heading === 'color' || F.heading === 'band' ? frameColor(report, F).replace('#', '').toUpperCase() : '222222';
   await prepareMath(report, opts.wordMath);
   const nums = figureNumbers(report);
   const withCover = hasCover(report, opts.cover !== false);
@@ -263,11 +296,11 @@ export async function buildDocx(report) {
 
   // بلا غلاف: يبدأ التقرير بعنوانه ونوعه
   if (!withCover) children.push(para(runs(report.title, { b: true, size: 36, color: ACCENT, math: false }), { align: AlignmentType.CENTER, after: 300 }));
-  if (opts.toc && report.sections.filter((s) => s.h).length >= 3) children.push(...tocParas(report));
+  if (F.toc && report.sections.filter((s) => s.h).length >= 3) children.push(...tocParas(report));
 
   for (let i = 0; i < report.sections.length; i++) {
     const s = report.sections[i];
-    if (s.h) children.push(heading(`${i + 1}. ${s.h}`, 1));
+    if (s.h) children.push(heading(F.numbering ? `${i + 1}. ${s.h}` : s.h, 1, { sep: F.separators && i > 0 }));
     children.push(...blocks(s.md));
     for (const f of figuresOf(report, i)) children.push(...(await figureParas(f, nums.get(f.id))));
   }
@@ -275,14 +308,14 @@ export async function buildDocx(report) {
   const footer = new Footer({
     children: [new Paragraph({
       alignment: AlignmentType.CENTER,
-      bidirectional: true,
+      bidirectional: !EN,
       children: [new TextRun({ children: [PageNumber.CURRENT], size: 22, font: fonts() })],
     })],
   });
   const header = new Header({
     children: [new Paragraph({
       alignment: AlignmentType.START,
-      bidirectional: true,
+      bidirectional: !EN,
       children: [run(report.title, { size: 18, color: '888888' })],
     })],
   });
@@ -294,8 +327,8 @@ export async function buildDocx(report) {
     styles: {
       default: {
         document: {
-          run: { font: fonts(), size: BODY_SIZE, sizeComplexScript: BODY_SIZE, rightToLeft: true },
-          paragraph: { spacing: { line: 360 } },
+          run: { font: fonts(), size: BODY_SIZE, sizeComplexScript: BODY_SIZE, rightToLeft: !EN },
+          paragraph: { spacing: { line: LINE } },
         },
       },
     },
@@ -307,10 +340,11 @@ export async function buildDocx(report) {
           page: {
             margin: { top: 1300, bottom: 1300, left: 1300, right: 1300, header: 600, footer: 600 },
             ...(withCover ? { pageNumbers: { start: 1 } } : {}),
+            ...(pageBorders(report) ? { borders: pageBorders(report) } : {}),
           },
         },
-        headers: { default: header },
-        footers: { default: footer },
+        ...(F.header ? { headers: { default: header } } : {}),
+        ...(F.pageNumbers ? { footers: { default: footer } } : {}),
         children,
       },
     ],

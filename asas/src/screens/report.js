@@ -17,7 +17,9 @@ import { bidi } from '../core/arabic.js';
 import { jobOf, subscribeJob, startGeneration, cancelJob, settleFigures, PHASES } from '../report/pipeline.js';
 import { renderCover, renderToc, renderSection } from '../report/render.js';
 import { figureNumbers, figuresOf } from '../report/model.js';
-import { openSectionEditor, openImagePicker, openCoverEditor, openAddFigure, removeFigure } from '../report/sheets.js';
+import { openSectionEditor, openImagePicker, openCoverEditor, openAddFigure, removeFigure, openFormatSheet } from '../report/sheets.js';
+import { paperAttrs } from '../report/format.js';
+import { isEnglish } from '../report/style.js';
 import { toPlainText } from '../export/text.js';
 import { topbar } from './common.js';
 
@@ -108,12 +110,23 @@ export default {
       titleEl.textContent = bidi(report.title);
       secEls = [];
       secSig = [];
-      fill(paper, [renderCover(report), renderToc(report), h('div.secs')]);
+      applyFormat();
+      fill(paper, [h('div.pframe', { 'aria-hidden': 'true' }), renderCover(report), renderToc(report), h('div.secs')]);
       renderSections();
       renderNotices();
       renderGen();
       renderFooter();
       [btnWord, btnPdf, btnShare].forEach((b) => { b.disabled = busy() || !report.sections.length; });
+    }
+
+    /** لغة التقرير واتجاهه وتنسيقه على الورقة (العرض والطباعة). */
+    function applyFormat() {
+      const en = isEnglish(report);
+      paper.dir = en ? 'ltr' : 'rtl';
+      paper.lang = en ? 'en' : 'ar';
+      const a = paperAttrs(report);
+      Object.assign(paper.dataset, a.dataset);
+      for (const [k, v] of Object.entries(a.vars)) paper.style.setProperty(k, v);
     }
 
     function sigOf(i) {
@@ -228,6 +241,7 @@ export default {
       if (!report) return;
       const a = await actionSheet('خيارات التقرير', [
         { value: 'cover', label: 'تعديل العنوان وبيانات الغلاف', icon: 'edit' },
+        { value: 'format', label: 'التنسيق والشكل (الإطار، العناوين، الخط…)', icon: 'layers' },
         { value: 'addimg', label: 'إضافة صورة', icon: 'image' },
         { value: 'refetch', label: 'إعادة البحث عن الصور الناقصة', icon: 'refresh' },
         aiReady() ? { value: 'regen', label: 'إعادة كتابته بالذكاء الاصطناعي', icon: 'sparkles' } : null,
@@ -238,6 +252,7 @@ export default {
       if (!a) return;
       if (busy() && a !== 'copy') { toast('انتظر حتى يكتمل الإنشاء'); return; }
       if (a === 'cover') openCoverEditor(report, () => renderAll());
+      else if (a === 'format') openFormatSheet(report, () => renderAll());
       else if (a === 'addimg') openAddFigure(report, () => renderAll());
       else if (a === 'refetch') refetchImages();
       else if (a === 'regen') regenerate('ai');

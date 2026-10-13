@@ -6,8 +6,9 @@
 import { getType, sectionsOf, LENGTHS, LEVELS, REPORT_TYPES } from '../data/types.js';
 import { catName, CATEGORIES } from '../data/categories.js';
 import { mathPieces } from '../core/mathconv.js';
+import { planSections } from '../report/style.js';
 
-export const SYSTEM = `أنت «أساس»: مهندس مدني وأستاذ جامعي خبير، تكتب تقارير طلبة المرحلة الثانية في أقسام الهندسة المدنية بالجامعات العراقية (جامعة بغداد، جامعة كربلاء، الجامعة التكنولوجية وغيرها) باللغة العربية الفصحى الواضحة. مواد المرحلة الثانية: مقاومة المواد، والرياضيات الهندسية، وتكنولوجيا الخرسانة، والمساحة، وميكانيك الموائع.
+export const SYSTEM = `أنت «أساس»: مهندس مدني وأستاذ جامعي خبير، تكتب تقارير طلبة المرحلة الثانية في أقسام الهندسة المدنية بالجامعات العراقية (جامعة بغداد، جامعة كربلاء، الجامعة التكنولوجية وغيرها) باللغة العربية الفصحى الواضحة، أو بالإنجليزية إن طُلب ذلك. مواد المرحلة الثانية: مقاومة المواد، والرياضيات الهندسية، وتكنولوجيا الخرسانة، والمساحة، وميكانيك الموائع.
 
 # الدقة أولًا
 - اكتب معلومات هندسية ورياضية صحيحة ومتعارفًا عليها فقط، كما تُدرَّس في الكتب المنهجية. لا تخترع أرقام مواصفات أو قيمًا عددية أو حدود قبول أو أسماء باحثين أو مراجع.
@@ -22,8 +23,8 @@ export const SYSTEM = `أنت «أساس»: مهندس مدني وأستاذ ج�
 - كل بيانات لا تعرفها (أسماء، تواريخ، قراءات، أبعاد نماذج) ضعها بين قوسين معقوفين مثل [اسم المشرف] ليعرف الطالب أنها تحتاج تعديلًا. لا تستعمل الأقواس المعقوفة لأي غرض آخر.
 
 # أسلوب تقارير الجامعة
-- اكتب كما يكتب طالب متميّز تقريره المقدَّم لأستاذ المادة: علمي ومنظّم ومباشر، دون عبارات إنشائية فارغة.
-- اذكر المصطلح الإنجليزي بين قوسين عند أول ذكر للمصطلحات المهمة، مثل: قابلية التشغيل (Workability)، لأن المواد تُدرَّس بالإنجليزية.
+- التزم بأسلوب الكتابة ولغة التقرير وطريقة العناوين المحددة في الطلب؛ فهي تعلو على أي عادة لديك.
+- علمي ومنظّم ومباشر، دون عبارات إنشائية فارغة.
 - في المناقشة: فسّر النتائج وقارنها بالقيم النظرية أو حدود المواصفة، واذكر مصادر الخطأ، وأجب عن أسئلة المناقشة المعتادة لهذه التجربة إجابات دقيقة.
 - في الرياضيات: اكتب التعاريف والقوانين ثم الحلول خطوة بخطوة بترقيم واضح، وتحقق من الجواب بالتعويض حين يمكن.
 
@@ -32,7 +33,7 @@ export const SYSTEM = `أنت «أساس»: مهندس مدني وأستاذ ج�
 
 # التنسيق — مهم جدًا لأن التطبيق يحلّل النص آليًا
 - ابدأ مباشرة بأول قسم مطلوب. لا تكتب عنوانًا رئيسيًا ولا أي كلام قبل الأقسام أو بعدها.
-- اكتب الأقسام المطلوبة كلها بالترتيب نفسه وبالعناوين نفسها حرفيًا، كل عنوان في سطر مستقل بصيغة: ## العنوان
+- اكتب الأقسام المطلوبة كلها بالترتيب نفسه وبالعناوين نفسها حرفيًا (أو العناوين التي تختارها إن طُلب منك اختيارها)، كل عنوان في سطر مستقل بصيغة: ## العنوان
 - للعناوين الفرعية داخل القسم استعمل ### فقط.
 - القوائم المرقّمة: 1. ثم 2. ... والنقطية تبدأ بـ - ثم مسافة.
 - الجداول بصيغة Markdown: صف عناوين، ثم سطر |---|---|، ثم الصفوف. اكتب قبل الجدول سطرًا عريضًا يصفه مثل: **جدول (1): ...**
@@ -79,14 +80,56 @@ export function kbBrief(kb) {
   return out.join('\n\n');
 }
 
+/** تعليمات كل أسلوب كتابة. */
+const STYLE_RULES = {
+  natural: [
+    'اكتب كما يكتب طالب عادي في المرحلة الثانية تقريره بنفسه ليسلّمه لأستاذ المادة:',
+    '- لغة بسيطة وسليمة، جمل قصيرة ومتوسطة، وكلمات مألوفة لا معجمية ولا فخمة.',
+    '- فقرات متصلة في المقدمة والنظرية والمناقشة والخاتمة، والقوائم فقط للأجهزة والخطوات والنتائج.',
+    '- صيغة «نحن» عند وصف ما جرى في المختبر أو الحقل: قمنا بـ…، لاحظنا أن…، استعملنا…',
+    '- مقدمة قصيرة تدخل في الموضوع مباشرة، وخاتمة من 3 إلى 5 جمل أو نقاط بما استفدناه فعلًا.',
+    '- لا مبالغة ولا إنشاء: لا «في عالم اليوم» ولا «يلعب دورًا محوريًا» ولا «تجدر الإشارة» ولا «في الختام».',
+  ],
+  student: [
+    'اكتب كما يكتب طالب متميّز تقريره المقدَّم لأستاذ المادة: علمي ومنظّم ومباشر وواضح، مع شرح المصطلحات المهمة.',
+  ],
+  academic: [
+    'اكتب بأسلوب أكاديمي رصين: تعريفات دقيقة، ونظرية أعمق مع الاشتقاق حين يفيد، ولغة علمية محكمة دون حشو.',
+  ],
+};
+
+/** قواعد الكتابة الطبيعية (تقليل مظهر الذكاء الاصطناعي). */
+const HUMAN_RULES = [
+  '# كتابة طبيعية لا تبدو مولّدة آليًا',
+  '- نوّع أطوال الجمل وبداياتها، ولا تجعل الفقرات متماثلة البناء، ولا تكرر الفكرة نفسها بصيغ مختلفة.',
+  '- لا تستعمل الشرطة الطويلة (—) ولا علامات التنصيص «» ولا الرموز التعبيرية ولا التشكيل.',
+  '- قلّل الخط العريض جدًا: فقط للعناوين الداخلية في أول السطر مثل **تعريف:** و**مثال:** و**ملاحظة:** و**الحل:**.',
+  '- لا تختم كل قسم بجملة تلخيص، ولا تبدأ القسم بإعادة عنوانه.',
+  '- لا تذكر أنك نموذج ذكاء اصطناعي ولا تخاطب القارئ.',
+].join('\n');
+
+const LANG_RULES = {
+  mix: 'اللغة: العربية، مع المصطلح الإنجليزي بين قوسين عند أول ذكر للمصطلحات المهمة مثل: قابلية التشغيل (Workability)، لأن المواد تُدرَّس بالإنجليزية.',
+  ar: 'اللغة: العربية فقط. لا تكتب مصطلحات إنجليزية بين قوسين إلا نادرًا جدًا عند الضرورة؛ الرموز والوحدات والمعادلات تبقى بالحروف اللاتينية.',
+  en: 'LANGUAGE: Write the ENTIRE report in English only (clear academic English of a second-year civil engineering student at an Iraqi university). Section headings, tables, captions and equations explanations all in English. Do not write any Arabic.',
+};
+
 /** نص طلب كتابة التقرير. */
 export function reportPrompt({ title, typeId, cat, options = {}, details = '', readings = '', kb = null, meta = {} }) {
   const type = getType(typeId);
-  const secs = sectionsOf(type, cat);
+  const lang = options.lang || 'mix';
+  const en = lang === 'en';
+  const free = options.structure === 'free';
+  const secs = planSections(typeId, cat, { lang, structure: options.structure });
   const length = LENGTHS.find((l) => l.value === options.length) || LENGTHS[1];
   const level = LEVELS.find((l) => l.value === options.level) || LEVELS[0];
-  const sections = secs.map((s, i) => `${i + 1}. ${s.h} (${s.opt ? 'اختياري: اكتبه إن كان له مضمون حقيقي في هذا الموضوع وإلا فاحذفه بعنوانه — ' : ''}${s.g})`).join('\n');
   const uni = [meta.university, meta.college, meta.department].filter(Boolean).join(' — ');
+  const sectionsText = secs
+    ? secs.map((s, i) => `${i + 1}. ${s.h} (${s.opt ? 'اختياري: اكتبه إن كان له مضمون حقيقي في هذا الموضوع وإلا فاحذفه بعنوانه — ' : ''}${s.g})`).join('\n')
+    : null;
+  const freeText = en
+    ? 'Choose the section headings yourself to suit THIS topic specifically (6 to 10 sections), as students do in their reports: start with "## Introduction", end with "## Conclusion" then "## References", and in between use topic-specific headings (e.g. "Types of …", "Properties of …", "Factors Affecting …", "Test Procedure", "Worked Example"). Each heading on its own line as ## Heading.'
+    : 'اختر أنت عناوين الأقسام بما يناسب هذا الموضوع تحديدًا (من 6 إلى 10 أقسام) كما يفعل الطلبة في تقاريرهم: ابدأ بـ «## المقدمة» واختم بـ «## الخاتمة» ثم «## المصادر»، وبينها عناوين خاصة بالموضوع (مثل: أنواع …، خواص …، العوامل المؤثرة في …، طريقة الفحص، مثال محلول). كل عنوان في سطر بصيغة ## العنوان.';
   const parts = [
     'اكتب تقريرًا جامعيًا كاملًا بالمواصفات الآتية:',
     `العنوان: ${title}`,
@@ -94,10 +137,17 @@ export function reportPrompt({ title, typeId, cat, options = {}, details = '', r
     cat ? `المادة: ${catName(cat)} — المرحلة ${meta.stage || 'الثانية'}` : `المرحلة ${meta.stage || 'الثانية'} — قسم الهندسة المدنية`,
     uni ? `الجهة: ${uni} (التزم بالمصطلحات والأسلوب المعتاد في تقارير هذا القسم)` : '',
     meta.expNo ? `رقم التجربة أو التقرير: ${meta.expNo}` : '',
-    `الأسلوب: ${level.label} (${level.hint})`,
+    `# الأسلوب: ${level.label}\n${(STYLE_RULES[level.value] || STYLE_RULES.student).join('\n')}`,
+    options.human !== false ? HUMAN_RULES : '',
+    LANG_RULES[lang] || LANG_RULES.mix,
     `الطول المطلوب: ${length.label} — نحو ${length.words}`,
-    `الأقسام المطلوبة بالترتيب (اكتب كل عنوان حرفيًا بعد ##، وما بين القوسين إرشاد لمحتواه فلا تكتبه):\n${sections}`,
-    type.steps ? `الخطوات المرقّمة الرئيسية تكون في قسم «${type.steps}».` : '',
+    secs
+      ? `الأقسام المطلوبة بالترتيب (اكتب كل عنوان حرفيًا بعد ##، وما بين القوسين إرشاد لمحتواه فلا تكتبه${en ? '، واكتب المحتوى بالإنجليزية' : ''}):\n${sectionsText}`
+      : `${freeText}\n${en ? 'The report must still cover' : 'ويجب أن يغطي التقرير مع ذلك'}: ${sectionsOf(type, cat).filter((s) => !s.opt).map((s) => s.h).join('، ')}`,
+    type.steps && secs ? `الخطوات المرقّمة الرئيسية تكون في قسم «${secs.find((s) => s.ar === type.steps)?.h || type.steps}».` : '',
+    cat === 'math' || ['theory', 'solved', 'summary'].includes(type.id)
+      ? (en ? 'In explanations use bold inline labels at the start of lines: **Definition:**, **Example:**, **Note:**, **Solution:**.' : 'في الشرح استعمل عناوين داخلية عريضة في أول السطر كما في تقارير الطلبة: **تعريف:** و**مثال:** و**ملاحظة:** و**الحل:**.')
+      : '',
   ];
   const known = Object.entries({
     'الجهة أو الشركة': meta.org,
@@ -107,10 +157,10 @@ export function reportPrompt({ title, typeId, cat, options = {}, details = '', r
   }).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
   if (known.length) parts.push(`بيانات معروفة يجب استعمالها:\n${known.join('\n')}`);
   if (readings.trim()) parts.push(`قراءات الطالب الفعلية (استعملها كما هي في الجداول واحسب منها النتائج):\n${readings.trim()}`);
-  else if (type.readings) parts.push('لم يُعطِ الطالب قراءات: اترك خانات القراءات بين أقواس معقوفة بقيم نموذجية، واكتب مثالًا حسابيًا توضيحيًا.');
+  else if (type.readings) parts.push('لم يُعطِ الطالب قراءات: اترك خانات القراءات في الجدول بين أقواس معقوفة بقيم نموذجية، واكتب مثالًا حسابيًا توضيحيًا.');
   if (details.trim()) parts.push(`ملاحظات من الطالب يجب مراعاتها:\n${details.trim()}`);
-  if (kb) parts.push(`ملاحظات مرجعية موثوقة عن الموضوع (اعتمد عليها ولا تخالفها):\n${kbBrief(kb)}`);
-  parts.push(`ابدأ الآن مباشرة بالسطر: ## ${secs[0].h}`);
+  if (kb) parts.push(`ملاحظات مرجعية موثوقة عن الموضوع (اعتمد عليها ولا تخالفها${en ? '، واكتبها بالإنجليزية' : ''}):\n${kbBrief(kb)}`);
+  parts.push(secs ? `ابدأ الآن مباشرة بالسطر: ## ${secs[0].h}` : `ابدأ الآن مباشرة بالسطر: ## ${en ? 'Introduction' : 'المقدمة'}`);
   return parts.filter(Boolean).join('\n\n');
 }
 
@@ -138,7 +188,7 @@ export const FIGURE_SCHEMA = {
   additionalProperties: false,
 };
 
-export function figurePrompt({ title, typeId, cat, count, kb }) {
+export function figurePrompt({ title, typeId, cat, count, kb, lang = 'mix' }) {
   const type = getType(typeId);
   const secs = sectionsOf(type, cat).map((s, i) => `${i}. ${s.h}`).join('\n');
   return [
@@ -148,6 +198,7 @@ export function figurePrompt({ title, typeId, cat, count, kb }) {
     'وزّع الصور على أقسام مختلفة قدر الإمكان واختر القسم الأنسب لكل صورة.',
     'لكل صورة:\n- section: رقم القسم\n- caption_ar: تعليق عربي قصير دقيق لما تُظهره الصورة (بلا كلمة «شكل» وبلا ترقيم)\n- queries_en: ثلاث عبارات بحث إنجليزية قصيرة (2 إلى 4 كلمات) من الأدق إلى الأعم\n- must_show: وصف إنجليزي قصير لما يجب أن يظهر في الصورة حتى تُعدّ صحيحة',
     kb?.img?.length ? `عبارات بحث جُرّبت سابقًا لهذا الموضوع: ${kb.img.join('، ')}` : '',
+    lang === 'en' ? 'التقرير بالإنجليزية: اكتب caption_ar بالإنجليزية أيضًا.' : '',
   ].filter(Boolean).join('\n\n');
 }
 
@@ -243,7 +294,7 @@ export const EDIT_ACTIONS = [
   { id: 'math', label: 'رتّب المعادلات', text: 'أعد كتابة كل المعادلات والحسابات بصيغة LaTeX صحيحة: كل معادلة في سطر داخل كتلة ```eq، والقسمة \\frac{}{} دائمًا بلا «/»، والدلائل السفلية _{} والأسس ^{}، والرموز داخل الجمل بين $…$. لا تغيّر بقية النص.' },
 ];
 
-export function editPrompt({ title, typeId, sectionTitle, md, otherHeadings, instruction }) {
+export function editPrompt({ title, typeId, sectionTitle, md, otherHeadings, instruction, options = {} }) {
   const type = getType(typeId);
   return [
     `هذا قسم من تقرير «${title}» (${type.name}).`,
@@ -251,6 +302,8 @@ export function editPrompt({ title, typeId, sectionTitle, md, otherHeadings, ins
     `القسم المطلوب تعديله: «${sectionTitle}»`,
     `محتواه الحالي:\n<<<\n${md}\n>>>`,
     `التعليمات: ${instruction}`,
+    options.lang === 'en' ? 'The report is in English: write the new content in English.' : '',
+    options.human !== false ? 'اكتب بأسلوب طبيعي كأنه من الطالب: بلا شرطات طويلة ولا «» ولا عبارات قالبية، والعريض قليل.' : '',
     'اكتب المحتوى الجديد لهذا القسم فقط وبقواعد التنسيق نفسها، دون كتابة عنوان القسم (##) ودون أي تعليق قبله أو بعده.',
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 }

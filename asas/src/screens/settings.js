@@ -12,8 +12,10 @@ import { TOPICS } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
-import { coverPicker, pickLogo } from '../report/covers.js';
+import { coverPicker, logosRow, SUP_TITLES } from '../report/covers.js';
 import { freeModels, cachedModels, modelName } from '../ai/openrouter.js';
+import { formatControls } from '../report/format.js';
+import { LANGS, STRUCTURES, STYLES } from '../report/style.js';
 
 export default {
   mount(root) {
@@ -25,6 +27,10 @@ export default {
       aiCard,
       h('h2.sec', [icon('image', 18), 'الصور']),
       imagesCard(),
+      h('h2.sec', [icon('edit', 18), 'أسلوب الكتابة الافتراضي']),
+      writingCard(),
+      h('h2.sec', [icon('layers', 18), 'تنسيق التقارير الافتراضي']),
+      h('div.card', formatControls(() => state.format || {}, (patch) => update((s) => { s.format = { ...(s.format || {}), ...patch }; }, 'format'))),
       h('h2.sec', [icon('file', 18), 'بيانات الغلاف الافتراضية']),
       coverCard(),
       h('h2.sec', [icon('word', 18), 'التصدير']),
@@ -246,22 +252,12 @@ function coverCard() {
       h('div.grid2', [inp('department', 'القسم'), inp('stage', 'المرحلة', 'الثانية')]),
       h('div.grid2', [inp('author', 'اسمك', 'يظهر في الغلاف'), inp('group', 'الشعبة / المجموعة')]),
       inp('supervisor', 'المشرف (اختياري)'),
+      field('لقب المشرف', chipGroup([{ value: '', label: 'بلا' }, ...SUP_TITLES.map((t) => ({ value: t, label: t }))], c.supTitle || '', (v) => update((st) => { st.cover.supTitle = v; }, 'cover'))),
       settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(c.ministry !== false, (v) => update((st) => { st.cover.ministry = v; }, 'cover'))),
       settingRow('صفحة غلاف للتقارير الجديدة', 'تستطيع إلغاءها أو تغيير نمطها لكل تقرير', toggle(c.enabled !== false, (v) => { update((st) => { st.cover.enabled = v; }, 'cover'); render(); })),
       c.enabled !== false ? field('نمط الغلاف الافتراضي', coverPicker(sample, c.style || 'classic', (v) => update((st) => { st.cover.style = v; }, 'cover'))) : null,
-      h('div.logo-row', [
-        c.logo ? h('img', { src: c.logo, alt: 'الشعار' }) : null,
-        h('button.btn.sm', {
-          type: 'button',
-          onclick: async () => {
-            try {
-              const l = await pickLogo();
-              if (l) { update((st) => { st.cover.logo = l.src; st.cover.logoAR = l.ar; }, 'cover'); render(); }
-            } catch { toast('تعذّرت قراءة الصورة', 'err'); }
-          },
-        }, [icon('image', 15), c.logo ? 'تغيير شعار الجامعة' : 'شعار الجامعة (اختياري)']),
-        c.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { update((st) => { st.cover.logo = ''; }, 'cover'); render(); } }, 'إزالة') : null,
-      ]),
+      // تغييرات الشعارين تُحفظ في الإعدادات مباشرة
+      logosRow(new Proxy(state.cover, { set: (t, k, v) => { update((st) => { st.cover[k] = v; }, 'cover'); return true; } }), render, () => toast('تعذّرت قراءة الصورة', 'err')),
     ]);
   }
   // تقرير نموذجي لمعاينة الأنماط ببيانات الطالب المحفوظة
@@ -281,9 +277,25 @@ function exportCard() {
     field('خط ملف Word', sel, 'الخط المعتاد في تقارير الجامعات العراقية: Simplified Arabic بحجم 14.'),
     field('المعادلات في Word', chipGroup([{ value: 'image', label: 'صور واضحة' }, { value: 'native', label: 'معادلات Word قابلة للتعديل' }], e.wordMath || 'image', (v) => update((s) => { s.exportOpts.wordMath = v; }, 'export')),
       'الصور تظهر في كل البرامج مثل العرض تمامًا بكسور حقيقية بلا «/». معادلات Word تُعدَّل بمحرر المعادلات، وما فيه عربي يبقى صورة.'),
-    settingRow('فهرس المحتويات', null, toggle(e.toc, (v) => update((s) => { s.exportOpts.toc = v; }, 'export'))),
     settingRow('ذكر مصدر الصور ورخصتها', 'مستحسن أكاديميًا ومطلوب في بعض الرخص', toggle(e.attribution, (v) => update((s) => { s.exportOpts.attribution = v; }, 'export'))),
   ]);
+}
+
+/** الأسلوب واللغة والعناوين الافتراضية (تتغير أيضًا من صفحة الإنشاء لكل تقرير). */
+function writingCard() {
+  const box = h('div.card');
+  const draw = () => {
+    const p = state.prefs;
+    const set = (k) => (v) => { update((s) => { s.prefs[k] = v; }, 'prefs'); draw(); };
+    fill(box, [
+      field('الأسلوب', chipGroup(STYLES.map((x) => ({ value: x.value, label: x.label })), p.level, set('level')), STYLES.find((x) => x.value === p.level)?.hint),
+      field('اللغة', chipGroup(LANGS.map((x) => ({ value: x.value, label: x.label })), p.lang || 'mix', set('lang'))),
+      field('عناوين الأقسام', chipGroup(STRUCTURES.map((x) => ({ value: x.value, label: x.label })), p.structure || 'fixed', set('structure'))),
+      settingRow('كتابة طبيعية كأنها من الطالب', 'بلا عبارات قالبية ولا شرطات طويلة ولا «» ولا تشكيل، وعريض أقل', toggle(p.human !== false, set('human'))),
+    ]);
+  };
+  draw();
+  return box;
 }
 
 function lookCard() {

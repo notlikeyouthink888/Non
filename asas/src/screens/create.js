@@ -19,8 +19,9 @@ import { newReport } from '../report/model.js';
 import { startGeneration } from '../report/pipeline.js';
 import { topbar, kbBadge } from './common.js';
 import { modelName } from '../ai/openrouter.js';
-import { coverPicker, pickLogo, COVER_BY_ID } from '../report/covers.js';
+import { coverPicker, COVER_BY_ID, peopleFields, logosRow } from '../report/covers.js';
 import { bidi } from '../core/arabic.js';
+import { LANGS, STRUCTURES } from '../report/style.js';
 import { fmtDate } from '../core/fmt.js';
 
 const DETAIL_HINTS = {
@@ -46,6 +47,9 @@ export default {
       typeId: TYPE_BY_ID[query.get('type')] ? query.get('type') : topic?.types[0] || detectType(qTitle) || 'theory',
       length: state.prefs.length,
       level: LEVELS.some((l) => l.value === state.prefs.level) ? state.prefs.level : LEVELS[0].value,
+      lang: state.prefs.lang || 'mix',
+      structure: state.prefs.structure || 'fixed',
+      human: state.prefs.human !== false,
       images: null,
       details: '',
       readings: '',
@@ -136,19 +140,7 @@ export default {
       fill(metaBox, [
         settingRow('صفحة غلاف', st.cover ? 'غلاف بالنمط المختار في العرض وPDF وWord' : 'التقرير يبدأ بالعنوان مباشرة دون صفحة غلاف', toggle(st.cover, (v) => { st.cover = v; renderMeta(); })),
         st.cover ? field('نمط الغلاف', coverPicker(previewReport, st.meta.coverStyle, (v) => { st.meta.coverStyle = v; updateCoverSum(); }), 'المعاينة ببيانات تقريرك؛ تستطيع تغيير النمط لاحقًا من «تعديل العنوان وبيانات الغلاف».') : null,
-        st.cover ? h('div.logo-row.mb', [
-          st.meta.logo ? h('img', { src: st.meta.logo, alt: 'الشعار' }) : null,
-          h('button.btn.sm', {
-            type: 'button',
-            onclick: async () => {
-              try {
-                const l = await pickLogo();
-                if (l) { st.meta.logo = l.src; st.meta.logoAR = l.ar; renderMeta(); }
-              } catch { toast('تعذّرت قراءة الصورة', 'err'); }
-            },
-          }, [icon('image', 15), st.meta.logo ? 'تغيير الشعار' : 'شعار الجامعة (اختياري)']),
-          st.meta.logo ? h('button.btn.sm.ghost', { type: 'button', onclick: () => { st.meta.logo = ''; renderMeta(); } }, 'إزالة') : null,
-        ]) : null,
+        st.cover ? logosRow(st.meta, renderMeta, () => toast('تعذّرت قراءة الصورة', 'err')) : null,
         field('الجامعة', chipGroup(
           [...UNIVERSITIES.map((u) => ({ value: u.id, label: u.name })), { value: 'other', label: 'أخرى' }],
           other ? 'other' : st.meta.uni,
@@ -163,12 +155,29 @@ export default {
         h('div.grid2', [metaInput('author', 'اسم الطالب', 'اسمك الثلاثي'), metaInput('group', 'الشعبة / المجموعة', 'مثال: أ')]),
         h('div.grid2', [metaInput('supervisor', 'بإشراف', 'اسم الأستاذ أو المشرف'), metaInput('date', labLike ? 'تاريخ التجربة' : 'التاريخ')]),
         labLike ? h('div.grid2', [metaInput('submitDate', 'تاريخ التسليم', 'اختياري'), h('div')]) : null,
+        ...peopleFields(st.meta),
         site ? h('div.grid2', [metaInput('org', 'الجهة / الشركة'), metaInput('location', 'الموقع')]) : null,
         settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(st.meta.ministry !== false, (v) => { st.meta.ministry = v; })),
         h('label.row', { style: { gap: '8px', fontSize: '13px' } }, [
           h('input', { type: 'checkbox', checked: st.saveCover, onchange: (e) => { st.saveCover = e.target.checked; } }),
           'احفظ هذه البيانات لتقاريري القادمة',
         ]),
+      ]);
+    }
+
+    /** خيارات الكتابة: الأسلوب واللغة والعناوين والكتابة الطبيعية. */
+    const writingBox = h('div');
+    function renderWriting() {
+      const ai = aiReady();
+      const lv = LEVELS.find((l) => l.value === st.level) || LEVELS[0];
+      const lg = LANGS.find((l) => l.value === st.lang) || LANGS[0];
+      const sr = STRUCTURES.find((x) => x.value === st.structure) || STRUCTURES[0];
+      fill(writingBox, [
+        field('الأسلوب', chipGroup(LEVELS.map((l) => ({ value: l.value, label: l.label })), st.level, (v) => { st.level = v; renderWriting(); }), lv.hint),
+        field('اللغة', chipGroup(LANGS.map((l) => ({ value: l.value, label: l.label })), st.lang, (v) => { st.lang = v; renderWriting(); }),
+          st.lang === 'en' && !ai ? 'الإنجليزية تحتاج الذكاء الاصطناعي؛ النسخة دون اتصال بالعربية.' : lg.hint),
+        field('عناوين الأقسام', chipGroup(STRUCTURES.map((x) => ({ value: x.value, label: x.label })), st.structure, (v) => { st.structure = v; renderWriting(); }), sr.hint),
+        settingRow('كتابة طبيعية كأنها من الطالب', 'بلا عبارات قالبية ولا شرطات طويلة ولا «» ولا تشكيل، وعريض أقل', toggle(st.human, (v) => { st.human = v; })),
       ]);
     }
 
@@ -199,7 +208,7 @@ export default {
 
         h('h2.sec', 'الخيارات'),
         field('الطول', chipGroup(LENGTHS.map((l) => ({ value: l.value, label: `${l.label} (${l.words.split(' ')[0]}+ كلمة)` })), st.length, (v) => { st.length = v; })),
-        field('الأسلوب', chipGroup(LEVELS.map((l) => ({ value: l.value, label: l.label })), st.level, (v) => { st.level = v; })),
+        writingBox,
         h('div.row-set', [
           h('div.grow', [h('div.t', 'عدد الصور'), h('div.s', state.images.enabled ? 'صور حقيقية من ويكيبيديا وويكيميديا كومنز يتحقق منها التطبيق' : 'جلب الصور معطّل من الإعدادات')]),
           h('div.stepper', [
@@ -232,6 +241,7 @@ export default {
     );
 
     renderSubjects();
+    renderWriting();
     renderTypes();
     renderReadings();
     renderMeta();
@@ -242,8 +252,11 @@ export default {
       update((s) => {
         s.prefs.length = st.length;
         s.prefs.level = st.level;
+        s.prefs.lang = st.lang;
+        s.prefs.structure = st.structure;
+        s.prefs.human = st.human;
         if (st.saveCover) {
-          ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'ministry', 'logo', 'logoAR'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
+          ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'supTitle', 'students', 'ministry', 'logo', 'logoAR', 'logo2', 'logo2AR'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
           s.cover.style = st.meta.coverStyle;
           s.cover.enabled = st.cover;
         }
@@ -252,7 +265,7 @@ export default {
         title,
         typeId: st.typeId,
         topicId: topic?.id || null,
-        options: { length: st.length, level: st.level, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId, cover: st.cover },
+        options: { length: st.length, level: st.level, lang: st.lang, structure: st.structure, human: st.human, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId, cover: st.cover },
         meta: { ...st.meta, subject: CAT_BY_ID[st.catId]?.name || '' },
       });
       if (imgHint) report.imgHint = imgHint;
