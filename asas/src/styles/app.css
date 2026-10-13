@@ -295,6 +295,18 @@ details.more-opts[open] > summary { border-bottom: 1px solid var(--line); margin
 .notice.err { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
 .notice .ico { margin-top: 3px; }
 
+/* مزوّد الذكاء الاصطناعي وخانات المفاتيح */
+.prov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prov { text-align: start; padding: 11px 12px; border-radius: 13px; border: 1.5px solid var(--line); background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
+.prov.on { border-color: var(--accent); background: var(--accent-soft); }
+.prov .s { font-size: 12px; color: var(--fg-2); line-height: 1.6; }
+.prov strong { font-size: 15px; }
+@media (max-width: 380px) { .prov-grid { grid-template-columns: 1fr; } }
+input.secret { -webkit-text-security: disc; }
+input.secret.show { -webkit-text-security: none; }
+ol.steps-mini { margin: 4px 0 12px; padding-inline-start: 20px; font-size: 13px; line-height: 1.8; color: var(--fg-2); }
+ol.steps-mini a { color: var(--accent-2); }
+
 /* مراحل التوليد */
 .phases { display: flex; flex-direction: column; gap: 2px; }
 .phase { display: flex; align-items: center; gap: 10px; padding: 7px 2px; font-size: 13.5px; color: var(--fg-3); }

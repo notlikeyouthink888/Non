@@ -7,6 +7,12 @@ const KEY = 'asas.state.v1';
 const listeners = new Set();
 let saveTimer = null;
 
+/** مزوّدو الذكاء الاصطناعي: OpenRouter بنماذجه المجانية، أو Claude المدفوع الأدق. */
+export const PROVIDERS = [
+  { id: 'openrouter', name: 'OpenRouter', badge: 'مجاني', note: 'نماذج مجانية بحد 50 طلبًا في اليوم — جيدة للتقارير، وأقل دقة من Claude في الحسابات' },
+  { id: 'claude', name: 'Claude', badge: 'الأدق', note: 'مدفوع بالاستهلاك — أعلى دقة في العربية والحسابات والتحقق من الصور' },
+];
+
 export const MODELS = [
   { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', note: 'أعلى جودة ودقة — الافتراضي', inPrice: 4, outPrice: 20, fallbacks: true },
   { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', note: 'جودة عالية بنصف الكلفة تقريبًا', inPrice: 2, outPrice: 10, fallbacks: true },
@@ -22,12 +28,18 @@ export const EFFORTS = [
 export const defaults = {
   meta: { createdAt: Date.now(), version: 1, onboarded: false },
   ai: {
-    mode: 'key',               // key | proxy
-    apiKey: '',
+    provider: 'openrouter',    // openrouter | claude
+    mode: 'key',               // Claude: key | proxy
+    apiKey: '',                // مفتاح Claude
     proxyUrl: '',
     proxyToken: '',
     model: 'claude-opus-5-5',
     effort: 'high',
+    openrouter: {
+      apiKey: '',              // sk-or-v1-…
+      model: 'auto',           // auto = أفضل نموذج مجاني متاح الآن، أو معرّف نموذج محدد
+      visionModel: 'auto',
+    },
     verifyImages: true,        // تحقّق الذكاء الاصطناعي من مطابقة الصور للموضوع
     usage: { input: 0, output: 0, cost: 0, calls: 0, reports: 0 },
   },
@@ -67,7 +79,14 @@ function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(defaults);
-    return deepMerge(structuredClone(defaults), JSON.parse(raw));
+    const saved = JSON.parse(raw);
+    const st = deepMerge(structuredClone(defaults), saved);
+    // من حفظ مفتاح Claude قبل إضافة OpenRouter يبقى على Claude
+    if (!saved.ai?.provider) {
+      const hadClaude = cleanKey(saved.ai?.apiKey).length > 20 || /^https?:\/\//.test(String(saved.ai?.proxyUrl || '').trim());
+      st.ai.provider = hadClaude ? 'claude' : 'openrouter';
+    }
+    return st;
   } catch (err) {
     console.warn('[store] تعذّرت القراءة، سنبدأ من الحالة الابتدائية', err);
     return structuredClone(defaults);
@@ -115,20 +134,36 @@ export function modelInfo(id = state.ai.model) {
   return MODELS.find((m) => m.id === id) || MODELS[0];
 }
 
+/**
+ * ينظّف مفتاحًا ملصوقًا: يزيل المسافات والأسطر وعلامات الاتجاه والمحارف الخفية
+ * التي تلتصق به عند النسخ من المتصفح أو من تطبيقات المراسلة.
+ */
+export function cleanKey(k) {
+  return String(k ?? '').replace(/[\s\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, '');
+}
+
 /** هل الذكاء الاصطناعي مهيّأ للعمل؟ */
 export function aiReady() {
   const a = state.ai;
+  if (a.provider === 'openrouter') return cleanKey(a.openrouter.apiKey).length > 20;
   if (a.mode === 'proxy') return /^https?:\/\//.test(a.proxyUrl.trim());
-  return a.apiKey.trim().length > 20;
+  return cleanKey(a.apiKey).length > 20;
 }
 
-/** يسجّل استهلاك الرموز وكلفتها التقريبية بالدولار. */
+/**
+ * يسجّل استهلاك الرموز وكلفتها التقريبية بالدولار.
+ * يقبل صيغة Claude (input_tokens) وصيغة OpenRouter (prompt_tokens)؛ نماذج OpenRouter المجانية بلا كلفة.
+ */
 export function addUsage(usage, modelId) {
-  if (!usage) return 0;
+  if (!usage) {
+    if (modelId) update((s) => { s.ai.usage.calls += 1; }, 'usage');
+    return 0;
+  }
+  const free = 'prompt_tokens' in usage || 'completion_tokens' in usage;
   const m = modelInfo(modelId);
-  const input = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) * 1.25 + (usage.cache_read_input_tokens || 0) * 0.05;
-  const output = usage.output_tokens || 0;
-  const cost = (input * m.inPrice + output * m.outPrice) / 1e6;
+  const input = free ? (usage.prompt_tokens || 0) : (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) * 1.25 + (usage.cache_read_input_tokens || 0) * 0.05;
+  const output = free ? (usage.completion_tokens || 0) : usage.output_tokens || 0;
+  const cost = free ? 0 : (input * m.inPrice + output * m.outPrice) / 1e6;
   update((s) => {
     s.ai.usage.input += Math.round(input);
     s.ai.usage.output += output;

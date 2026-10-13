@@ -52,7 +52,7 @@ function pageOf(f, i) {
   };
 }
 
-export const stats = { claude: [], images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
+export const stats = { claude: [], openrouter: [], orModels: 0, orKey: 0, images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
 
 async function onWikimedia(route) {
   const url = new URL(route.request().url());
@@ -103,8 +103,7 @@ function reportMarkdown(prompt) {
   }).join('\n\n');
 }
 
-function jsonFor(body) {
-  const props = body.output_config?.format?.schema?.properties || {};
+function jsonFor(body, props = body.output_config?.format?.schema?.properties || {}) {
   if (props.figures) {
     const n = Number((JSON.stringify(body.messages).match(/خطّط (\d+) صورة/) || [])[1] || 2);
     return { figures: Array.from({ length: n }, (_, i) => ({
@@ -201,10 +200,108 @@ async function onClaude(route) {
   return json(route, message(JSON.stringify(jsonFor(body)), body.model));
 }
 
+/* ── OpenRouter ──────────────────────────────────── */
+
+const free = (id, name, ctx, inMods, params, maxOut) => ({
+  id, name, context_length: ctx, architecture: { input_modalities: inMods, output_modalities: ['text'] },
+  pricing: { prompt: '0', completion: '0', request: '0' }, top_provider: { context_length: ctx, max_completion_tokens: maxOut || null }, supported_parameters: params,
+});
+export const OR_MODELS = { data: [
+  free('qwen/qwen3-235b-a22b:free', 'Qwen: Qwen3 235B A22B (free)', 131072, ['text'], ['max_tokens', 'temperature', 'response_format', 'structured_outputs', 'reasoning'], 16384),
+  free('deepseek/deepseek-chat-v3.1:free', 'DeepSeek: DeepSeek V3.1 (free)', 163840, ['text'], ['max_tokens', 'temperature', 'response_format']),
+  free('google/gemma-4-31b-it:free', 'Google: Gemma 4 31B (free)', 131072, ['text', 'image'], ['max_tokens', 'temperature', 'response_format', 'structured_outputs'], 8192),
+  free('meta-llama/llama-3.3-70b-instruct:free', 'Meta: Llama 3.3 70B Instruct (free)', 65536, ['text'], ['max_tokens', 'temperature']),
+  free('meta-llama/llama-guard-4-12b:free', 'Meta: Llama Guard 4 12B (free)', 163840, ['text', 'image'], ['max_tokens']),
+  free('openrouter/free', 'Free Models Router', 200000, ['text', 'image'], ['max_tokens', 'response_format', 'structured_outputs']),
+  { id: 'openai/gpt-5', name: 'OpenAI: GPT-5', context_length: 400000, architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] }, pricing: { prompt: '0.00000125', completion: '0.00001' }, supported_parameters: ['max_tokens'] },
+] };
+
+function orError(route, status, message) {
+  return route.fulfill({ status, headers: { ...CORS, 'content-type': 'application/json' }, body: JSON.stringify({ error: { code: status, message } }) });
+}
+
+/** يتحقق من شكل طلب OpenRouter: المفتاح، سلسلة النماذج المجانية، والرسائل. */
+function orValidate(req, body) {
+  const h = req.headers();
+  const problems = [];
+  if (!/^Bearer sk-or-/.test(h.authorization || '')) problems.push('Authorization مفقود أو غير صحيح');
+  if (h['x-api-key'] || h['anthropic-version']) problems.push('رؤوس Anthropic في طلب OpenRouter');
+  if (!Array.isArray(body.models) || !body.models.length || body.models.length > 3) problems.push('models غير صحيح');
+  else {
+    if (body.models[body.models.length - 1] !== 'openrouter/free') problems.push('الموجّه المجاني ليس آخر بديل');
+    if (body.models.some((m) => m !== 'openrouter/free' && !m.endsWith(':free'))) problems.push('نموذج غير مجاني في السلسلة');
+    if (body.models.some((m) => /guard/.test(m))) problems.push('نموذج أمان في السلسلة');
+    if (body.model !== body.models[0]) problems.push('model لا يطابق أول البدائل');
+  }
+  if (body.thinking || body.output_config || body.system || body.fallbacks || body.betas) problems.push('حقول Claude في طلب OpenRouter');
+  if (!Array.isArray(body.messages) || body.messages[0]?.role !== 'system') problems.push('رسالة system مفقودة');
+  if (!body.max_tokens || body.max_tokens > 16000) problems.push('max_tokens غير مضبوط');
+  return problems;
+}
+
+function orSse(text, model) {
+  const chunks = text.match(/[\s\S]{1,50}/g) || [];
+  const ev = (o) => `data: ${JSON.stringify({ id: 'gen-mock', object: 'chat.completion.chunk', created: 1, model, ...o })}\n\n`;
+  return [
+    ': OPENROUTER PROCESSING\n\n',
+    ev({ choices: [{ index: 0, delta: { role: 'assistant', content: '', reasoning: 'أخطط لهيكل التقرير' }, finish_reason: null }] }),
+    ': OPENROUTER PROCESSING\n\n',
+    ...chunks.map((c) => ev({ choices: [{ index: 0, delta: { content: c }, finish_reason: null }] })),
+    ev({ choices: [{ index: 0, delta: {}, finish_reason: 'stop', native_finish_reason: 'stop' }], usage: { prompt_tokens: 3100, completion_tokens: Math.round(text.length / 3), total_tokens: 4000 } }),
+    'data: [DONE]\n\n',
+  ].join('');
+}
+
+async function onOpenRouter(route) {
+  const req = route.request();
+  const url = new URL(req.url());
+  if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+  const auth = req.headers().authorization || '';
+  if (url.pathname === '/api/v1/models') { stats.orModels++; return json(route, OR_MODELS); }
+  if (/bad/.test(auth)) return orError(route, 401, 'No auth credentials found');
+  if (url.pathname === '/api/v1/key') {
+    stats.orKey++;
+    return json(route, { data: { label: 'sk-or-v1-abc...xyz', limit: null, limit_remaining: null, usage: 0, usage_daily: 0, is_free_tier: true } });
+  }
+  if (url.pathname !== '/api/v1/chat/completions') return orError(route, 404, 'Not found');
+  if (/policy/.test(auth)) return orError(route, 404, 'No endpoints found matching your data policy (Free model publication). Configure: https://openrouter.ai/settings/privacy');
+  if (/limit/.test(auth)) return orError(route, 429, 'Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day');
+  const body = JSON.parse(req.postData() || '{}');
+  const problems = orValidate(req, body);
+  const all = JSON.stringify(body.messages);
+  const images = all.split('"type":"image_url"').length - 1;
+  const user = body.messages?.[1]?.content;
+  const userText = typeof user === 'string' ? user : (user || []).filter((p) => p.type === 'text').map((p) => p.text).join('\n');
+  const sys = body.messages?.[0]?.content || '';
+  let kind = body.stream ? 'stream' : 'json';
+  if (!body.stream) {
+    if (images && !/data:image\/jpeg;base64,/.test(all)) problems.push('صورة ليست data URL');
+    const props = body.response_format?.json_schema?.schema?.properties
+      || Object.fromEntries(['figures', 'choices', 'titles', 'ok'].filter((k) => sys.includes(`"${k}"`)).map((k) => [k, {}]));
+    kind = Object.keys(props)[0] || 'json';
+    stats.openrouter.push({ kind, models: body.models, problems, images, rf: body.response_format?.type || null });
+    // ردّ بشرح وعلامات ``` حول JSON ليُختبر الاستخراج المتسامح
+    const content = 'هذا هو الرد المطلوب:\n```json\n' + JSON.stringify(jsonFor(body, props), null, 1) + '\n```';
+    return json(route, { id: 'gen-mock', model: body.models[0], choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }], usage: { prompt_tokens: 900, completion_tokens: 120, total_tokens: 1020 } });
+  }
+  stats.openrouter.push({ kind, models: body.models, problems, images, rf: null });
+  const isEdit = userText.includes('القسم المطلوب تعديله');
+  if (!isEdit) stats.lastReportPrompt = userText;
+  // نموذج مجاني يكتب أحيانًا عناوين بصيغ مختلفة، ويضع تفكيره بين <think>
+  const text = isEdit
+    ? 'نص القسم بعد إعادة الصياغة بنموذج مجاني.\n\n1. خطوة أولى محسّنة.\n2. خطوة ثانية محسّنة.'
+    : '<think>أرتب الأقسام حسب الهيكل المطلوب</think>\n' + reportMarkdown(userText)
+      .replace(/^## (.+)$/m, '### $1')
+      .replace(/\n## ([^\n]+)\n/, '\n**$1**\n');
+  await new Promise((r) => setTimeout(r, 300));
+  return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: orSse(text, body.models[0]) });
+}
+
 /** يربط كل المحاكيات بصفحة Playwright ويمنع أي اتصال حقيقي آخر. */
 export async function installMocks(page) {
   await page.route(/^https:\/\/api\.anthropic\.com\//, onClaude);
+  await page.route(/^https:\/\/openrouter\.ai\/api\//, onOpenRouter);
   await page.route(/^https:\/\/(commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org)\//, onWikimedia);
   await page.route(/^https:\/\/api\.openverse\.org\//, onOpenverse);
-  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost|api\.anthropic\.com|commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org|api\.openverse\.org)/, (r) => r.abort());
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost|api\.anthropic\.com|openrouter\.ai\/api|commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org|api\.openverse\.org)/, (r) => r.abort());
 }

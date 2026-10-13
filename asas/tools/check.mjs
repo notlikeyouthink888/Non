@@ -119,8 +119,10 @@ async function flows(page) {
 
   /* ── 3ب. مفتاح خاطئ: رسالة عربية واضحة لا انهيار ── */
   await page.goto(BASE + '#/settings');
-  await page.locator('input[placeholder="sk-ant-…"]').fill('sk-ant-bad-0123456789abcdefghijklmnop');
-  await page.locator('input[placeholder="sk-ant-…"]').blur();
+  await page.locator('.prov', { has: page.locator('strong', { hasText: /^Claude$/ }) }).click();
+  await page.waitForSelector('input[placeholder="sk-ant-api03-…"]');
+  await page.locator('input[placeholder="sk-ant-api03-…"]').fill('sk-ant-api03-bad-0123456789abcdefghijklmnop');
+  await page.locator('input[placeholder="sk-ant-api03-…"]').blur();
   await page.goto(BASE + '#/create?topic=curing');
   await page.waitForSelector('.type-card.on');
   await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
@@ -130,12 +132,13 @@ async function flows(page) {
 
   /* ── 4. تفعيل الذكاء الاصطناعي ──────────────── */
   await page.goto(BASE + '#/settings');
-  await page.locator('input[placeholder="sk-ant-…"]').fill('sk-ant-test-0123456789abcdefghijklmnop');
-  await page.locator('input[placeholder="sk-ant-…"]').blur();
-  await sleep(200);
-  await page.getByText('اختبار الاتصال').click();
+  await page.waitForSelector('input[placeholder="sk-ant-api03-…"]');
+  // بعض لوحات مفاتيح أندرويد تضع النص الملصوق دون حدث input: نضع القيمة مباشرة بلا أحداث
+  await page.evaluate(() => { document.querySelector('input[name="asas-api-key"]').value = ' sk-ant-api03-test-0123456789abcdefghijklmnop\u200f\n'; });
+  await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
   await page.waitForSelector('text=تم الاتصال', { timeout: 10000 });
-  ok('الإعدادات: اختبار الاتصال بـ Claude ناجح');
+  ok('مفتاح ملصوق دون حدث input (كما في صورة الخطأ) يُقرأ ويُنظَّف ويُختبر بنجاح');
+  assert(await page.locator('.notice', { hasText: 'مفعّل — يكتب التقارير' }).count() === 1, 'الحالة تتحدث فورًا إلى «مفعّل» دون إعادة فتح الصفحة');
   await shot(page, '06-settings');
 
   /* ── 5. اقتراح عناوين ثم تقرير بالذكاء الاصطناعي ── */
@@ -210,6 +213,52 @@ async function flows(page) {
   assert(stats.lastReportPrompt.includes('قراءات الطالب الفعلية') && stats.lastReportPrompt.includes('h1 = 0.352'), 'قراءات الطالب تصل إلى الذكاء الاصطناعي ليحسب منها النتائج');
   assert(await page.locator('.rsec').count() === 9, 'تقرير مختبر الموائع: 9 أقسام (المواصفة خاصة بالخرسانة والمقاومة)');
 
+  /* ── 8ج. OpenRouter المجاني ─────────────────── */
+  await page.goto(BASE + '#/settings');
+  await page.locator('.prov', { has: page.locator('strong', { hasText: /^OpenRouter$/ }) }).click();
+  await page.waitForSelector('input[placeholder="sk-or-v1-…"]');
+  await appear(page.locator('.item', { hasText: 'تلقائي — الأفضل المتاح الآن' }));
+  const orList = await page.locator('.list .item').allInnerTexts();
+  assert(orList.some((t) => t.includes('Qwen3 235B')) && orList.some((t) => t.includes('Gemma 4 31B')), 'OpenRouter: قائمة النماذج المجانية تُجلب حيّة ومرتّبة');
+  assert(!orList.some((t) => /Guard|GPT-5|Router/.test(t)), 'OpenRouter: لا نماذج مدفوعة ولا مصنِّفات أمان في القائمة');
+  const setKey = (k) => page.evaluate((v) => { document.querySelector('input[name="asas-api-key"]').value = v; }, k);
+  await setKey('sk-or-v1-policy-0123456789abcdef0123456789');
+  await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
+  await appear(page.locator('span', { hasText: 'إعدادات الخصوصية' }));
+  assert(await page.locator('span', { hasText: 'openrouter.ai/settings/privacy' }).count() === 1, 'OpenRouter: خطأ سياسة البيانات يشرح كيف تُفعَّل النماذج المجانية');
+  await setKey('sk-or-v1-bad-0123456789abcdef0123456789');
+  await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
+  await appear(page.locator('span', { hasText: 'مفتاح OpenRouter غير صحيح' }));
+  assert(await page.locator('span', { hasText: 'مفتاح OpenRouter غير صحيح' }).count() === 1, 'OpenRouter: مفتاح خاطئ برسالة عربية واضحة');
+  await setKey('sk-or-v1-good-0123456789abcdef0123456789');
+  await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
+  await page.waitForSelector('text=تم الاتصال — يكتب بـ Qwen3 235B', { timeout: 10000 });
+  ok('OpenRouter: اختبار الاتصال ناجح مع اسم النموذج والحد اليومي');
+  await shot(page, '13-settings-openrouter');
+
+  await page.goto(BASE + '#/?q=' + encodeURIComponent('الطائرات المسيرة في المساحة'));
+  await page.getByText('اقترح عناوين بالذكاء الاصطناعي').click();
+  await page.waitForSelector('text=مقارنة المسح بالطائرات المسيّرة', { timeout: 10000 });
+  assert(await page.locator('.card .item').count() === 3, 'OpenRouter: اقتراح العناوين (JSON داخل شرح وعلامات ``` يُقرأ بتسامح)');
+
+  await page.goto(BASE + '#/create?topic=reynolds');
+  await page.waitForSelector('.type-card.on');
+  assert(await page.getByText('سيُكتب مجانًا عبر OpenRouter').count() === 1, 'صفحة الإنشاء تذكر الكتابة المجانية عبر OpenRouter');
+  await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+  await page.waitForURL(/#\/report\//);
+  await waitDone(page, 40000);
+  const orText = await page.locator('.paper').innerText();
+  assert(await page.locator('.rsec').count() === 9, 'OpenRouter: تقرير مختبر كامل بأقسامه التسعة رغم اختلاف صيغ العناوين (### و**…**)');
+  assert(!/think|أرتب الأقسام/.test(orText), 'OpenRouter: أفكار النموذج (<think>) لا تظهر في التقرير');
+  await page.waitForFunction(() => document.querySelectorAll('figure.fig img').length >= 1, null, { timeout: 15000 });
+  assert((await page.content()).includes('OpenRouter — Qwen3 235B'), 'التقرير يذكر النموذج المجاني الذي كتبه');
+  const orBad = stats.openrouter.filter((c) => c.problems.length);
+  assert(!orBad.length, `كل طلبات OpenRouter سليمة: مفتاح، سلسلة نماذج مجانية تنتهي بالموجّه، بلا حقول Claude (${stats.openrouter.length})` + (orBad.length ? ' — ' + JSON.stringify(orBad[0]) : ''));
+  const vis = stats.openrouter.filter((c) => c.kind === 'choices');
+  assert(vis.length >= 1 && vis.every((c) => c.images >= 1 && c.images <= 6 && c.models[0].includes('gemma')), `OpenRouter: التحقق البصري بنموذج يرى الصور وبدفعات صغيرة (${vis.map((c) => c.images).join('، ')} صورة)`);
+  assert(stats.openrouter.some((c) => c.kind === 'figures' && c.rf === 'json_schema'), 'OpenRouter: مخطط JSON صارم للنماذج التي تدعمه');
+  assert(stats.orModels >= 1 && stats.orKey >= 1, 'OpenRouter: قائمة النماذج والتحقق من المفتاح عبر /models و/key');
+
   /* ── 9. المكتبة والحذف ───────────────────────── */
   await page.goto(BASE + '#/library');
   await page.waitForSelector('.list .item');
@@ -271,7 +320,8 @@ async function main() {
     });
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('response', (r) => {
-      const expected = /Broken_file/.test(r.url()) || (r.status() === 401 && /api\.anthropic\.com/.test(r.url()));
+      const expected = /Broken_file/.test(r.url()) || (r.status() === 401 && /api\.anthropic\.com/.test(r.url()))
+        || ([401, 404, 429].includes(r.status()) && /openrouter\.ai\/api/.test(r.url()));
       if (r.status() >= 400 && !expected) errors.push(`HTTP ${r.status()}: ${r.url()}`);
     });
 
@@ -291,6 +341,7 @@ async function main() {
     process.exit(1);
   }
   writeFileSync(join(OUT, 'claude-requests.json'), JSON.stringify(stats.claude, null, 2));
+  writeFileSync(join(OUT, 'openrouter-requests.json'), JSON.stringify(stats.openrouter, null, 2));
   console.log(`\n✓ نجحت كل الفحوصات (${passed}).`);
 }
 

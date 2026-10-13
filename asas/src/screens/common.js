@@ -3,7 +3,8 @@
 import { h } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { go, back } from '../core/nav.js';
-import { state, aiReady, modelInfo } from '../core/store.js';
+import { state, aiReady } from '../core/store.js';
+import { aiShortLabel } from '../ai/client.js';
 import { getType, TYPE_BY_ID } from '../data/types.js';
 import { CAT_BY_ID } from '../data/categories.js';
 import { KB } from '../data/kb/index.js';
@@ -30,7 +31,7 @@ export function aiPill() {
   const on = aiReady();
   return h('button.pill-ai' + (on ? '.on' : '.off'), { type: 'button', title: on ? 'الذكاء الاصطناعي مفعّل' : 'الذكاء الاصطناعي غير مفعّل', onclick: () => go('/settings') }, [
     icon(on ? 'sparkles' : 'offline', 15),
-    on ? modelInfo().name.replace('Claude ', '') : 'غير مفعّل',
+    on ? aiShortLabel() : 'غير مفعّل',
   ]);
 }
 

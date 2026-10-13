@@ -190,6 +190,36 @@ export function splitSections(md) {
     .filter((s) => s.h || s.md.trim());
 }
 
+/**
+ * يوحّد عناوين الأقسام التي تكتبها بعض النماذج بصيغة مختلفة (# أو ### أو سطر عريض **…**)
+ * إلى «## العنوان» إن طابقت عنوان قسم متوقَّع لم يظهر بصيغته الصحيحة. لا يمسّ القوائم المرقّمة.
+ */
+export function normalizeHeadings(md, titles) {
+  if (!titles?.length) return md;
+  const norm = (x) => String(x).replace(/[\u0640\u064B-\u0652]/g, '').replace(/^\d+\s*[.)\-–]\s*/, '').replace(/[:：.\s]+$/g, '').replace(/\s+/g, ' ').trim();
+  const want = new Map(titles.map((t) => [norm(t), t]));
+  const lines = String(md || '').split('\n');
+  const have = new Set();
+  for (const l of lines) {
+    const m = l.match(/^##\s+(.+?)\s*#*\s*$/);
+    if (m && !l.startsWith('###')) have.add(norm(m[1]));
+  }
+  return lines.map((l) => {
+    let cand = null;
+    const hm = l.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (hm) { if (hm[1].length !== 2) cand = hm[2]; } else {
+      const bm = l.match(/^\s*(\*\*|__)(.+?)\1\s*[:：]?\s*$/);
+      if (bm) cand = bm[2];
+    }
+    if (!cand) return l;
+    const key = norm(cand.replace(/^(\*\*|__)|(\*\*|__)$/g, ''));
+    const title = want.get(key);
+    if (!title || have.has(key)) return l;
+    have.add(key);
+    return `## ${title}`;
+  }).join('\n');
+}
+
 export function joinSections(sections) {
   return sections.map((s) => (s.h ? `## ${s.h}\n\n` : '') + (s.md || '')).join('\n\n');
 }

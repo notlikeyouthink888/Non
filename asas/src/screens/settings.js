@@ -2,7 +2,7 @@
 
 import { h, fill, field, toggle, chipGroup, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
-import { state, update, save, MODELS, EFFORTS, aiReady, resetSettings } from '../core/store.js';
+import { state, update, save, MODELS, EFFORTS, PROVIDERS, aiReady, cleanKey, resetSettings } from '../core/store.js';
 import { exportAll, importAll, clearAll } from '../core/db.js';
 import { toast, confirmSheet } from '../core/ui.js';
 import { fmtNum, fmtUSD } from '../core/fmt.js';
@@ -12,6 +12,7 @@ import { TOPICS } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
+import { freeModels, cachedModels, modelName } from '../ai/openrouter.js';
 
 export default {
   mount(root) {
@@ -37,56 +38,166 @@ export default {
 
     function renderAI() {
       const a = state.ai;
-      const status = h('div.notice' + (aiReady() ? '' : '.warn'), [
-        icon(aiReady() ? 'check' : 'key', 18),
-        h('div.grow', aiReady()
-          ? `مفعّل — يكتب التقارير بنموذج ${MODELS.find((m) => m.id === a.model)?.name}.`
-          : 'غير مفعّل. أضف مفتاح Claude API لتكتب التقارير بالذكاء الاصطناعي لأي عنوان، مع اقتراح العناوين والتحقق البصري من الصور.'),
-      ]);
+      const status = h('div.notice');
+      const refreshStatus = () => {
+        const on = aiReady();
+        status.className = 'notice' + (on ? '' : ' warn');
+        fill(status, [
+          icon(on ? 'check' : 'key', 18),
+          h('div.grow', on
+            ? (a.provider === 'openrouter'
+              ? `مفعّل مجانًا عبر OpenRouter — نموذج الكتابة: ${modelName(a.openrouter.model)}.`
+              : `مفعّل — يكتب التقارير بنموذج ${MODELS.find((m) => m.id === a.model)?.name}.`)
+            : (a.provider === 'openrouter'
+              ? 'غير مفعّل. أنشئ مفتاح OpenRouter المجاني والصقه هنا لتكتب التقارير بالذكاء الاصطناعي لأي عنوان.'
+              : 'غير مفعّل. أضف مفتاح Claude API لتكتب التقارير بالذكاء الاصطناعي لأي عنوان، مع اقتراح العناوين والتحقق البصري من الصور.')),
+        ]);
+      };
+      refreshStatus();
 
-      const keyIn = h('input.ltr', {
-        type: 'password', value: a.apiKey, placeholder: 'sk-ant-…', autocomplete: 'off', spellcheck: false,
-        oninput: () => { state.ai.apiKey = keyIn.value.trim(); save(); },
-        onchange: () => renderAI(),
-      });
-      const eye = h('button.icon-btn', { type: 'button', 'aria-label': 'إظهار المفتاح', onclick: () => { keyIn.type = keyIn.type === 'password' ? 'text' : 'password'; } }, icon('eye', 18));
-      const urlIn = h('input.ltr', { value: a.proxyUrl, placeholder: 'https://asas-proxy.example.workers.dev', oninput: () => { state.ai.proxyUrl = urlIn.value.trim(); save(); }, onchange: () => renderAI() });
-      const tokIn = h('input.ltr', { value: a.proxyToken, placeholder: 'رمز التطبيق (اختياري)', oninput: () => { state.ai.proxyToken = tokIn.value.trim(); save(); } });
+      const providers = h('div.prov-grid', PROVIDERS.map((p) => h('button.prov' + (a.provider === p.id ? '.on' : ''), {
+        type: 'button',
+        onclick: () => { if (a.provider !== p.id) { update((s) => { s.ai.provider = p.id; }, 'ai'); renderAI(); } },
+      }, [
+        h('div.row.between', [h('strong', p.name), h('span.badge' + (p.id === 'openrouter' ? '.ok' : ''), p.badge)]),
+        h('div.s', p.note),
+      ])));
 
       const testOut = h('div.row', { style: { minHeight: '26px' } });
       const testBtn = h('button.btn.sm', {
         type: 'button',
         onclick: async () => {
-          if (!aiReady()) { toast('أدخل المفتاح أو رابط الخادم أولًا', 'err'); return; }
+          syncAll(); // نقرأ ما في الخانة فعلًا قبل الاختبار
+          if (!aiReady()) {
+            toast(a.provider === 'openrouter' ? 'الصق مفتاح OpenRouter أولًا' : a.mode === 'proxy' ? 'أدخل رابط الخادم أولًا' : 'الصق مفتاح Claude أولًا', 'err');
+            return;
+          }
           testBtn.disabled = true;
           fill(testOut, [h('div.spinner'), h('span.muted', 'يختبر الاتصال…')]);
           try {
             const r = await testConnection();
             fill(testOut, [icon('check', 16), h('span', { style: { color: 'var(--ok)' } }, r.msg || 'تم الاتصال بنجاح')]);
+            if (a.provider === 'openrouter') renderModels();
           } catch (err) {
             fill(testOut, [icon('alert', 16), h('span', { style: { color: 'var(--danger)' } }, aiErrorMessage(err))]);
           } finally { testBtn.disabled = false; }
         },
       }, [icon('bolt', 15), 'اختبار الاتصال']);
 
-      const models = h('div.list', MODELS.map((m) => h('button.item' + (a.model === m.id ? '' : ''), {
+      const syncers = [];
+      const syncAll = () => syncers.forEach((f) => f());
+      /** خانة مفتاح لا تعتمد على حدث واحد: تُقرأ عند الكتابة واللصق والخروج منها وقبل الاختبار. */
+      function keyField(get, set, placeholder) {
+        const inp = h('input.ltr.secret', {
+          type: 'text', value: get(), placeholder, autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off',
+          spellcheck: false, name: 'asas-api-key', 'aria-label': 'مفتاح API',
+        });
+        const sync = () => {
+          const v = cleanKey(inp.value);
+          if (v !== cleanKey(get())) { set(v); save(); refreshStatus(); }
+        };
+        syncers.push(sync);
+        ['input', 'change', 'keyup', 'blur', 'compositionend'].forEach((ev) => inp.addEventListener(ev, sync));
+        inp.addEventListener('paste', () => setTimeout(sync, 0));
+        const eye = h('button.icon-btn', {
+          type: 'button', 'aria-label': 'إظهار المفتاح',
+          onclick: () => inp.classList.toggle('show'),
+        }, icon('eye', 18));
+        return h('div.row', [inp, eye]);
+      }
+      const link = (url, text) => h('a', { href: '#', onclick: (e) => { e.preventDefault(); openExternal(url); } }, text);
+
+      const modelsBox = h('div.list');
+      const visionBox = h('div');
+      async function renderModels(force = false) {
+        const cur = state.ai.openrouter;
+        const shown = cachedModels();
+        if (!shown.length || force) fill(modelsBox, h('div.row', [h('div.spinner'), h('span.muted', 'يجلب قائمة النماذج المجانية الحالية…')]));
+        let list = shown;
+        try { list = await freeModels({ force }); } catch {
+          if (!list.length) { fill(modelsBox, h('div.notice.warn', [icon('alert', 18), h('div.grow', 'تعذّر جلب قائمة النماذج الآن. سيُستعمل الاختيار التلقائي (الموجّه المجاني) حتى تتصل بالإنترنت.')])); }
+        }
+        if (!list.length) return;
+        const item = (id, title, sub, badges = []) => h('button.item', {
+          type: 'button',
+          style: cur.model === id ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : null,
+          onclick: () => { update((s) => { s.ai.openrouter.model = id; }, 'ai'); refreshStatus(); renderModels(); },
+        }, [
+          h('div.grow', [h('div.t', title), h('div.s', [...badges.map((b) => h('span.badge', b)), sub ? h('span', sub) : null])]),
+          cur.model === id ? icon('check', 20) : null,
+        ]);
+        fill(modelsBox, [
+          item('auto', 'تلقائي — الأفضل المتاح الآن', `يبدأ بـ ${list[0].name}، ويتحوّل تلقائيًا إلى بديل إن ازدحم`, ['مقترح']),
+          ...list.slice(0, 14).map((m) => item(m.id, m.name, m.id.replace(/:free$/, ''), [
+            m.ctx ? `سياق ${Math.round(m.ctx / 1000)} ألف` : null, m.vision ? 'يرى الصور' : null,
+          ].filter(Boolean))),
+        ]);
+        const vis = list.filter((m) => m.vision);
+        const sel = h('select', { onchange: () => update((s) => { s.ai.openrouter.visionModel = sel.value; }, 'ai') }, [
+          h('option', { value: 'auto', selected: cur.visionModel === 'auto' }, vis.length ? `تلقائي (${vis[0].name})` : 'تلقائي'),
+          ...vis.map((m) => h('option', { value: m.id, selected: cur.visionModel === m.id }, m.name)),
+        ]);
+        fill(visionBox, field('نموذج التحقق من الصور', sel, vis.length
+          ? `${vis.length} نماذج مجانية تستطيع رؤية الصور. يُراجع كل صورتين في طلب واحد.`
+          : 'لا يوجد الآن نموذج مجاني يرى الصور؛ سيُستعمل الموجّه المجاني، وإن تعذّر تُعتمد الصور بالترتيب التلقائي.'));
+      }
+
+      const u = a.usage;
+      const usageRow = h('div.row-set', [
+        h('div.grow', [h('div.t', 'الاستهلاك'), h('div.s', `${fmtNum(u.calls)} طلبًا • ${fmtNum(u.reports)} تقريرًا • ${fmtNum(u.input + u.output)} رمزًا • الكلفة التقريبية ${fmtUSD(u.cost)}`)]),
+        h('button.btn.sm.ghost', { type: 'button', onclick: () => { update((s) => { s.ai.usage = { input: 0, output: 0, cost: 0, calls: 0, reports: 0 }; }, 'ai'); renderAI(); } }, 'تصفير'),
+      ]);
+      const verifyRow = settingRow('التحقق البصري من الصور', 'يرى الذكاء الاصطناعي الصور المرشّحة ويرفض غير المطابقة للموضوع', toggle(a.verifyImages, (v) => update((s) => { s.ai.verifyImages = v; }, 'ai')));
+
+      if (a.provider === 'openrouter') {
+        fill(aiCard, [
+          status,
+          field('مزوّد الذكاء الاصطناعي', providers),
+          h('ol.steps-mini', [
+            h('li', ['سجّل مجانًا في ', link('https://openrouter.ai/keys', 'openrouter.ai/keys'), ' ثم Create Key وانسخ المفتاح (يبدأ بـ sk-or-).']),
+            h('li', ['من ', link('https://openrouter.ai/settings/privacy', 'openrouter.ai/settings/privacy'), ' فعّل السماح بالنماذج المجانية (Free model publication)، وإلا تُرفض الطلبات.']),
+            h('li', 'الصق المفتاح هنا ثم اضغط «اختبار الاتصال».'),
+          ]),
+          field('مفتاح OpenRouter', keyField(() => state.ai.openrouter.apiKey, (v) => { state.ai.openrouter.apiKey = v; }, 'sk-or-v1-…'),
+            'يُحفظ في جهازك فقط ويُرسل مباشرة إلى OpenRouter. لا تشارك التطبيق أو صورة الشاشة والمفتاح ظاهر.'),
+          h('div.row.wrap', [testBtn, testOut]),
+          h('div.field.mt', [
+            h('div.row.between', [h('label', 'نموذج الكتابة'), h('button.btn.sm.ghost', { type: 'button', onclick: () => renderModels(true) }, [icon('refresh', 14), 'تحديث القائمة'])]),
+            modelsBox,
+            h('div.hint', 'القائمة تُجلب حيّة من OpenRouter لأن النماذج المجانية تتغيّر باستمرار، ومرتّبة حسب الجودة المتوقعة للكتابة العربية. كل طلب يحمل بديلين تلقائيين.'),
+          ]),
+          visionBox,
+          h('div.notice', [icon('info', 18), h('div.grow', 'حدود النماذج المجانية: 20 طلبًا في الدقيقة و50 طلبًا في اليوم، وتصير 1000 في اليوم بعد شراء رصيد بقيمة 10 دولارات مرة واحدة. التقرير الواحد يستهلك من طلبين إلى أربعة. اختبار الاتصال يستهلك طلبًا واحدًا.')]),
+          verifyRow,
+          usageRow,
+        ]);
+        renderModels();
+        return;
+      }
+
+      const urlIn = h('input.ltr', { value: a.proxyUrl, placeholder: 'https://asas-proxy.example.workers.dev', autocapitalize: 'off', spellcheck: false });
+      const syncUrl = () => { const v = urlIn.value.trim(); if (v !== a.proxyUrl) { state.ai.proxyUrl = v; save(); refreshStatus(); } };
+      ['input', 'change', 'blur', 'keyup'].forEach((ev) => urlIn.addEventListener(ev, syncUrl));
+      syncers.push(syncUrl);
+      const tokIn = h('input.ltr', { value: a.proxyToken, placeholder: 'رمز التطبيق (اختياري)', oninput: () => { state.ai.proxyToken = tokIn.value.trim(); save(); } });
+
+      const models = h('div.list', MODELS.map((m) => h('button.item', {
         type: 'button',
         style: a.model === m.id ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : null,
-        onclick: () => { update((s) => { s.ai.model = m.id; }, 'ai'); renderAI(); },
+        onclick: () => { syncAll(); update((s) => { s.ai.model = m.id; }, 'ai'); renderAI(); },
       }, [
         h('div.grow', [h('div.t', m.name), h('div.s', [h('span', m.note), h('span.badge', `$${m.inPrice} / $${m.outPrice} لكل مليون رمز`)])]),
         a.model === m.id ? icon('check', 20) : null,
       ])));
 
-      const u = a.usage;
       fill(aiCard, [
         status,
-        field('طريقة الاتصال', chipGroup([{ value: 'key', label: 'مفتاح API مباشر' }, { value: 'proxy', label: 'خادم وسيط' }], a.mode, (v) => { update((s) => { s.ai.mode = v; }, 'ai'); renderAI(); })),
+        field('مزوّد الذكاء الاصطناعي', providers),
+        field('طريقة الاتصال', chipGroup([{ value: 'key', label: 'مفتاح API مباشر' }, { value: 'proxy', label: 'خادم وسيط' }], a.mode, (v) => { syncAll(); update((s) => { s.ai.mode = v; }, 'ai'); renderAI(); })),
         a.mode === 'key'
-          ? field('مفتاح Claude API', h('div.row', [keyIn, eye]), h('span', [
-            'احصل عليه من ',
-            h('a', { href: '#', onclick: (e) => { e.preventDefault(); openExternal('https://console.anthropic.com/settings/keys'); } }, 'console.anthropic.com'),
-            ' ← API Keys. يُحفظ في جهازك فقط ويُرسل مباشرة إلى Anthropic عند الإنشاء. لا تشارك التطبيق مع مفتاحك داخله.',
+          ? field('مفتاح Claude API', keyField(() => state.ai.apiKey, (v) => { state.ai.apiKey = v; }, 'sk-ant-api03-…'), h('span', [
+            'من ', link('https://console.anthropic.com/settings/keys', 'console.anthropic.com'),
+            ' ← API Keys (يبدأ بـ sk-ant-api) مع رصيد مدفوع. يُحفظ في جهازك فقط ويُرسل مباشرة إلى Anthropic. لا تشارك التطبيق أو صورة الشاشة والمفتاح ظاهر.',
           ]))
           : h('div', [
             field('رابط الخادم الوسيط', urlIn, 'خادم صغير يحتفظ بالمفتاح بعيدًا عن الجهاز (ملف server/worker.js في المشروع) — مناسب إن أردت مشاركة التطبيق مع زملائك.'),
@@ -95,11 +206,8 @@ export default {
         h('div.row.wrap', [testBtn, testOut]),
         h('div.field.mt', [h('label', 'النموذج'), models]),
         field('عمق التفكير', chipGroup(EFFORTS.map((e) => ({ value: e.value, label: e.label })), a.effort, (v) => { update((s) => { s.ai.effort = v; }, 'ai'); }), EFFORTS.map((e) => `${e.label}: ${e.hint}`).join(' • ')),
-        settingRow('التحقق البصري من الصور', 'يرى الذكاء الاصطناعي الصور المرشّحة ويرفض غير المطابقة للموضوع', toggle(a.verifyImages, (v) => update((s) => { s.ai.verifyImages = v; }, 'ai'))),
-        h('div.row-set', [
-          h('div.grow', [h('div.t', 'الاستهلاك'), h('div.s', `${fmtNum(u.calls)} طلبًا • ${fmtNum(u.reports)} تقريرًا • ${fmtNum(u.input + u.output)} رمزًا • الكلفة التقريبية ${fmtUSD(u.cost)}`)]),
-          h('button.btn.sm.ghost', { type: 'button', onclick: () => { update((s) => { s.ai.usage = { input: 0, output: 0, cost: 0, calls: 0, reports: 0 }; }, 'ai'); renderAI(); } }, 'تصفير'),
-        ]),
+        verifyRow,
+        usageRow,
       ]);
     }
   },
@@ -213,7 +321,7 @@ function dataCard() {
 function aboutCard() {
   return h('div.card.soft.mt', [
     h('h3', 'أساس 1.0'),
-    h('p.muted', `تقارير طلبة المرحلة الثانية في الهندسة المدنية بالعربية — مقاومة المواد، الرياضيات الهندسية، تكنولوجيا الخرسانة، المساحة، ميكانيك الموائع: ${REPORT_TYPES.length} نوعًا من التقارير، و${TOPICS.length} تجربة وموضوعًا بمحتوى كامل يعمل دون إنترنت مع أسئلة المناقشة. الكتابة بالذكاء الاصطناعي عبر Claude، والصور من ويكيبيديا وويكيميديا كومنز وOpenverse مع ذكر مصادرها.`),
+    h('p.muted', `تقارير طلبة المرحلة الثانية في الهندسة المدنية بالعربية — مقاومة المواد، الرياضيات الهندسية، تكنولوجيا الخرسانة، المساحة، ميكانيك الموائع: ${REPORT_TYPES.length} نوعًا من التقارير، و${TOPICS.length} تجربة وموضوعًا بمحتوى كامل يعمل دون إنترنت مع أسئلة المناقشة. الكتابة بالذكاء الاصطناعي عبر OpenRouter المجاني أو Claude، والصور من ويكيبيديا وويكيميديا كومنز وOpenverse مع ذكر مصادرها.`),
     h('p.hint', 'تذكير: راجع كل تقرير قبل تسليمه، وتحقق من الأرقام والمواصفات المطلوبة في مادتك أو مشروعك، وعدّل ما بين الأقواس [ ].'),
   ]);
 }

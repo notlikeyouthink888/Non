@@ -5,7 +5,8 @@
 import { h, fill, empty } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { replace } from '../core/nav.js';
-import { aiReady, modelInfo, MODELS, uid } from '../core/store.js';
+import { aiReady, uid } from '../core/store.js';
+import { modelLabel, aiShortLabel } from '../ai/client.js';
 import { getReport, putReport, deleteReport, deleteImages, imageIdsOf } from '../core/db.js';
 import { toast, actionSheet, confirmSheet } from '../core/ui.js';
 import { fmtDate, fmtNum, fmtUSD, safeFileName } from '../core/fmt.js';
@@ -195,10 +196,10 @@ export default {
 
     function renderFooter() {
       const type = getType(report.typeId);
-      const m = report.model ? (MODELS.find((x) => report.model.startsWith(x.id))?.name || report.model) : null;
+      const m = report.model ? modelLabel(report.model) : null;
       fill(footer, [
         h('div', `${type.icon} ${type.name} • ${fmtNum(report.words || 0)} كلمة • ${fmtDate(report.createdAt)}`),
-        h('div', report.source === 'ai' ? `كتبه الذكاء الاصطناعي (${m || modelInfo().name})${report.usage?.cost ? ` • الكلفة التقريبية ${fmtUSD(report.usage.cost)}` : ''}` : 'أُنشئ دون اتصال من قاعدة المعرفة'),
+        h('div', report.source === 'ai' ? `كتبه الذكاء الاصطناعي (${m || aiShortLabel()})${report.usage?.cost ? ` • الكلفة التقريبية ${fmtUSD(report.usage.cost)}` : ''}` : 'أُنشئ دون اتصال من قاعدة المعرفة'),
         h('div', 'راجع التقرير وعدّل ما بين الأقواس [ ] قبل تسليمه.'),
       ]);
     }

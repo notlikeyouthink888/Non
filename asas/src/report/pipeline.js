@@ -10,8 +10,8 @@ import { getKB } from '../data/kb/index.js';
 import { TOPIC_BY_ID } from '../data/topics.js';
 import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
-import { streamText, jsonCall, aiErrorMessage } from '../ai/client.js';
-import { splitSections, wordsOf } from './md.js';
+import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits } from '../ai/client.js';
+import { splitSections, wordsOf, normalizeHeadings } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
 import { findCandidates, verifyLoadable, storeCandidate, toBase64Jpeg, slimCandidate, pool } from '../images/pipeline.js';
@@ -97,7 +97,7 @@ async function run(job) {
   r.error = '';
   r.notes = [];
   r.source = useAI ? 'ai' : 'offline';
-  r.model = useAI ? state.ai.model : null;
+  r.model = useAI ? activeModelId() : null;
   await putReport(r);
 
   let lastSave = 0;
@@ -116,12 +116,13 @@ async function run(job) {
   // ── الكتابة ──
   setPhase(job, 'write', 'run', useAI ? 'يتصل بالذكاء الاصطناعي…' : 'يبني التقرير من قاعدة المعرفة…');
   if (useAI) {
+    const titles = sectionsOf(getType(r.typeId), r.catId).map((s) => s.h);
     let pending = null;
     let raf = 0;
     const flush = () => {
       raf = 0;
       if (pending === null) return;
-      r.sections = splitSections(pending);
+      r.sections = splitSections(normalizeHeadings(pending, titles));
       r.words = wordsOf(r.sections);
       pending = null;
       emit(job, 'text');
@@ -140,7 +141,7 @@ async function run(job) {
       onPhase: (p) => setPhase(job, 'write', 'run', p === 'thinking' ? 'يفكّر ويخطط للتقرير…' : p === 'fallback' ? 'تحويل الطلب إلى نموذج بديل…' : 'يكتب التقرير…'),
     });
     clearTimeout(raf);
-    r.sections = splitSections(res.text);
+    r.sections = splitSections(normalizeHeadings(res.text, titles));
     r.words = wordsOf(r.sections);
     r.usage.cost = (r.usage.cost || 0) + (res.cost || 0);
     r.usage.output = (r.usage.output || 0) + (res.usage?.output_tokens || 0);
@@ -247,20 +248,25 @@ async function runImages(job, figs, { useAI, signal, append = false }) {
   const choice = new Map(found.map((f) => [f.id, 0]));
   if (useAI && state.ai.verifyImages && found.length) {
     setPhase(job, 'check', 'run', 'الذكاء الاصطناعي يراجع الصور بصريًا…');
+    // النماذج المجانية تقبل صورًا أقل في الطلب الواحد، فتُراجَع الصور على دفعات
+    const { candsPerFig, figsPerCall } = visionLimits();
     try {
-      const payload = await Promise.all(found.map(async (f) => ({
-        caption: f.caption,
-        mustShow: f.mustShow,
-        cands: await Promise.all(working.get(f.id).slice(0, 4).map(async (c) => ({ b64: await toBase64Jpeg(c.thumbBlob) }))),
-      })));
-      const res = await jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal });
       let rejected = 0;
-      for (const ch of res.choices || []) {
-        const f = found[ch.figure];
-        if (!f) continue;
-        const n = working.get(f.id).slice(0, 4).length;
-        if (ch.best >= 0 && ch.best < n) choice.set(f.id, ch.best);
-        else { choice.set(f.id, -1); rejected++; f.status = 'none'; f.note = ch.reason || 'لا يوجد مرشح مطابق للموضوع'; }
+      for (let i = 0; i < found.length; i += figsPerCall) {
+        const batch = found.slice(i, i + figsPerCall);
+        const payload = await Promise.all(batch.map(async (f) => ({
+          caption: f.caption,
+          mustShow: f.mustShow,
+          cands: await Promise.all(working.get(f.id).slice(0, candsPerFig).map(async (c) => ({ b64: await toBase64Jpeg(c.thumbBlob) }))),
+        })));
+        const res = await jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal });
+        for (const ch of res.choices || []) {
+          const f = batch[ch.figure];
+          if (!f) continue;
+          const n = working.get(f.id).slice(0, candsPerFig).length;
+          if (ch.best >= 0 && ch.best < n) choice.set(f.id, ch.best);
+          else { choice.set(f.id, -1); rejected++; f.status = 'none'; f.note = ch.reason || 'لا يوجد مرشح مطابق للموضوع'; }
+        }
       }
       setPhase(job, 'check', 'done', rejected ? `استُبعدت ${rejected} صورة غير مطابقة` : 'كل الصور مطابقة');
     } catch (err) {

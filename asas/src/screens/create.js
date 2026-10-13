@@ -18,6 +18,7 @@ import { detectType, searchSubjects } from '../search/index.js';
 import { newReport } from '../report/model.js';
 import { startGeneration } from '../report/pipeline.js';
 import { topbar, kbBadge } from './common.js';
+import { modelName } from '../ai/openrouter.js';
 import { bidi } from '../core/arabic.js';
 import { fmtDate } from '../core/fmt.js';
 
@@ -192,7 +193,9 @@ export default {
         ]),
 
         ai
-          ? h('p.hint', `سيُكتب بنموذج ${modelInfo().name} بمستوى تفكير «${{ low: 'سريع', medium: 'متوازن', high: 'عميق' }[state.ai.effort]}». يمكنك تغييرهما من الإعدادات.`)
+          ? h('p.hint', state.ai.provider === 'openrouter'
+            ? `سيُكتب مجانًا عبر OpenRouter (${modelName(state.ai.openrouter.model)}، مع بديلين تلقائيين). النماذج المجانية أقل دقة من Claude في الحسابات، فراجع الأرقام.`
+            : `سيُكتب بنموذج ${modelInfo().name} بمستوى تفكير «${{ low: 'سريع', medium: 'متوازن', high: 'عميق' }[state.ai.effort]}». يمكنك تغييرهما من الإعدادات.`)
           : h('div.notice.warn', [icon('key', 18), h('div.grow', [
             kb ? 'هذا الموضوع له محتوى كامل دون اتصال مع أسئلة المناقشة. ' : 'دون ذكاء اصطناعي ستحصل على قالب بهيكل النوع وإرشادات لكل قسم. ',
             'لتقرير يُكتب بقراءاتك ولأي عنوان فعّل الذكاء الاصطناعي من الإعدادات.',
