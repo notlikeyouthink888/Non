@@ -102,13 +102,17 @@ jobs:
       - name: نشره في إصدار للتنزيل المباشر
         env:
           GH_TOKEN: ${{ github.token }}
+          # وسم جديد لكل بناء: المستودع يفعّل «الإصدارات غير القابلة للتعديل»،
+          # فالوسم الذي استُعمل في إصدار سابق لا يُحذف ولا يُعاد استعماله (خطأ 422).
+          TAG: asas-r${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          gh release delete asas-apk-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create asas-apk-latest out/Asas.apk \
+          gh release create "$TAG" out/Asas.apk \
             --target "$GITHUB_SHA" \
-            --title "أساس — تقارير الهندسة المدنية (أحدث نسخة)" \
+            --latest \
+            --title "أساس — بناء ${{ github.run_number }}" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
+          كل الإصدارات: https://github.com/${{ github.repository }}/releases — نزّل أحدث «أساس — بناء …»
 
           **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Asas.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
