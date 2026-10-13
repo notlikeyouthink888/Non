@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">أساس</string>
+    <string name="title_activity_main">أساس</string>
+    <string name="package_name">com.asas.reports</string>
+    <string name="custom_url_scheme">com.asas.reports</string>
+</resources>

@@ -49,28 +49,20 @@ export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 /** حقل إدخال معنون. */
 export function field(label, input, hint) {
-  return h('div.field', [h('label', label), input, hint ? h('div.hint', hint) : null]);
+  return h('div.field', [h('label', label), input, hint ? h('div.muted', { style: { marginTop: '5px' } }, hint) : null]);
 }
 
 /** مفتاح تبديل (on/off). */
 export function toggle(on, onChange) {
-  const el = h('button.switch' + (on ? '.on' : ''), {
-    type: 'button',
-    role: 'switch',
-    'aria-checked': on ? 'true' : 'false',
-    onclick: () => {
-      el.classList.toggle('on');
-      const v = el.classList.contains('on');
-      el.setAttribute('aria-checked', v ? 'true' : 'false');
-      onChange(v);
-    },
+  const el = h('div.switch' + (on ? '.on' : ''), {
+    onclick: () => { el.classList.toggle('on'); onChange(el.classList.contains('on')); },
   });
   return el;
 }
 
 /** صف إعداد: عنوان + وصف + عنصر تحكّم. */
 export function settingRow(title, sub, control) {
-  return h('div.row-set', [
+  return h('div.item', [
     h('div.grow', [h('div.t', title), sub ? h('div.s', sub) : null]),
     control,
   ]);
@@ -103,12 +95,6 @@ export function chipGroup(options, value, onPick, { multi = false } = {}) {
 }
 
 /** حالة فارغة. */
-export function empty(icon, text, action) {
-  return h('div.empty', [h('div.big', icon), h('div', text), action || null]);
-}
-
-/** يؤجّل استدعاء دالة حتى يتوقف التكرار. */
-export function debounce(fn, ms = 150) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+export function empty(icon, text) {
+  return h('div.empty', [h('span.big', icon), text]);
 }

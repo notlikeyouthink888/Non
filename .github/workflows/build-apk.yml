@@ -1,45 +1,16 @@
-name: بناء APK — أساس
+name: بناء APK
 
 on:
   push:
     branches:
       - main
-      - ccr-ba3f6671-bl9elf
+      - claude/your-world-android-app-sxo5zu
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  check:
-    name: الفحص الآلي (محاكاة Claude والصور)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: جلب الكود
-        uses: actions/checkout@v4
-
-      - name: تهيئة Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-
-      - name: تهيئة Python (لفحص ملف Word الناتج)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: تثبيت الحزم
-        run: |
-          npm ci
-          python -m pip install --quiet python-docx
-
-      - name: تشغيل الفحص
-        env:
-          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
-        run: npm run check
-
   apk:
     name: بناء ملف التثبيت
     runs-on: ubuntu-latest
@@ -89,35 +60,28 @@ jobs:
         id: name
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk out/Asas.apk
-          echo "size=$(du -h out/Asas.apk | cut -f1)" >> "$GITHUB_OUTPUT"
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/YourWorld.apk
+          echo "size=$(du -h out/YourWorld.apk | cut -f1)" >> "$GITHUB_OUTPUT"
 
       - name: رفع الملف كمُخرَج
         uses: actions/upload-artifact@v4
         with:
-          name: Asas-APK
-          path: out/Asas.apk
+          name: YourWorld-APK
+          path: out/YourWorld.apk
           if-no-files-found: error
 
       - name: نشره في إصدار للتنزيل المباشر
         env:
           GH_TOKEN: ${{ github.token }}
-          # وسم جديد لكل بناء: المستودع يفعّل «الإصدارات غير القابلة للتعديل»،
-          # فالوسم الذي استُعمل في إصدار سابق لا يُحذف ولا يُعاد استعماله (خطأ 422).
-          TAG: asas-r${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          gh release create "$TAG" out/Asas.apk \
+          gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create apk-latest out/YourWorld.apk \
             --target "$GITHUB_SHA" \
-            --latest \
-            --title "أساس — بناء ${{ github.run_number }}" \
+            --title "Your World — أحدث نسخة" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
-          كل الإصدارات: https://github.com/${{ github.repository }}/releases — نزّل أحدث «أساس — بناء …»
 
-          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Asas.apk\` ←
+          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`YourWorld.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
-
-          **تفعيل الذكاء الاصطناعي:** من الإعدادات داخل التطبيق أضف مفتاح Claude API
-          (من console.anthropic.com). بدونه يعمل التطبيق بالمحتوى الجاهز والقوالب.
 
           نسخة تجريبية (debug) موقّعة بمفتاح التطوير — تعمل كاملة، لكنها ليست للنشر على المتجر."

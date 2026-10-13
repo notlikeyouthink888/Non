@@ -7,7 +7,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:requestLegacyExternalStorage="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
         android:theme="@style/AppTheme">
 
         <activity
@@ -16,7 +17,9 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
+            android:resizeableActivity="true"
             android:exported="true">
 
             <intent-filter>
@@ -25,6 +28,43 @@
             </intent-filter>
 
         </activity>
+
+        <!-- شاشة المنبّه الكاملة (تظهر فوق شاشة القفل) -->
+        <activity
+            android:name=".alarm.AlarmActivity"
+            android:theme="@style/AlarmTheme"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+
+        <!-- خدمة التشغيل: تُبقي الصوت يعمل والشاشة مقفلة -->
+        <service
+            android:name=".player.PlayerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- استقبال المنبّهات -->
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".alarm.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -37,12 +77,35 @@
         </provider>
     </application>
 
-    <!-- الإنترنت: للذكاء الاصطناعي (Claude API) وجلب الصور من ويكيبيديا وويكيميديا كومنز.
-         التقارير المحفوظة والمحتوى الجاهز يعملان دون اتصال. -->
+    <!-- INTERNET مطلوب فقط لخادم Capacitor المحلي داخل الجهاز؛
+         التطبيق لا يتصل بأي خدمة خارجية وكل البيانات تبقى محلية. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- حفظ ملفات Word في مجلد المستندات على أندرويد 9 وما قبله فقط -->
+    <!-- قراءة أغاني الجهاز -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- التشغيل بالخلفية وشاشة القفل -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- المنبّهات والإشعارات -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+
+    <!-- الموقع لقسم الأماكن (GPS يعمل دون إنترنت) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
+    <supports-screens android:largeScreens="true" android:xlargeScreens="true" />
 </manifest>

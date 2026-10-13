@@ -1,98 +1,226 @@
 /**
- * الجسر نحو أندرويد عبر Capacitor، مع بدائل ويب كاملة:
- * حفظ الملفات ومشاركتها، الطباعة إلى PDF، وزر الرجوع.
+ * جسر إلى الإضافات الأصلية في أندرويد (Capacitor)، مع بدائل ويب كاملة
+ * حتى يعمل التطبيق داخل المتصفّح أثناء التطوير.
+ *
+ * الإضافات الأصلية (android/app/src/main/java/com/yourworld/app/plugins):
+ *   MusicLibrary — قراءة أغاني الجهاز من MediaStore
+ *   Player       — تشغيل بالخلفية + إشعار وشاشة قفل + سرعة + مؤثرات
+ *   Scheduler    — منبهات دقيقة وإشعارات
  */
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+const Cap = () => (typeof window !== 'undefined' ? window.Capacitor : undefined);
 
-export const isNative = Capacitor.isNativePlatform();
+export const isNative = () => !!Cap()?.isNativePlatform?.();
 
-/** إضافة الطباعة المكتوبة يدويًا في أندرويد (PrintManager). */
-const Printer = registerPlugin('Printer');
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(blob);
-  });
+/** يحوّل مسار/‏content URI إلى رابط يقرأه WebView. */
+export function toSrc(uri) {
+  const c = Cap();
+  if (c?.convertFileSrc) return c.convertFileSrc(uri);
+  return uri;
 }
 
-function webDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.rel = 'noopener';
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+function plugin(name) {
+  const c = Cap();
+  if (!c) return null;
+  if (c.Plugins?.[name]) return c.Plugins[name];
+  try { return c.registerPlugin?.(name) ?? null; } catch { return null; }
 }
 
-async function writeCache(blob, filename) {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem');
-  const data = await blobToBase64(blob);
-  const res = await Filesystem.writeFile({ path: `exports/${filename}`, data, directory: Directory.Cache, recursive: true });
-  return res.uri;
-}
+/* ────────────────────────── مكتبة الأغاني ────────────────────────── */
 
-/** مشاركة ملف (واتساب، تلغرام، الحفظ في الملفات...). */
-export async function shareFile(blob, filename, title = 'تقرير') {
-  if (isNative) {
-    const uri = await writeCache(blob, filename);
-    const { Share } = await import('@capacitor/share');
-    await Share.share({ title, files: [uri], dialogTitle: 'مشاركة التقرير' });
-    return 'shared';
+let webLib = null; // بديل الويب: أغانٍ يختارها المستخدم يدويًا
+
+export const Music = {
+  /** يطلب إذن قراءة الصوت. يعيد true عند القبول. */
+  async requestPermission() {
+    const p = plugin('MusicLibrary');
+    if (!p) return true;
+    const r = await p.requestPermission();
+    return !!r?.granted;
+  },
+
+  async hasPermission() {
+    const p = plugin('MusicLibrary');
+    if (!p) return true;
+    const r = await p.hasPermission();
+    return !!r?.granted;
+  },
+
+  /**
+   * يمسح كل أغاني الجهاز.
+   * @returns {Promise<Array<{id,title,artist,album,durationMs,uri,artUri,size,year,track,path,addedAt}>>}
+   */
+  async scan(opts = {}) {
+    const p = plugin('MusicLibrary');
+    if (p) {
+      const r = await p.scan({ minDurationMs: opts.minDurationMs ?? 20000 });
+      return r?.tracks ?? [];
+    }
+    return webLib ? webLib.tracks : [];
+  },
+
+  /** بديل الويب: اختيار ملفات/مجلد من المتصفّح. */
+  async pickFromBrowser() {
+    const { pickAudioFiles } = await import('./webfallback/library.js');
+    webLib = await pickAudioFiles(webLib);
+    return webLib.tracks;
+  },
+
+  isBrowserFallback() { return !plugin('MusicLibrary'); },
+};
+
+/* ────────────────────────── المشغّل ────────────────────────── */
+
+let webPlayer = null;
+async function fallbackPlayer() {
+  if (!webPlayer) {
+    const { createWebPlayer } = await import('./webfallback/player.js');
+    webPlayer = createWebPlayer();
+    playerHandlers.forEach((fn) => webPlayer.on(fn));
   }
-  const file = new File([blob], filename, { type: blob.type });
-  if (navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title }); return 'shared'; }
-    catch (err) { if (err?.name === 'AbortError') return 'cancelled'; }
+  return webPlayer;
+}
+
+const playerHandlers = new Set();
+
+async function callPlayer(method, args = {}) {
+  const p = plugin('Player');
+  if (p) return p[method](args);
+  const w = await fallbackPlayer();
+  return w[method]?.(args);
+}
+
+export const Player = {
+  /** يضبط قائمة التشغيل كاملة داخل المحرّك (حتى يكمل التشغيل والشاشة مقفلة). */
+  setQueue: (tracks, index = 0, autoPlay = true) =>
+    callPlayer('setQueue', { tracks, index, autoPlay }),
+
+  play: () => callPlayer('play'),
+  pause: () => callPlayer('pause'),
+  toggle: () => callPlayer('toggle'),
+  next: () => callPlayer('next'),
+  prev: () => callPlayer('prev'),
+  stop: () => callPlayer('stop'),
+  seek: (positionMs) => callPlayer('seek', { positionMs }),
+  seekBy: (deltaMs) => callPlayer('seekBy', { deltaMs }),
+  setSpeed: (speed, preservePitch = true) => callPlayer('setSpeed', { speed, preservePitch }),
+  setRepeat: (mode) => callPlayer('setRepeat', { mode }),          // off | one | all
+  setShuffle: (on) => callPlayer('setShuffle', { shuffle: !!on }),
+  setVolume: (volume, balance = 0) => callPlayer('setVolume', { volume, balance }),
+  setEffects: (effects) => callPlayer('setEffects', effects),
+  setSleepTimer: (minutes) => callPlayer('setSleepTimer', { minutes }),
+  getState: () => callPlayer('getState'),
+
+  /** يشترك في تحديثات الحالة: { playing, index, positionMs, durationMs, trackId } */
+  on(fn) {
+    playerHandlers.add(fn);
+    const p = plugin('Player');
+    if (p) {
+      p.addListener('state', fn);
+      p.addListener('trackChanged', fn);
+    } else if (webPlayer) {
+      webPlayer.on(fn);
+    } else {
+      fallbackPlayer();
+    }
+    return () => playerHandlers.delete(fn);
+  },
+};
+
+/* ────────────────────────── المنبّهات والإشعارات ────────────────────────── */
+
+let webSched = null;
+async function fallbackScheduler() {
+  if (!webSched) {
+    const { createWebScheduler } = await import('./webfallback/scheduler.js');
+    webSched = createWebScheduler();
   }
-  webDownload(blob, filename);
-  return 'downloaded';
+  return webSched;
 }
 
-/** حفظ ملف في الجهاز: مجلد المستندات في أندرويد أو التنزيل في المتصفح. */
-export async function saveFile(blob, filename) {
-  if (!isNative) { webDownload(blob, filename); return { where: 'التنزيلات' }; }
-  try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const data = await blobToBase64(blob);
-    await Filesystem.writeFile({ path: `Asas/${filename}`, data, directory: Directory.Documents, recursive: true });
-    return { where: 'Documents/Asas' };
-  } catch (err) {
-    console.warn('[native] تعذّر الحفظ في المستندات، سننتقل للمشاركة', err);
-    await shareFile(blob, filename);
-    return { where: 'المشاركة' };
-  }
+async function callSched(method, args = {}) {
+  const p = plugin('Scheduler');
+  if (p) return p[method](args);
+  const w = await fallbackScheduler();
+  return w[method]?.(args);
 }
 
-/** طباعة الصفحة الحالية (تقرير بتنسيق الطباعة) أو حفظها PDF. */
-export async function printPage(name = 'تقرير') {
-  if (isNative) {
-    await Printer.print({ name });
-    return;
-  }
-  window.print();
-}
+export const Scheduler = {
+  /** أذونات الإشعارات + المنبهات الدقيقة. */
+  requestPermissions: () => callSched('requestPermissions'),
+  canScheduleExact: () => callSched('canScheduleExact'),
+  openExactAlarmSettings: () => callSched('openExactAlarmSettings'),
 
-/** ربط زر الرجوع في أندرويد. */
-export async function onBackButton(handler) {
-  if (!isNative) return;
-  const { App } = await import('@capacitor/app');
-  App.addListener('backButton', handler);
-}
+  /**
+   * يجدول منبهًا.
+   * alarm: { id, at (ms), title, body, soundUri, vibrate, snoozeMin, fullScreen, gradual, volume, repeat }
+   */
+  schedule: (alarm) => callSched('schedule', alarm),
+  cancel: (id) => callSched('cancel', { id }),
+  cancelAll: () => callSched('cancelAll'),
+  listPending: () => callSched('listPending'),
 
-export async function exitApp() {
-  if (!isNative) return;
-  const { App } = await import('@capacitor/app');
-  App.exitApp();
-}
+  /** إشعار فوري. */
+  notify: (n) => callSched('notify', n),
 
-/** فتح رابط خارجي في المتصفح. */
-export function openExternal(url) {
-  window.open(url, '_blank', 'noopener');
-}
+  /** يشترك في أحداث المنبّه (تم التنبيه / غفوة / إيقاف). */
+  on(fn) {
+    const p = plugin('Scheduler');
+    if (p) { p.addListener('alarm', fn); return () => {}; }
+    fallbackScheduler().then((w) => w.on(fn));
+    return () => {};
+  },
+};
+
+/* ────────────────────────── الموقع ────────────────────────── */
+
+export const Location = {
+  /** موقع الجهاز عبر GPS — يعمل دون إنترنت. */
+  current({ timeout = 15000, highAccuracy = true } = {}) {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('لا يدعم الجهاز تحديد الموقع'));
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        (err) => reject(new Error(err.message || 'تعذّر تحديد الموقع')),
+        { enableHighAccuracy: highAccuracy, timeout, maximumAge: 30000 },
+      );
+    });
+  },
+
+  watch(cb, onError) {
+    if (!navigator.geolocation) { onError?.(new Error('لا يدعم الجهاز تحديد الموقع')); return () => {}; }
+    const id = navigator.geolocation.watchPosition(
+      (pos) => cb({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, heading: pos.coords.heading }),
+      (err) => onError?.(new Error(err.message)),
+      { enableHighAccuracy: true, maximumAge: 5000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  },
+};
+
+/* ────────────────────────── أدوات النظام ────────────────────────── */
+
+export const System = {
+  /** يمنع إطفاء الشاشة (أثناء التمرين مثلًا). */
+  async keepAwake(on) {
+    if (!('wakeLock' in navigator)) return null;
+    try {
+      if (on) return await navigator.wakeLock.request('screen');
+    } catch { /* مرفوض */ }
+    return null;
+  },
+
+  /** زر الرجوع في أندرويد. */
+  onBack(fn) {
+    const app = plugin('App');
+    if (app) { app.addListener('backButton', fn); return; }
+    window.addEventListener('popstate', fn);
+  },
+
+  /** تغيّر حالة التطبيق (أمامية/خلفية) — يُستعمل لحساب وقت الاستخدام. */
+  onAppState(fn) {
+    const app = plugin('App');
+    if (app) { app.addListener('appStateChange', ({ isActive }) => fn(isActive)); return; }
+    document.addEventListener('visibilitychange', () => fn(!document.hidden));
+  },
+};

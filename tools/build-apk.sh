@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# بناء ملف APK لتطبيق «أساس».
-# المتطلبات: Node 20+، JDK 21، وAndroid SDK (cmdline-tools + platforms;android-35 + build-tools).
+# بناء ملف APK لتطبيق «Your World».
+# المتطلبات: Node 20+، JDK 17+، وAndroid SDK (cmdline-tools + platforms;android-35 + build-tools).
 # إن لم تكن حزمة SDK موجودة، يحاول السكربت تنزيلها إلى $ANDROID_SDK_ROOT.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,8 +11,13 @@ export ANDROID_SDK_ROOT="$SDK" ANDROID_HOME="$SDK"
 echo "▸ بناء واجهة الويب (Vite)"
 npm run build
 
-echo "▸ مزامنة مشروع أندرويد"
-npx cap sync android
+if [ ! -d android ]; then
+  echo "▸ توليد مشروع أندرويد (Capacitor)"
+  npx cap add android
+else
+  echo "▸ مزامنة مشروع أندرويد"
+  npx cap sync android
+fi
 
 if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ] && [ ! -d "$SDK/platforms" ]; then
   echo "▸ تنزيل أدوات Android SDK إلى $SDK"

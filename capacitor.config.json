@@ -1,13 +1,13 @@
 {
-  "appId": "com.asas.reports",
-  "appName": "أساس",
+  "appId": "com.yourworld.app",
+  "appName": "Your World",
   "webDir": "dist",
+  "bundledWebRuntime": false,
   "android": {
     "allowMixedContent": false,
     "captureInput": true,
     "webContentsDebuggingEnabled": false,
-    "backgroundColor": "#0E1116",
-    "adjustMarginsForEdgeToEdge": "auto"
+    "backgroundColor": "#0B0E14"
   },
   "server": {
     "androidScheme": "https"

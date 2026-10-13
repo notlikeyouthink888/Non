@@ -1,52 +1,94 @@
 /**
- * الإعدادات والحالة الخفيفة — تُحفظ في localStorage داخل الجهاز.
- * التقارير والصور الكبيرة تُحفظ في IndexedDB (core/db.js).
+ * تخزين محلي دائم — كل البيانات تبقى داخل الجهاز، بلا أي اتصال بالإنترنت.
+ * يحفظ في localStorage مع كتابة مؤجّلة، ويبثّ تغييرات لمن يشترك.
  */
 
-const KEY = 'asas.state.v1';
+const KEY = 'yw.state.v1';
 const listeners = new Set();
 let saveTimer = null;
 
-export const MODELS = [
-  { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', note: 'أعلى جودة ودقة — الافتراضي', inPrice: 4, outPrice: 20, fallbacks: true },
-  { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', note: 'جودة عالية بنصف الكلفة تقريبًا', inPrice: 2, outPrice: 10, fallbacks: true },
-  { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', note: 'الأسرع والأرخص بكثير', inPrice: 0.1, outPrice: 0.5, fallbacks: false },
-];
-
-export const EFFORTS = [
-  { value: 'low', label: 'سريع', hint: 'تفكير قليل وزمن أقصر' },
-  { value: 'medium', label: 'متوازن', hint: 'توازن بين الدقة والسرعة' },
-  { value: 'high', label: 'عميق', hint: 'أدق للتقارير الفنية — الافتراضي' },
-];
-
+/** الحالة الابتدائية — أي مفتاح جديد يُدمج تلقائيًا عند الترقية. */
 export const defaults = {
-  meta: { createdAt: Date.now(), version: 1, onboarded: false },
-  ai: {
-    mode: 'key',               // key | proxy
-    apiKey: '',
-    proxyUrl: '',
-    proxyToken: '',
-    model: 'claude-opus-5-5',
-    effort: 'high',
-    verifyImages: true,        // تحقّق الذكاء الاصطناعي من مطابقة الصور للموضوع
-    usage: { input: 0, output: 0, cost: 0, calls: 0, reports: 0 },
+  meta: { createdAt: Date.now(), version: 1, lastOpenDay: null },
+
+  music: {
+    favorites: [],           // معرفات الأغاني المفضّلة
+    playlists: [],           // { id, name, trackIds[] }
+    recent: [],              // آخر ما شُغّل
+    repeat: 'off',           // off | one | all
+    shuffle: false,
+    speed: 1,
+    pitchLock: true,
+    volume: 1,
+    fadeMs: 0,
+    effects: {
+      enabled: false,
+      preset: 'flat',
+      bands: [0, 0, 0, 0, 0],  // dB لكل نطاق
+      bass: 0,                 // 0..1000
+      virtualizer: 0,          // 0..1000
+      reverb: 'none',          // none | smallroom | mediumroom | largeroom | mediumhall | largehall | plate
+      loudness: 0,             // mB
+      monoMix: false,
+      balance: 0,              // -1..1
+    },
+    lastTrackId: null,
+    lastPosition: 0,
+    sleepTimerMin: 0,
   },
-  images: {
-    enabled: true,
-    sources: { commons: true, wikipedia: true, openverse: true },
+
+  time: {
+    alarms: [],              // { id, hour, minute, label, enabled, repeat, sound, snoozeMin, vibrate, gradual, volume }
+    timers: [],              // مؤقتات محفوظة
+    tasks: [],               // { id, title, note, date, time, done, priority, tag, remind, repeat }
+    stopwatchLaps: [],
+    sleep: {
+      wakeHour: 7, wakeMinute: 0,
+      cycleMin: 90, fallAsleepMin: 14, targetCycles: 5,
+      windDownMin: 45, remindBedtime: true,
+    },
+    usage: {
+      dailyLimitMin: 420,      // تحذير بعد 7 ساعات
+      warnAtMin: [240, 360, 420],
+      warned: [],
+      days: {},                // 'YYYY-MM-DD' -> { ms, opens, sections:{} }
+    },
+    summaries: {},             // 'YYYY-MM-DD' -> ملخّص نهاية اليوم
+    lastSummaryDay: null,
   },
-  cover: {
-    author: '',
-    university: '',
-    college: 'كلية الهندسة',
-    department: 'قسم الهندسة المدنية',
-    stage: '',
-    supervisor: '',
+
+  commit: {
+    active: [],              // { id, libId, title, time, days[], streak, lastDone, history{} }
+    log: {},                 // 'YYYY-MM-DD' -> [ids]
+    customs: [],             // تمارين أضافها المستخدم
   },
-  prefs: { length: 'medium', level: 'student' },
-  exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true },
-  ui: { theme: 'dark', fontSize: 'm' },
-  recent: [],                  // آخر عمليات البحث
+
+  places: {
+    items: [],               // { id, name, note, lat, lng, category, visited, createdAt, tags[] }
+    home: null,              // { lat, lng }
+    lastView: { lat: 33.3152, lng: 44.3661, zoom: 12 },
+    tileCache: true,
+  },
+
+  growth: {
+    done: [],                // [{ id, day, at }] لما أُنجز
+    inProgress: [],
+    notes: {},               // id -> ملاحظة
+    focusIds: [],            // ما اخترته للتركيز عليه الآن
+    dailyPick: null,         // { day, id }
+    xp: 0,
+  },
+
+  settings: {
+    theme: 'night',
+    accent: '#7c5cff',
+    haptics: true,
+    notifications: true,
+    startSection: 'music',
+    keepAwakeInPlayer: false,
+    weekStart: 6,            // السبت
+    hour12: false,
+  },
 };
 
 function deepMerge(base, patch) {
@@ -73,6 +115,7 @@ function load() {
 
 export const state = load();
 
+/** يحفظ الحالة (مؤجَّل 250ms لتجميع التعديلات المتتابعة). */
 export function save(immediate = false) {
   clearTimeout(saveTimer);
   const write = () => {
@@ -80,7 +123,7 @@ export function save(immediate = false) {
     catch (err) { console.warn('[store] تعذّر الحفظ', err); }
   };
   if (immediate) write();
-  else saveTimer = setTimeout(write, 200);
+  else saveTimer = setTimeout(write, 250);
 }
 
 /** يعدّل الحالة ثم يحفظ ويبثّ. */
@@ -104,49 +147,29 @@ export function emit(topic = '*') {
   });
 }
 
+/** معرّف قصير فريد. */
 export function uid(prefix = '') {
-  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-export function modelInfo(id = state.ai.model) {
-  return MODELS.find((m) => m.id === id) || MODELS[0];
+/** تصدير كل البيانات كنص JSON للنسخ الاحتياطي. */
+export function exportAll() {
+  return JSON.stringify(state, null, 2);
 }
 
-/** هل الذكاء الاصطناعي مهيّأ للعمل؟ */
-export function aiReady() {
-  const a = state.ai;
-  if (a.mode === 'proxy') return /^https?:\/\//.test(a.proxyUrl.trim());
-  return a.apiKey.trim().length > 20;
-}
-
-/** يسجّل استهلاك الرموز وكلفتها التقريبية بالدولار. */
-export function addUsage(usage, modelId) {
-  if (!usage) return 0;
-  const m = modelInfo(modelId);
-  const input = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) * 1.25 + (usage.cache_read_input_tokens || 0) * 0.05;
-  const output = usage.output_tokens || 0;
-  const cost = (input * m.inPrice + output * m.outPrice) / 1e6;
-  update((s) => {
-    s.ai.usage.input += Math.round(input);
-    s.ai.usage.output += output;
-    s.ai.usage.cost += cost;
-    s.ai.usage.calls += 1;
-  }, 'usage');
-  return cost;
-}
-
-export function pushRecent(q) {
-  const v = q.trim();
-  if (v.length < 2) return;
-  update((s) => {
-    s.recent = [v, ...s.recent.filter((x) => x !== v)].slice(0, 8);
-  }, 'recent');
-}
-
-export function resetSettings() {
-  const keep = { meta: state.meta };
+/** استيراد نسخة احتياطية. */
+export function importAll(json) {
+  const parsed = JSON.parse(json);
+  const merged = deepMerge(structuredClone(defaults), parsed);
   Object.keys(state).forEach((k) => delete state[k]);
-  Object.assign(state, structuredClone(defaults), keep);
+  Object.assign(state, merged);
+  save(true);
+  emit('*');
+}
+
+export function resetAll() {
+  Object.keys(state).forEach((k) => delete state[k]);
+  Object.assign(state, structuredClone(defaults));
   save(true);
   emit('*');
 }
