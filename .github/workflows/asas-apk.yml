@@ -43,7 +43,7 @@ jobs:
       - name: تثبيت الحزم
         run: |
           npm ci
-          python -m pip install --quiet python-docx
+          python -m pip install --quiet python-docx python-pptx
 
       - name: تشغيل الفحص
         env:
