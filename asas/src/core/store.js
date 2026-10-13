@@ -63,7 +63,7 @@ export const defaults = {
     logoAR: 1,                 // نسبة ارتفاع الشعار إلى عرضه
   },
   prefs: { length: 'medium', level: 'student' },
-  exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true },
+  exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true, wordMath: 'image' },
   ui: { theme: 'dark', fontSize: 'm' },
   recent: [],                  // آخر عمليات البحث
 };

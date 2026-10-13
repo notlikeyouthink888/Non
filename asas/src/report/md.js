@@ -1,9 +1,12 @@
 /**
  * محلّل Markdown مصغّر لصيغة التقارير:
  * ### عناوين فرعية، فقرات، قوائم مرقّمة ونقطية (بمستوى فرعي)، جداول،
- * كتل معادلات ```eq، ملاحظات >، وتنسيق داخلي **عريض** و*مائل* و`رمز` و[نص يحتاج تعديل].
+ * كتل معادلات ```eq (أو $$…$$ و\[…\])، ملاحظات >، وتنسيق داخلي **عريض** و*مائل* و`رمز`
+ * و[نص يحتاج تعديل]، ومعادلات داخل السطر ($…$ أو مكتوبة نصًّا مثل σ = P / A).
  * المخرجات كتل بسيطة يستعملها العرض والتصدير إلى Word وPDF.
  */
+
+import { splitExplicit, detectMath } from '../core/mathconv.js';
 
 const OL = /^\s*(?:\d+|[٠-٩]+)[.)\-–]\s+(.*)$/;
 const UL = /^\s*[-*•●▪]\s+(.*)$/;
@@ -54,6 +57,20 @@ export function parseBlocks(md) {
       i++;
       const clean = body.map((l) => l.trim()).filter(Boolean);
       if (clean.length) blocks.push({ t: kind === 'eq' || kind === 'math' || kind === 'equation' ? 'eq' : 'pre', lines: clean });
+      continue;
+    }
+
+    // معادلة مستقلة: $$…$$ أو \[…\] (في سطر واحد أو عدة أسطر)
+    const dm = trimmed.match(/^(\$\$|\\\[)/);
+    if (dm) {
+      const close = dm[1] === '$$' ? '$$' : '\\]';
+      let body = trimmed.slice(2);
+      while (!body.trimEnd().endsWith(close) && i + 1 < lines.length && lines[i + 1].trim()) { i++; body += ' ' + lines[i].trim(); }
+      body = body.trimEnd();
+      if (body.endsWith(close)) body = body.slice(0, -2);
+      flushPara();
+      if (body.trim()) blocks.push({ t: 'eq', lines: [`$${body.trim()}$`] });
+      i++;
       continue;
     }
 
@@ -142,11 +159,27 @@ export function parseBlocks(md) {
 }
 
 /**
- * يحلّل التنسيق الداخلي إلى مقاطع: { text, b, i, code, ph }
+ * يحلّل التنسيق الداخلي إلى مقاطع: { text, b, i, code, ph } أو { math, src, display }
  * ph = نص بين أقواس معقوفة يحتاج تعديلًا من المستخدم.
+ * math = صيغة TeX لمعادلة داخل السطر (صريحة بين $…$ أو مكتشفة من نص مثل fcu = P / A).
+ * { math: false } يعطي النص كما هو بلا معادلات (للعناوين وما شابه).
  */
-export function inline(text) {
+export function inline(text, { math = true } = {}) {
   const s = String(text || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\((?:https?:)?[^)]*\)/g, '$1');
+  if (!math) return fmtRuns(s);
+  const out = [];
+  // المعادلات الصريحة أولًا حتى لا تُقرأ _ و* داخلها تنسيقًا
+  for (const part of splitExplicit(s)) {
+    if (part.math !== undefined) { out.push(part); continue; }
+    for (const r of fmtRuns(part.text)) {
+      if (r.code || r.ph) { out.push(r); continue; }
+      for (const x of detectMath(r.text)) out.push(x.math !== undefined ? x : { ...r, text: x.text });
+    }
+  }
+  return out.filter((r) => r.math !== undefined || r.text);
+}
+
+function fmtRuns(s) {
   const runs = [];
   const re = /(\*\*([^*]+)\*\*|__([^_]+)__|`([^`]+)`|\[([^\]\n]{1,160})\]|\*([^*\n]+)\*|(?<![\p{L}\p{N}])_([^_\n]+)_(?![\p{L}\p{N}]))/gu;
   let last = 0;
@@ -155,17 +188,30 @@ export function inline(text) {
     if (m.index > last) runs.push({ text: s.slice(last, m.index) });
     if (m[2] || m[3]) runs.push({ text: m[2] || m[3], b: true });
     else if (m[4]) runs.push({ text: m[4], code: true });
-    else if (m[5]) runs.push({ text: m[5], ph: true });
+    else if (m[5]) runs.push(isPlaceholder(m[5]) ? { text: m[5], ph: true } : { text: m[0] });
     else if (m[6] || m[7]) runs.push({ text: m[6] || m[7], i: true });
     last = m.index + m[0].length;
   }
   if (last < s.length) runs.push({ text: s.slice(last) });
-  return runs.filter((r) => r.text);
+  // النصوص العادية المتجاورة تُدمج حتى تُكتشف المعادلة كاملة: 100 × [(S × W) − M] / (S × W)
+  const out = [];
+  for (const r of runs) {
+    if (!r.text) continue;
+    const prev = out[out.length - 1];
+    if (prev && !prev.b && !prev.i && !prev.code && !prev.ph && !r.b && !r.i && !r.code && !r.ph) prev.text += r.text;
+    else out.push({ ...r });
+  }
+  return out;
 }
 
-/** النص الخام بلا تنسيق (للعدّ والبحث والنسخ). */
+/** [اسم المشرف] أو [12.5] معلومة يكملها الطالب، أما [(S × W) − M] فجزء من معادلة. */
+function isPlaceholder(x) {
+  return /[\u0600-\u06FF]/.test(x) || /^\s*[-+−]?\d[\d.,\s]*\s*$/.test(x) || /^[A-Za-z][A-Za-z ]{2,}$/.test(x.trim());
+}
+
+/** النص الخام بلا تنسيق (للعدّ والبحث والنسخ). المعادلات بنصّها الأصلي. */
 export function plain(text) {
-  return inline(text).map((r) => (r.ph ? `[${r.text}]` : r.text)).join('');
+  return inline(text).map((r) => (r.math !== undefined ? r.src : r.ph ? `[${r.text}]` : r.text)).join('');
 }
 
 /** يقسم نص تقرير كامل إلى أقسام حسب عناوين ##. */

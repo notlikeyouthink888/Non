@@ -8,23 +8,36 @@ import { bidi } from '../core/arabic.js';
 import { figuresOf, figureNumbers } from './model.js';
 import { renderCoverHTML, renderNoCover, hasCover } from './covers.js';
 import { state } from '../core/store.js';
+import { mathEl, eqLineEl, isTall } from '../core/math.js';
 
-/** يحوّل مقاطع التنسيق الداخلي إلى عُقد. */
-export function runsToNodes(text) {
-  return inline(bidi(text)).map((r) => {
-    if (r.b) return h('strong', r.text);
-    if (r.i) return h('em', r.text);
-    if (r.code) return h('code', r.text);
-    if (r.ph) return h('span.ph', { title: 'معلومة تحتاج تعديلًا منك' }, r.text);
-    return document.createTextNode(r.text);
+/** يحوّل مقاطع التنسيق الداخلي إلى عُقد. المعادلات تُرسم صورًا واضحة (SVG). */
+export function runsToNodes(text, { math = true } = {}) {
+  return inline(text, { math }).map((r) => {
+    if (r.math !== undefined) return mathEl(r.math, { display: r.display || isTall(r.math), src: r.src });
+    const t = bidi(r.text);
+    if (r.b) return h('strong', t);
+    if (r.i) return h('em', t);
+    if (r.code) return h('code', t);
+    if (r.ph) return h('span.ph', { title: 'معلومة تحتاج تعديلًا منك' }, t);
+    return document.createTextNode(t);
   });
+}
+
+/** فقرة هي معادلة واحدة فقط: تُعرض في سطر مستقل في الوسط. */
+function soloMath(text) {
+  const r = inline(text);
+  return r.length === 1 && r[0].math !== undefined ? r[0] : null;
 }
 
 export function blocksToNodes(blocks) {
   return blocks.map((b) => {
     switch (b.t) {
-      case 'h': return h(b.level === 3 ? 'h3' : 'h4', runsToNodes(b.text));
-      case 'p': return h('p', runsToNodes(b.text));
+      case 'h': return h(b.level === 3 ? 'h3' : 'h4', runsToNodes(b.text, { math: false }));
+      case 'p': {
+        const m = soloMath(b.text);
+        if (m) return h('div.eq', h('div.eql', { dir: 'ltr' }, mathEl(m.math, { display: true, src: m.src })));
+        return h('p', runsToNodes(b.text));
+      }
       case 'ol':
       case 'ul':
         return h(b.t, b.items.map((it) => h('li', [
@@ -36,7 +49,7 @@ export function blocksToNodes(blocks) {
           h('thead', h('tr', b.head.map((c) => h('th', runsToNodes(c))))),
           h('tbody', b.rows.map((r) => h('tr', r.map((c) => h('td', runsToNodes(c)))))),
         ]));
-      case 'eq': return h('div.eq', b.lines.map((l) => h('div', l)));
+      case 'eq': return h('div.eq', b.lines.map((l) => eqLineEl(l)));
       case 'note': return h('div.note', runsToNodes(b.text));
       case 'pre': return h('pre.pre', b.lines.join('\n'));
       default: return null;

@@ -418,11 +418,19 @@ ol.steps-mini a { color: var(--accent-2); }
 .rsec .tools .icon-btn { width: 34px; height: 34px; }
 .rsec.live h2::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: .2; } }
-.eq {
-  direction: ltr; text-align: center; font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 1.02em;
-  background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin: 10px 0; line-height: 1.9; overflow-x: auto;
-}
-.eq div { white-space: pre-wrap; }
+/* المعادلات: رسم SVG بحجم الخط ولونه (core/math.js) */
+.eq { text-align: center; margin: 12px 0; padding: 6px 4px; overflow-x: auto; overflow-y: hidden; }
+.eql { margin: 6px 0; line-height: 2.2; font-size: 1.08em; }
+.eql > * { margin: 0 .25em; vertical-align: middle; }
+.eql .eq-lb { font-weight: 700; color: var(--paper-fg); }
+.eql .eq-nt { color: var(--fg-2); font-size: .88em; }
+.eql .eq-tx { color: var(--fg-2); }
+.mx { display: inline-block; direction: ltr; unicode-bidi: isolate; white-space: nowrap; line-height: 1; }
+.mx svg { overflow: visible; }
+.mx.mx-d { margin: .25em .1em; }
+.mx-wait, .mx-err { font-family: "Times New Roman", serif; font-style: italic; color: var(--fg-2); white-space: normal; }
+.rsec p .mx, .rsec li .mx, .note .mx { margin: 0 .12em; }
+.tbl-wrap .mx { font-size: 1.05em; }
 .note { border-inline-start: 4px solid var(--accent); background: var(--accent-soft); padding: 8px 12px; border-radius: 8px; margin: 10px 0; font-size: .95em; }
 pre.pre { direction: ltr; text-align: left; background: var(--surface-2); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
 .tbl-wrap { overflow-x: auto; margin: 10px 0 14px; border-radius: 10px; border: 1px solid var(--paper-line); }

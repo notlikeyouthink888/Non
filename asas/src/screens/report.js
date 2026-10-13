@@ -11,6 +11,7 @@ import { getReport, putReport, deleteReport, deleteImages, imageIdsOf } from '..
 import { toast, actionSheet, confirmSheet } from '../core/ui.js';
 import { fmtDate, fmtNum, fmtUSD, safeFileName } from '../core/fmt.js';
 import { shareFile, saveFile, printPage, isNative } from '../core/native.js';
+import { loadMath } from '../core/math.js';
 import { getType } from '../data/types.js';
 import { bidi } from '../core/arabic.js';
 import { jobOf, subscribeJob, startGeneration, cancelJob, settleFigures, PHASES } from '../report/pipeline.js';
@@ -290,6 +291,8 @@ export default {
       // ننتظر تحميل كل الصور قبل الطباعة حتى لا تظهر فارغة في PDF
       const imgs = [...paper.querySelectorAll('img')];
       await Promise.all(imgs.map((im) => (im.complete ? null : im.decode?.().catch(() => {}))));
+      // والمعادلات كذلك: تُرسم قبل الطباعة
+      if (paper.querySelector('.mx-wait')) { await loadMath().catch(() => {}); await new Promise((r) => requestAnimationFrame(() => r())); }
       try {
         await printPage(report.title);
         if (isNative) toast('اختر «حفظ بتنسيق PDF» في نافذة الطباعة', '', 3500);

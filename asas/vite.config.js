@@ -10,7 +10,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     outDir: 'dist',
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         // مكتبتا Word والذكاء الاصطناعي في ملفّين منفصلين تُحمَّلان عند الحاجة فقط

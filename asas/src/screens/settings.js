@@ -279,6 +279,8 @@ function exportCard() {
   const sel = h('select', { onchange: () => update((s) => { s.exportOpts.wordFont = sel.value; }, 'export') }, fonts.map((f) => h('option', { value: f, selected: f === e.wordFont }, f)));
   return h('div.card', [
     field('خط ملف Word', sel, 'الخط المعتاد في تقارير الجامعات العراقية: Simplified Arabic بحجم 14.'),
+    field('المعادلات في Word', chipGroup([{ value: 'image', label: 'صور واضحة' }, { value: 'native', label: 'معادلات Word قابلة للتعديل' }], e.wordMath || 'image', (v) => update((s) => { s.exportOpts.wordMath = v; }, 'export')),
+      'الصور تظهر في كل البرامج مثل العرض تمامًا بكسور حقيقية بلا «/». معادلات Word تُعدَّل بمحرر المعادلات، وما فيه عربي يبقى صورة.'),
     settingRow('فهرس المحتويات', null, toggle(e.toc, (v) => update((s) => { s.exportOpts.toc = v; }, 'export'))),
     settingRow('ذكر مصدر الصور ورخصتها', 'مستحسن أكاديميًا ومطلوب في بعض الرخص', toggle(e.attribution, (v) => update((s) => { s.exportOpts.attribution = v; }, 'export'))),
   ]);
