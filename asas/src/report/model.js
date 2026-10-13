@@ -47,10 +47,10 @@ export function newReport({ title, typeId, topicId = null, options = {}, meta = 
   };
 }
 
-/** يطابق عناوين الأقسام المولّدة مع هيكل النوع ويعيد الناقص منها. */
+/** يطابق عناوين الأقسام المولّدة مع هيكل النوع ويعيد الناقص منها (الأقسام الاختيارية لا تُعدّ ناقصة). */
 export function missingSections(report) {
   const have = new Set(report.sections.map((s) => s.h.replace(/[\s:：]+$/, '').trim()));
-  return sectionsOf(getType(report.typeId), report.catId).filter((s) => !have.has(s.h)).map((s) => s.h);
+  return sectionsOf(getType(report.typeId), report.catId).filter((s) => !s.opt && !have.has(s.h)).map((s) => s.h);
 }
 
 /** القسم الذي تنتمي إليه الصورة: بالعنوان أولًا (لو تغيّر ترتيب الأقسام) ثم بالرقم. */

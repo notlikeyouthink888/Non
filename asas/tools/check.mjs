@@ -73,8 +73,8 @@ async function flows(page) {
   assert(await page.locator('.item', { hasText: 'فحص الهطول للخرسانة الطرية' }).count() >= 1, 'البحث بالعامية «السلمب» يجد فحص الهطول');
   await shot(page, '02-search');
 
-  await page.locator('.search input').fill('الطاقة الشمسية في المباني');
-  await appear(page.getByText('اكتب تقريرًا بعنوان «الطاقة الشمسية في المباني»'));
+  await page.locator('.search input').fill('الطائرات المسيرة في المساحة');
+  await appear(page.getByText('اكتب تقريرًا بعنوان «الطائرات المسيرة في المساحة»'));
   assert(await page.getByText('لم تجد العنوان المناسب؟').count() === 1, 'عنوان غير موجود: تظهر بطاقة «لم تجد العنوان؟»');
   await page.getByText('اقترح عناوين بالذكاء الاصطناعي').click();
   await appear(page.locator('.notice.warn'));
@@ -139,14 +139,14 @@ async function flows(page) {
   await shot(page, '06-settings');
 
   /* ── 5. اقتراح عناوين ثم تقرير بالذكاء الاصطناعي ── */
-  await page.goto(BASE + '#/?q=' + encodeURIComponent('الطاقة الشمسية في المباني'));
+  await page.goto(BASE + '#/?q=' + encodeURIComponent('الطائرات المسيرة في المساحة'));
   await page.getByText('اقترح عناوين بالذكاء الاصطناعي').click();
-  await page.waitForSelector('text=استخدام الطاقة الشمسية في المباني السكنية', { timeout: 10000 });
+  await page.waitForSelector('text=استخدام الطائرات المسيّرة في المسح الطوبوغرافي', { timeout: 10000 });
   assert(await page.locator('.card .item').count() === 3, 'الذكاء الاصطناعي اقترح 3 عناوين');
   await shot(page, '07-suggestions');
   await page.locator('.card .item').first().click();
   await page.waitForSelector('.type-card.on');
-  assert((await page.locator('textarea').first().inputValue()).includes('الطاقة الشمسية'), 'العنوان المقترح انتقل إلى صفحة الإنشاء');
+  assert((await page.locator('textarea').first().inputValue()).includes('الطائرات المسيّرة'), 'العنوان المقترح انتقل إلى صفحة الإنشاء');
   await page.locator('button[aria-label="زيادة"]').click(); // 3 صور: يقبل التحقق البصري اثنتين ويرفض الأخيرة
   await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
   await page.waitForURL(/#\/report\//);
@@ -238,7 +238,7 @@ ps = d.paragraphs
 bidi = sum(1 for p in ps if p._p.pPr is not None and p._p.pPr.find('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi') is not None)
 imgs = len(d.inline_shapes)
 text = '\\n'.join(p.text for p in ps)
-print(len(ps), bidi, imgs, len(d.tables), int('الطاقة الشمسية' in text), int('شكل (1)' in text), int('وزارة التعليم العالي' in text and 'جامعة بغداد' in text))
+print(len(ps), bidi, imgs, len(d.tables), int('الطائرات المسيّرة' in text), int('شكل (1)' in text), int('وزارة التعليم العالي' in text and 'جامعة بغداد' in text))
 `;
   const out = execFileSync('python3', ['-c', py, path]).toString().trim().split(/\s+/).map(Number);
   const [paras, bidi, imgs, tables, hasTitle, hasCaption, hasCover] = out;

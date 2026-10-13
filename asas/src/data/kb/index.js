@@ -12,12 +12,18 @@ import strengthTheory from './strength_theory.js';
 import fluids from './fluids.js';
 import survey from './survey.js';
 import math from './math.js';
+import compareExtra from './compare.js';
+import theoryExtra, { DEFS } from './theory_extra.js';
 
 export const KB = { ...concrete, ...aggregates, ...concreteExtra, ...strength, ...strengthTheory, ...fluids, ...survey, ...math };
 
-// إضافات المرحلة الثانية (النظرية وأسئلة المناقشة والقراءات) لمداخل الخرسانة الأقدم
-for (const [id, extra] of Object.entries(SUPPLEMENT)) {
-  if (KB[id]) KB[id] = { ...KB[id], ...extra };
+// إضافات المرحلة الثانية (النظرية وأسئلة المناقشة والقراءات) لمداخل الخرسانة الأقدم،
+// ثم جداول المقارنة وخطوات الاختيار ومعطيات المشاريع، ثم الأنواع والحالات والتعاريف للمواضيع النظرية
+const defsExtra = Object.fromEntries(Object.entries(DEFS).map(([id, defs]) => [id, { defs }]));
+for (const extra of [SUPPLEMENT, compareExtra, theoryExtra, defsExtra]) {
+  for (const [id, fields] of Object.entries(extra)) {
+    if (KB[id]) KB[id] = { ...KB[id], ...fields };
+  }
 }
 
 export function getKB(id) {

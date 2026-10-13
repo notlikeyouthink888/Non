@@ -11,6 +11,7 @@ import { toast, actionSheet, confirmSheet } from '../core/ui.js';
 import { fmtDate, fmtNum, fmtUSD, safeFileName } from '../core/fmt.js';
 import { shareFile, saveFile, printPage, isNative } from '../core/native.js';
 import { getType } from '../data/types.js';
+import { bidi } from '../core/arabic.js';
 import { jobOf, subscribeJob, startGeneration, cancelJob, settleFigures, PHASES } from '../report/pipeline.js';
 import { renderCover, renderToc, renderSection } from '../report/render.js';
 import { figureNumbers, figuresOf } from '../report/model.js';
@@ -102,7 +103,7 @@ export default {
     /* ── العرض ────────────────────────────────── */
 
     function renderAll() {
-      titleEl.textContent = report.title;
+      titleEl.textContent = bidi(report.title);
       secEls = [];
       secSig = [];
       fill(paper, [renderCover(report), renderToc(report), h('div.secs')]);

@@ -119,9 +119,9 @@ function jsonFor(body) {
   }
   if (props.titles) {
     return { titles: [
-      { title: 'استخدام الطاقة الشمسية في المباني السكنية', type: 'theory', why: 'الأنظمة وطرق التركيب', image_en: 'solar panels building' },
-      { title: 'تطبيقات ميكانيك الموائع في أنظمة التسخين الشمسي', type: 'applications', why: 'الجريان في الأنابيب والضغوط', image_en: 'solar water heater' },
-      { title: 'الإجهادات الحرارية في سقوف المباني المعرضة للشمس', type: 'theory', why: 'من مادة مقاومة المواد', image_en: 'solar roof structure' },
+      { title: 'استخدام الطائرات المسيّرة في المسح الطوبوغرافي', type: 'theory', why: 'من تطبيقات المساحة الحديثة', image_en: 'drone aerial survey' },
+      { title: 'مقارنة المسح بالطائرات المسيّرة والمسح بالمحطة الشاملة', type: 'compare', why: 'الدقة والزمن والكلفة', image_en: 'total station surveying' },
+      { title: 'حساب الحجوم من نماذج الارتفاع الرقمية', type: 'solved', why: 'تطبيق على حساب المساحات والحجوم', image_en: 'digital elevation model' },
     ] };
   }
   if (props.ok) return { ok: true, msg: 'تم الاتصال' };

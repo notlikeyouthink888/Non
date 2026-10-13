@@ -30,7 +30,7 @@ const RAW = {
     ['shear_stress_beams', 'إجهادات القص في العتبات (Shear Stress in Beams)', 'shear stress beam', 'theory solved', 'قص عتبة شير'],
     ['deflection_theory', 'انحراف العتبات بطريقة التكامل المزدوج', 'beam deflection', 'solved theory', 'انحراف تكامل مزدوج دفلكشن'],
     ['torsion_theory', 'الالتواء في الأعمدة الدائرية (Torsion of Shafts)', 'drive shaft', 'theory solved summary', 'التواء عمود دوار شافت قدرة'],
-    ['mohr_circle', 'تحويل الإجهادات ودائرة موهر (Mohr\'s Circle)', 'Mohr circle', 'solved theory summary', 'موهر دائرة رئيسية الاجهادات الرئيسية'],
+    ['mohr_circle', 'تحويل الإجهادات ودائرة موهر (Mohr\'s Circle)', 'Mohr circle', 'solved theory summary', 'موهر مور دائرة رئيسية الاجهادات الرئيسية'],
     ['thin_vessels', 'الأوعية الضغطية رقيقة الجدران (Thin-Walled Pressure Vessels)', 'pressure vessel', 'theory solved', 'اوعية رقيقة اسطوانة خزان ضغط'],
     ['combined_loading', 'الأحمال المركبة (Combined Loading)', 'eccentric load column', 'theory solved', 'مركب لامركزي لا مركزي'],
   ],

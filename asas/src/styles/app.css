@@ -165,6 +165,7 @@ h2.sec .more { margin-inline-start: auto; font-size: 13px; color: var(--accent);
 .search .ico { color: var(--fg-3); margin-inline-start: 8px; }
 .search input { border: none; background: transparent; padding: 13px 4px; font-size: 15.5px; }
 .search input:focus { border: none; }
+.search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; } /* للتطبيق زر مسح خاص به */
 .recent { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 /* ── البطاقات ──────────────────────────────────── */

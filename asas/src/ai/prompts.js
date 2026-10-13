@@ -75,7 +75,7 @@ export function reportPrompt({ title, typeId, cat, options = {}, details = '', r
   const secs = sectionsOf(type, cat);
   const length = LENGTHS.find((l) => l.value === options.length) || LENGTHS[1];
   const level = LEVELS.find((l) => l.value === options.level) || LEVELS[0];
-  const sections = secs.map((s, i) => `${i + 1}. ${s.h} (${s.g})`).join('\n');
+  const sections = secs.map((s, i) => `${i + 1}. ${s.h} (${s.opt ? 'اختياري: اكتبه إن كان له مضمون حقيقي في هذا الموضوع وإلا فاحذفه بعنوانه — ' : ''}${s.g})`).join('\n');
   const uni = [meta.university, meta.college, meta.department].filter(Boolean).join(' — ');
   const parts = [
     'اكتب تقريرًا جامعيًا كاملًا بالمواصفات الآتية:',

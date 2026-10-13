@@ -151,7 +151,7 @@ async function run(job) {
     emit(job, 'text');
     setPhase(job, 'write', 'done', `${r.words} كلمة`);
   } else {
-    const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb });
+    const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb, meta: r.meta });
     r.sections = sections;
     r.words = wordsOf(sections);
     if (coverage < 0.6) r.notes.push('هذه نسخة دون اتصال: بعض الأقسام قالب بإرشادات بين أقواس معقوفة لتكملها، أو فعّل الذكاء الاصطناعي لكتابة التقرير كاملًا.');

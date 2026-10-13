@@ -71,7 +71,7 @@ function fieldMd(key, kb, ctx) {
     case 'intro': return kb?.intro?.length ? kb.intro.join('\n\n') : null;
     case 'defs':
       if (kb?.defs?.length) return bullets(kb.defs);
-      return kb?.intro?.length ? kb.intro[0] : null;
+      return kb?.intro?.length && !ctx.used.has('intro') ? kb.intro[0] : null;
     case 'obj': return kb?.obj || null;
     case 'std':
       if (kb?.std?.length) return bullets(kb.std);
@@ -115,9 +115,22 @@ function fieldMd(key, kb, ctx) {
     }
     case 'pros':
       return kb?.pros ? `### المزايا\n\n${bullets(kb.pros.pros || [])}\n\n### العيوب\n\n${bullets(kb.pros.cons || [])}` : null;
+    case 'compare': return kb?.compare ? `**جدول (1): المقارنة**\n\n${table(kb.compare)}` : null;
+    case 'choose': return kb?.choose?.length ? numbered(kb.choose) : null;
+    case 'given': return kb?.given ? `${table(kb.given)}\n\n> استبدل القيم ببيانات مشروعك.` : null;
     case 'concl': return kb ? conclusion(kb, ctx.title) : null;
     case 'refs': return refsOf(kb, ctx.cat);
     case 'trainingIntro': return GENERIC.trainingIntro.join('\n\n');
+    case 'visitInfo': {
+      const m = ctx.meta || {};
+      return table({ cols: ['البيان', 'التفاصيل'], rows: [
+        ['مكان الزيارة', m.location || '[اسم الموقع أو المعمل ومكانه]'],
+        ['الجهة المستضيفة', m.org || '[الشركة أو الدائرة]'],
+        ['تاريخ الزيارة', m.date || '[التاريخ]'],
+        ['الأستاذ المرافق', m.supervisor || '[اسم الأستاذ]'],
+        ['المرحلة', `${m.stage || 'الثانية'}${m.group ? ` — الشعبة ${m.group}` : ''}`],
+      ] });
+    }
     case 'safety': return v?.length ? bullets(v) : (ctx.genericSafety ? bullets(GENERIC.safety) : null);
     case 'improve':
       return kb?.notes?.length ? numbered(kb.notes.map((n) => `عالِج هذا المصدر: ${n.replace(/\.$/, '')}.`)) : null;
@@ -134,7 +147,7 @@ function fieldMd(key, kb, ctx) {
  * يبني أقسام التقرير.
  * @returns {{ sections: {h, md}[], coverage: number }}
  */
-export function composeOffline({ title, typeId, cat, kb }) {
+export function composeOffline({ title, typeId, cat, kb, meta = {} }) {
   const type = getType(typeId);
   const secs = sectionsOf(type, cat);
   const used = new Set();
@@ -142,26 +155,34 @@ export function composeOffline({ title, typeId, cat, kb }) {
   const ctx = {
     title,
     cat,
+    meta,
+    used,
     lab: ['lab', 'field'].includes(type.id),
     discOnly: type.id === 'discussion' || type.id === 'summary' || type.id === 'seminar',
     singleExample: ['summary', 'theory', 'applications'].includes(type.id),
     genericSafety: ['training', 'visit'].includes(type.id),
   };
 
-  const sections = secs.map((s, idx) => {
+  const sections = [];
+  secs.forEach((s, idx) => {
     let md = null;
     for (const k of s.k) {
       if (used.has(k) && !['refs', 'std'].includes(k)) continue;
       md = fieldMd(k, kb, ctx);
       if (md) { used.add(k); break; }
     }
-    if (!md && idx === 0) md = kb?.intro?.length && !used.has('intro') ? kb.intro.join('\n\n') : genericIntro(title, cat, type);
+    if (!md && idx === 0) {
+      if (kb?.intro?.length && !used.has('intro')) { md = kb.intro.join('\n\n'); used.add('intro'); }
+      else md = genericIntro(title, cat, type);
+    }
     if (!md && s.k.includes('refs')) md = refsOf(kb, cat);
+    // قسم اختياري لا مادة له في هذا الموضوع: يُحذف بدل أن يبقى قالبًا فارغًا
+    if (!md && s.opt && kb) return;
     if (md) filled++;
-    return { h: s.h, md: md || `[اكتب هنا: ${s.g}]` };
+    sections.push({ h: s.h, md: md || `[اكتب هنا: ${s.g}]` });
   });
 
-  return { sections, coverage: filled / secs.length };
+  return { sections, coverage: filled / sections.length };
 }
 
 /** مواضع مقترحة للصور حسب حقول الأقسام. */
@@ -171,15 +192,21 @@ export function planFiguresOffline({ typeId, cat, count, kb, topic, title }) {
   const secs = sectionsOf(getType(typeId), cat);
   const queries = [...new Set([...(kb?.img || []), topic?.en].filter(Boolean))];
   if (!queries.length || !count) return [];
+  // لا صور في الأقسام الاختيارية التي يحذفها المؤلّف دون اتصال
+  const kept = new Set(composeOffline({ title, typeId, cat, kb }).sections.map((s) => s.h));
+  const ok = secs.map((_, j) => j).filter((j) => kept.has(secs[j].h));
   const used = new Set();
   const figs = [];
   for (let i = 0; i < count; i++) {
     let sec = -1;
     for (const keys of FIG_KEYS.slice(i % FIG_KEYS.length).concat(FIG_KEYS)) {
-      sec = secs.findIndex((s, j) => !used.has(j) && s.k.some((k) => keys.includes(k)));
+      sec = ok.find((j) => !used.has(j) && secs[j].k.some((k) => keys.includes(k))) ?? -1;
       if (sec >= 0) break;
     }
-    if (sec < 0) sec = Math.min(secs.length - 1, 1 + i * 2);
+    if (sec < 0) {
+      const free = ok.filter((j) => j > 0 && !used.has(j));
+      sec = free.length ? free[Math.min(free.length - 1, i)] : ok[Math.min(ok.length - 1, 1)];
+    }
     used.add(sec);
     figs.push({
       sec,
