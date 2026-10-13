@@ -1,19 +1,20 @@
 /**
- * الرئيسية: بحث في مكتبة العناوين، وإن لم تجد عنوانك:
- * اكتب التقرير بعنوانك مباشرة، أو دع الذكاء الاصطناعي يقترح عناوين.
+ * الرئيسية: جامعة الطالب، ومواد المرحلة الثانية، وأنواع التقارير، والبحث في مكتبة العناوين.
+ * وإن لم يجد عنوانه: يكتب التقرير بعنوانه مباشرة، أو يقترح الذكاء الاصطناعي عناوين.
  */
 
 import { h, fill, debounce, empty } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { go, setQuiet, qs } from '../core/nav.js';
-import { state, aiReady, pushRecent } from '../core/store.js';
+import { state, aiReady, pushRecent, update } from '../core/store.js';
 import { listReports } from '../core/db.js';
 import { toast } from '../core/ui.js';
 import { REPORT_TYPES, TYPE_BY_ID } from '../data/types.js';
 import { CATEGORIES } from '../data/categories.js';
 import { TOPICS, topicsOf } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
-import { searchTopics, searchTypes, detectType, isWeak, featured } from '../search/index.js';
+import { searchTopics, searchTypes, searchSubjects, detectType, isWeak, featured } from '../search/index.js';
+import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { jsonCall, aiErrorMessage } from '../ai/client.js';
 import { SYSTEM, titlesPrompt, TITLES_SCHEMA } from '../ai/prompts.js';
 import { brandMark, aiPill, topicItem, reportItem, sectionTitle } from './common.js';
@@ -26,7 +27,7 @@ export default {
     const suggestionsCache = new Map();
 
     const input = h('input', {
-      type: 'search', value: initial, placeholder: 'ابحث عن عنوان تقرير أو اكتب أي موضوع…',
+      type: 'search', value: initial, placeholder: 'ابحث عن تجربة أو موضوع، أو اكتب عنوان تقريرك…',
       enterkeyhint: 'search', autocomplete: 'off', 'aria-label': 'بحث',
       oninput: () => { clearBtn.style.visibility = input.value ? 'visible' : 'hidden'; onType(); },
       onkeydown: (e) => { if (e.key === 'Enter') { input.blur(); pushRecent(input.value); } },
@@ -37,13 +38,34 @@ export default {
     }, icon('x', 18));
 
     const body = h('div');
+
+    /* ── جامعة الطالب: تملأ الغلاف تلقائيًا ── */
+    const uniRow = h('div.uni-row.mt');
+    function renderUni() {
+      const cur = state.cover.uni;
+      fill(uniRow, [
+        h('span.uni-label', 'جامعتك:'),
+        h('div.hscroll', [
+          ...UNIVERSITIES.map((u) => h('button.chip.sm' + (u.id === cur ? '.on' : ''), { type: 'button', onclick: () => pickUni(u.id) }, u.name)),
+          h('button.chip.sm' + (cur === 'other' ? '.on' : ''), { type: 'button', onclick: () => go('/settings') }, 'جامعة أخرى'),
+        ]),
+      ]);
+    }
+    function pickUni(id) {
+      const u = UNI_BY_ID[id];
+      update((st) => { Object.assign(st.cover, { uni: u.id, university: u.name, college: u.college, department: u.department }); }, 'cover');
+      renderUni();
+      toast(`سيُكتب الغلاف باسم ${u.name}`);
+    }
+    renderUni();
     const wrap = h('div.wrap', [
       h('div.hero', [
         h('div.row.between', [
-          h('div.brand', [brandMark(30), h('div', [h('div.brand-name', 'أساس'), h('div.brand-sub', 'تقارير الهندسة المدنية بالعربية')])]),
+          h('div.brand', [brandMark(30), h('div', [h('div.brand-name', 'أساس'), h('div.brand-sub', 'تقارير المرحلة الثانية — الهندسة المدنية')])]),
           aiPill(),
         ]),
       ]),
+      uniRow,
       h('div.search.mt', [icon('search', 20), input, clearBtn]),
       body,
     ]);
@@ -65,7 +87,7 @@ export default {
 
       const intro = !aiReady() ? h('div.card.accent.mt', [
         h('h3', 'اكتب أي تقرير بالذكاء الاصطناعي'),
-        h('p.muted', `التطبيق يعمل الآن دون اتصال: ${Object.keys(KB).length} موضوعًا بمحتوى كامل وقوالب منظّمة لباقي العناوين. لتقرير كامل لأي عنوان مع صور متحقَّق منها، أضف مفتاح Claude من الإعدادات.`),
+        h('p.muted', `التطبيق يعمل الآن دون اتصال: ${Object.keys(KB).length} تجربة وموضوعًا بمحتوى كامل مع أسئلة المناقشة. لتقرير يُكتب بقراءاتك أنت ولأي عنوان مع صور متحقَّق منها، أضف مفتاح Claude من الإعدادات.`),
         h('button.btn.primary.sm.mt', { type: 'button', onclick: () => go('/settings') }, [icon('key', 16), 'تفعيل الذكاء الاصطناعي']),
       ]) : null;
 
@@ -73,21 +95,26 @@ export default {
         type: 'button', onclick: () => go(`/create?type=${t.id}`), title: t.desc,
       }, [h('span.em', t.icon), h('span.nm', bidi(t.name))])));
 
-      const cats = h('div.cats', CATEGORIES.map((c) => h('button.cat-card', { type: 'button', onclick: () => go(`/browse/${c.id}`) }, [
-        h('span.em', c.icon),
-        h('div.grow', [h('div.nm', c.short || c.name), h('div.ct', `${topicsOf(c.id).length} عنوانًا`)]),
-      ])));
+      const cats = h('div.cats', CATEGORIES.map((c) => {
+        const all = topicsOf(c.id);
+        const labs = all.filter((t) => t.kind !== 'theory').length;
+        const counts = [labs ? `${labs} ${c.id === 'survey' ? 'عملًا حقليًا' : 'تجربة'}` : '', `${all.length - labs} موضوعًا نظريًا`].filter(Boolean).join(' • ');
+        return h('button.cat-card', { type: 'button', onclick: () => go(`/browse/${c.id}`) }, [
+          h('span.em', c.icon),
+          h('div.grow', [h('div.nm', c.name), h('div.ct', counts)]),
+        ]);
+      }));
 
       const recentReports = h('div.list');
       fill(body, [
         recent,
         intro,
+        sectionTitle(`مواد المرحلة الثانية — ${TOPICS.length} عنوانًا`, { label: 'تصفّح', onClick: () => go('/browse') }),
+        cats,
         sectionTitle(`أنواع التقارير (${REPORT_TYPES.length})`),
         types,
         sectionTitle('آخر تقاريرك', { label: 'الكل', onClick: () => go('/library') }),
         recentReports,
-        sectionTitle(`الأقسام — ${TOPICS.length} عنوانًا`, { label: 'تصفّح', onClick: () => go('/browse') }),
-        cats,
         sectionTitle('مواضيع جاهزة دون اتصال'),
         h('div.list', featured(6).map((t) => topicItem(t))),
       ]);
@@ -101,6 +128,7 @@ export default {
     function renderResults(q) {
       const results = searchTopics(q, { limit: 30 });
       const types = searchTypes(q);
+      const subjects = searchSubjects(q);
       const typeHint = detectType(q);
       const weak = isWeak(results);
 
@@ -123,6 +151,10 @@ export default {
 
       fill(body, [
         h('div.list.mt', [custom]),
+        subjects.length ? h('div', [
+          sectionTitle('مواد مطابقة'),
+          h('div.hscroll', subjects.map((c) => h('button.chip', { type: 'button', onclick: () => go(`/browse/${c.id}`) }, `${c.icon} ${c.name} (${topicsOf(c.id).length})`))),
+        ]) : null,
         types.length ? h('div', [
           sectionTitle('أنواع تقارير مطابقة'),
           h('div.hscroll', types.map((t) => h('button.chip', { type: 'button', onclick: () => go('/create' + qs({ type: t.id })) }, `${t.icon} ${t.name}`))),
@@ -161,7 +193,7 @@ export default {
 
     function showSuggestions(list, box) {
       fill(box, h('div.list.mt', list.map((s) => {
-        const type = TYPE_BY_ID[s.type] || TYPE_BY_ID.research;
+        const type = TYPE_BY_ID[s.type] || TYPE_BY_ID.theory;
         return h('button.item', { type: 'button', onclick: () => go('/create' + qs({ title: s.title, type: type.id, img: s.image_en })) }, [
           h('div.lead-ico', type.icon),
           h('div.grow', [h('div.t', bidi(s.title)), h('div.s', [h('span.badge', type.short), h('span', s.why)])]),

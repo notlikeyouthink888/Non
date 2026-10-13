@@ -36,12 +36,15 @@ export const defaults = {
     sources: { commons: true, wikipedia: true, openverse: true },
   },
   cover: {
-    author: '',
-    university: '',
+    uni: 'baghdad',            // معرّف الجامعة في data/universities.js أو 'other'
+    university: 'جامعة بغداد',
     college: 'كلية الهندسة',
     department: 'قسم الهندسة المدنية',
-    stage: '',
+    stage: 'الثانية',
+    author: '',
+    group: '',                 // الشعبة أو المجموعة
     supervisor: '',
+    ministry: true,            // ترويسة «جمهورية العراق — وزارة التعليم العالي والبحث العلمي»
   },
   prefs: { length: 'medium', level: 'student' },
   exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true },

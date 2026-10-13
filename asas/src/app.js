@@ -26,7 +26,7 @@ const ROUTES = [
 
 const TABS = [
   { id: 'home', label: 'الرئيسية', icon: 'home', path: '/' },
-  { id: 'browse', label: 'العناوين', icon: 'grid', path: '/browse' },
+  { id: 'browse', label: 'المواد', icon: 'grid', path: '/browse' },
   { id: 'library', label: 'تقاريري', icon: 'folder', path: '/library' },
   { id: 'settings', label: 'الإعدادات', icon: 'sliders', path: '/settings' },
 ];

@@ -3,10 +3,9 @@
 import { h } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { imageURL } from '../core/db.js';
-import { getType } from '../data/types.js';
 import { parseBlocks, inline } from './md.js';
 import { bidi } from '../core/arabic.js';
-import { figuresOf, figureNumbers } from './model.js';
+import { figuresOf, figureNumbers, coverLines } from './model.js';
 
 /** يحوّل مقاطع التنسيق الداخلي إلى عُقد. */
 export function runsToNodes(text) {
@@ -45,23 +44,14 @@ export function blocksToNodes(blocks) {
 
 /** الغلاف. */
 export function renderCover(report) {
-  const type = getType(report.typeId);
-  const m = report.meta || {};
-  const orgLines = [m.university, m.college, m.department].filter(Boolean);
-  const by = [
-    m.author ? `إعداد: ${m.author}` : null,
-    m.stage ? `المرحلة: ${m.stage}` : null,
-    m.supervisor ? `إشراف: ${m.supervisor}` : null,
-    m.org ? `الجهة: ${m.org}` : null,
-    m.project ? `المشروع: ${m.project}` : null,
-    m.location ? `الموقع: ${m.location}` : null,
-    m.date || null,
-  ].filter(Boolean);
+  const c = coverLines(report);
   return h('div.cover', [
-    orgLines.length ? h('div.org', orgLines.map((l) => h('div', l))) : null,
+    c.gov.length ? h('div.gov', c.gov.map((l) => h('div', l))) : null,
+    c.org.length ? h('div.org', c.org.map((l) => h('div', l))) : null,
+    h('span.kind', bidi(c.kind)),
     h('h1', bidi(report.title)),
-    h('span.kind', bidi(`${type.icon} ${type.name}`)),
-    by.length ? h('div.by', by.map((l) => h('div', l))) : null,
+    c.by.length ? h('div.by', c.by.map((l) => h('div', bidi(l)))) : null,
+    c.year ? h('div.year', c.year) : null,
   ]);
 }
 

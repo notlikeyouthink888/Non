@@ -8,7 +8,7 @@ import { state, aiReady, uid, save } from '../core/store.js';
 import { putReport } from '../core/db.js';
 import { getKB } from '../data/kb/index.js';
 import { TOPIC_BY_ID } from '../data/topics.js';
-import { getType } from '../data/types.js';
+import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
 import { streamText, jsonCall, aiErrorMessage } from '../ai/client.js';
 import { splitSections, wordsOf } from './md.js';
@@ -129,7 +129,7 @@ async function run(job) {
     };
     const res = await streamText({
       system: SYSTEM,
-      prompt: reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, kb, meta: r.meta }),
+      prompt: reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, readings: r.options.readings || '', kb, meta: r.meta }),
       effort: state.ai.effort,
       maxTokens: 64000,
       signal,
@@ -178,21 +178,21 @@ async function run(job) {
 async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null }) {
   const r = job.report;
   const count = Math.max(0, Math.min(6, wanted ?? r.options.images));
-  const type = getType(r.typeId);
+  const secs = sectionsOf(getType(r.typeId), r.catId);
   setPhase(job, 'plan', 'run');
   let figs = [];
   if (useAI) {
     try {
       const res = await jsonCall({
         system: SYSTEM,
-        prompt: figurePrompt({ title: r.title, typeId: r.typeId, count, kb }),
+        prompt: figurePrompt({ title: r.title, typeId: r.typeId, cat: r.catId, count, kb }),
         schema: FIGURE_SCHEMA,
         effort: 'low',
         signal,
       });
       figs = (res.figures || []).slice(0, count).map((f) => ({
-        sec: Math.max(0, Math.min(type.sections.length - 1, f.section | 0)),
-        secTitle: type.sections[Math.max(0, Math.min(type.sections.length - 1, f.section | 0))].h,
+        sec: Math.max(0, Math.min(secs.length - 1, f.section | 0)),
+        secTitle: secs[Math.max(0, Math.min(secs.length - 1, f.section | 0))].h,
         caption: String(f.caption_ar || r.title).trim(),
         queries: (f.queries_en || []).map((q) => String(q).trim()).filter(Boolean).slice(0, 3),
         mustShow: f.must_show || '',
@@ -203,11 +203,11 @@ async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null
     }
   }
   if (!figs.length) {
-    figs = planFiguresOffline({ typeId: r.typeId, count, kb, topic, title: r.title })
-      .map((f) => ({ ...f, secTitle: type.sections[f.sec]?.h || '' }));
+    figs = planFiguresOffline({ typeId: r.typeId, cat: r.catId, count, kb, topic, title: r.title })
+      .map((f) => ({ ...f, secTitle: secs[f.sec]?.h || '' }));
     if (!figs.length) {
       // عنوان مخصّص دون قاعدة معرفة ولا ذكاء: نبحث بالعنوان نفسه
-      figs = [{ sec: 0, secTitle: type.sections[0].h, caption: r.title, queries: [r.imgHint, r.title].filter(Boolean), mustShow: '' }];
+      figs = [{ sec: 0, secTitle: secs[0].h, caption: r.title, queries: [r.imgHint, r.title].filter(Boolean), mustShow: '' }];
     }
   }
   setPhase(job, 'plan', 'done', `${figs.length} صورة`);

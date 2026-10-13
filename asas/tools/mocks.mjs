@@ -52,7 +52,7 @@ function pageOf(f, i) {
   };
 }
 
-export const stats = { claude: [], images: 0, commons: 0, wikipedia: 0, openverse: 0 };
+export const stats = { claude: [], images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
 
 async function onWikimedia(route) {
   const url = new URL(route.request().url());
@@ -119,9 +119,9 @@ function jsonFor(body) {
   }
   if (props.titles) {
     return { titles: [
-      { title: 'استخدام الطاقة الشمسية في المباني السكنية', type: 'research', why: 'الأنظمة وطرق التركيب', image_en: 'solar panels building' },
-      { title: 'طريقة تنفيذ تركيب الألواح الشمسية على السطوح', type: 'method', why: 'خطوات التنفيذ والسلامة', image_en: 'rooftop solar installation' },
-      { title: 'تقييم أحمال الألواح الشمسية على السقوف الخرسانية', type: 'design', why: 'حساب الأحمال الإضافية', image_en: 'solar roof structure' },
+      { title: 'استخدام الطاقة الشمسية في المباني السكنية', type: 'theory', why: 'الأنظمة وطرق التركيب', image_en: 'solar panels building' },
+      { title: 'تطبيقات ميكانيك الموائع في أنظمة التسخين الشمسي', type: 'applications', why: 'الجريان في الأنابيب والضغوط', image_en: 'solar water heater' },
+      { title: 'الإجهادات الحرارية في سقوف المباني المعرضة للشمس', type: 'theory', why: 'من مادة مقاومة المواد', image_en: 'solar roof structure' },
     ] };
   }
   if (props.ok) return { ok: true, msg: 'تم الاتصال' };
@@ -189,7 +189,9 @@ async function onClaude(route) {
   stats.claude.push({ kind, model: body.model, effort: body.output_config?.effort, problems, images: imgs });
   if (body.stream) {
     const prompt = typeof body.messages[0].content === 'string' ? body.messages[0].content : '';
-    const text = prompt.includes('القسم المطلوب تعديله')
+    const isEdit = prompt.includes('القسم المطلوب تعديله');
+    if (!isEdit) stats.lastReportPrompt = prompt;
+    const text = isEdit
       ? 'نص القسم بعد إعادة الصياغة بالذكاء الاصطناعي.\n\n1. خطوة أولى محسّنة.\n2. خطوة ثانية محسّنة.'
       : reportMarkdown(prompt);
     // نُبطئ قليلًا ليظهر التدفق

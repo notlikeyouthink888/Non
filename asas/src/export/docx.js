@@ -13,7 +13,7 @@ import { getImage } from '../core/db.js';
 import { getType } from '../data/types.js';
 import { parseBlocks, inline } from '../report/md.js';
 import { bidi } from '../core/arabic.js';
-import { figuresOf, figureNumbers } from '../report/model.js';
+import { figuresOf, figureNumbers, coverLines } from '../report/model.js';
 
 const ACCENT = 'B45309';
 const BODY_SIZE = 28; // 14pt
@@ -140,24 +140,16 @@ async function figureParas(fig, num) {
 }
 
 function coverParas(report) {
-  const type = getType(report.typeId);
-  const m = report.meta || {};
-  const org = [m.university, m.college, m.department].filter(Boolean);
+  const c = coverLines(report);
   const out = [];
-  org.forEach((l) => out.push(para([run(l, { b: true, size: 30 })], { align: AlignmentType.CENTER, after: 40 })));
-  out.push(para([run('')], { before: 1600 }));
-  out.push(para(runs(report.title, { b: true, size: 44, color: ACCENT }), { align: AlignmentType.CENTER, after: 240, line: 420 }));
-  out.push(para([run(type.name, { size: 30 })], { align: AlignmentType.CENTER, after: 1400 }));
-  const by = [
-    m.author ? `إعداد: ${m.author}` : null,
-    m.stage ? `المرحلة: ${m.stage}` : null,
-    m.supervisor ? `إشراف: ${m.supervisor}` : null,
-    m.org ? `الجهة: ${m.org}` : null,
-    m.project ? `المشروع: ${m.project}` : null,
-    m.location ? `الموقع: ${m.location}` : null,
-  ].filter(Boolean);
-  by.forEach((l) => out.push(para([run(l, { size: 28 })], { align: AlignmentType.CENTER, after: 80 })));
-  if (m.date) out.push(para([run(m.date, { size: 26 })], { align: AlignmentType.CENTER, before: 400 }));
+  c.gov.forEach((l) => out.push(para([run(l, { b: true, size: 26 })], { align: AlignmentType.CENTER, after: 20 })));
+  if (c.gov.length) out.push(para([run('')], { after: 120 }));
+  c.org.forEach((l) => out.push(para([run(l, { b: true, size: 30 })], { align: AlignmentType.CENTER, after: 40 })));
+  out.push(para([run('')], { before: 1200 }));
+  out.push(para(runs(c.kind, { size: 30, color: ACCENT }), { align: AlignmentType.CENTER, after: 240 }));
+  out.push(para(runs(report.title, { b: true, size: 44 }), { align: AlignmentType.CENTER, after: 1200, line: 420 }));
+  c.by.forEach((l) => out.push(para(runs(l, { size: 28 }), { align: AlignmentType.CENTER, after: 80 })));
+  if (c.year) out.push(para([run(c.year, { size: 26 })], { align: AlignmentType.CENTER, before: 600 }));
   out.push(new Paragraph({ children: [new PageBreak()] }));
   return out;
 }

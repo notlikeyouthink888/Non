@@ -56,12 +56,17 @@ async function waitDone(page, timeout = 30000) {
 }
 
 async function flows(page) {
-  /* ── 1. الرئيسية والبحث ─────────────────────── */
+  /* ── 1. الرئيسية: الجامعة والمواد وأنواع التقارير ── */
   await page.goto(BASE + '#/');
   await page.waitForSelector('.type-card');
-  assert(await page.locator('.type-card').count() === 17, 'الرئيسية: 17 نوع تقرير');
-  assert(await page.locator('.cat-card').count() === 16, 'الرئيسية: 16 قسمًا');
+  assert(await page.locator('.type-card').count() === 12, 'الرئيسية: 12 نوع تقرير جامعي');
+  assert(await page.locator('.cat-card').count() === 5, 'الرئيسية: مواد المرحلة الثانية الخمس');
+  assert(await page.locator('.uni-row .chip.on', { hasText: 'جامعة بغداد' }).count() === 1, 'الجامعة الافتراضية للغلاف: جامعة بغداد');
   await shot(page, '01-home');
+
+  await page.locator('.search input').fill('تنشن تست');
+  await appear(page.getByText('اكتب تقريرًا بعنوان «تنشن تست»'));
+  assert(await page.locator('.item', { hasText: 'فحص الشد للحديد' }).count() >= 1, 'البحث بالمصطلح المكتوب بالعربية «تنشن» يجد فحص الشد');
 
   await page.locator('.search input').fill('السلمب');
   await appear(page.getByText('اكتب تقريرًا بعنوان «السلمب»'));
@@ -75,26 +80,39 @@ async function flows(page) {
   await appear(page.locator('.notice.warn'));
   assert(await page.locator('.notice.warn').count() >= 1, 'دون مفتاح: يطلب تفعيل الذكاء الاصطناعي بدل الخطأ');
 
-  /* ── 2. التصفح ──────────────────────────────── */
+  /* ── 2. المواد ──────────────────────────────── */
   await page.locator('.nav button').nth(1).click();
-  await appear(page.locator('h1.page', { hasText: 'مكتبة العناوين' }));
-  assert(await page.locator('.item').count() === 16, 'مكتبة العناوين: 16 قسمًا');
-  await page.locator('.item', { hasText: 'التربة وميكانيك التربة' }).click();
+  await appear(page.locator('h1.page', { hasText: 'مواد المرحلة الثانية' }));
+  assert(await page.locator('.item').count() === 5, 'المواد: خمس مواد للمرحلة الثانية');
+  await page.locator('.item', { hasText: 'مقاومة المواد' }).click();
   await page.waitForSelector('.topbar');
-  assert(await page.locator('.item').count() >= 30, 'قسم التربة: أكثر من 30 عنوانًا');
-  await shot(page, '03-browse-soil');
+  await until(page, () => document.querySelectorAll('.item').length >= 20);
+  assert(await page.locator('.item').count() === 24, 'مقاومة المواد: 24 عنوانًا');
+  await page.locator('.chip', { hasText: 'تجارب المختبر' }).click();
+  await until(page, () => document.querySelectorAll('.item').length === 11);
+  assert(await page.locator('.item').count() === 11, 'تصفية تجارب المختبر: 11 تجربة');
+  await shot(page, '03-browse-strength');
 
-  /* ── 3. تقرير دون اتصال من قاعدة المعرفة ────── */
-  await page.goto(BASE + '#/create?topic=slump');
+  /* ── 3. تقرير مختبر دون اتصال بصيغة الجامعة ──── */
+  await page.goto(BASE + '#/create?topic=tension_test');
   await page.waitForSelector('.type-card.on');
+  const readIn = page.locator('textarea[placeholder^="اكتب: "]');
+  assert((await readIn.getAttribute('placeholder')).includes('قطر النموذج'), 'صفحة الإنشاء: خانة القراءات مع ما يجب كتابته لهذه التجربة');
+  await page.locator('input[placeholder="مثال: 3"]').fill('3');
   await shot(page, '04-create');
   await page.getByText('أنشئ التقرير (محتوى كامل دون اتصال)').click();
   await page.waitForURL(/#\/report\//);
   await waitDone(page);
-  assert(await page.locator('.rsec').count() === 11, 'تقرير مختبري دون اتصال: 11 قسمًا');
+  assert(await page.locator('.rsec').count() === 10, 'تقرير مختبر مقاومة المواد دون اتصال: 10 أقسام مع المواصفة');
   assert(await page.locator('.rsec ol li').count() >= 10, 'خطوات العمل مرقّمة (10 خطوات)');
   assert(await page.locator('.eq').count() >= 1, 'المعادلات تُعرض في كتلة مستقلة');
+  assert(await page.locator('.rsec h3', { hasText: 'أسئلة المناقشة' }).count() === 1, 'المناقشة: أسئلة المناقشة مع أجوبتها');
+  const cover = await page.locator('.cover').innerText();
+  assert(cover.includes('جمهورية العراق') && cover.includes('جامعة بغداد') && cover.includes('التجربة رقم (3)') && cover.includes('مقاومة المواد'), 'الغلاف بصيغة الجامعة: الوزارة والجامعة والمادة ورقم التجربة');
+  // الصور تُحمَّل كسولًا (loading=lazy)، فننزل إلى أول صورة كما يفعل المستخدم
+  await page.locator('figure.fig').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(() => [...document.querySelectorAll('figure.fig img')].some((i) => i.complete && i.naturalWidth > 0), null, { timeout: 15000 });
+  await page.evaluate(() => window.scrollTo(0, 0));
   const offImgs = await page.locator('figure.fig img').count();
   assert(offImgs >= 1, `الصور تُجلب وتُعرض حتى دون ذكاء اصطناعي (${offImgs})`);
   await shot(page, '05-report-offline');
@@ -129,12 +147,13 @@ async function flows(page) {
   await page.locator('.card .item').first().click();
   await page.waitForSelector('.type-card.on');
   assert((await page.locator('textarea').first().inputValue()).includes('الطاقة الشمسية'), 'العنوان المقترح انتقل إلى صفحة الإنشاء');
+  await page.locator('button[aria-label="زيادة"]').click(); // 3 صور: يقبل التحقق البصري اثنتين ويرفض الأخيرة
   await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
   await page.waitForURL(/#\/report\//);
   await page.waitForSelector('.gen-panel .phase', { timeout: 5000 });
   await shot(page, '08-generating');
   await waitDone(page, 40000);
-  assert(await page.locator('.rsec').count() === 10, 'تقرير بحثي بالذكاء الاصطناعي: 10 أقسام كما في الهيكل');
+  assert(await page.locator('.rsec').count() === 9, 'تقرير نظري بالذكاء الاصطناعي: 9 أقسام كما في الهيكل');
   assert(await page.locator('.rsec table').count() >= 1, 'الجداول تُعرض');
   assert(await page.locator('.rsec .ph').count() >= 1, 'القيم بين [ ] مميزة لتعديلها');
   await page.waitForFunction(() => document.querySelectorAll('figure.fig img').length >= 2, null, { timeout: 15000 });
@@ -181,6 +200,16 @@ async function flows(page) {
   assert(statSync(docxPath).size > 20000, `تصدير Word (${Math.round(statSync(docxPath).size / 1024)} ك.ب)`);
   verifyDocx(docxPath);
 
+  /* ── 8ب. تقرير مختبر بقراءات الطالب ─────────── */
+  await page.goto(BASE + '#/create?topic=venturi');
+  await page.waitForSelector('.type-card.on');
+  await page.locator('textarea[placeholder^="اكتب: "]').fill('القراءة 1: h1 = 0.352 m و h2 = 0.202 m، الحجم 5 لتر في 13.9 ثانية');
+  await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+  await page.waitForURL(/#\/report\//);
+  await waitDone(page, 40000);
+  assert(stats.lastReportPrompt.includes('قراءات الطالب الفعلية') && stats.lastReportPrompt.includes('h1 = 0.352'), 'قراءات الطالب تصل إلى الذكاء الاصطناعي ليحسب منها النتائج');
+  assert(await page.locator('.rsec').count() === 9, 'تقرير مختبر الموائع: 9 أقسام (المواصفة خاصة بالخرسانة والمقاومة)');
+
   /* ── 9. المكتبة والحذف ───────────────────────── */
   await page.goto(BASE + '#/library');
   await page.waitForSelector('.list .item');
@@ -209,13 +238,14 @@ ps = d.paragraphs
 bidi = sum(1 for p in ps if p._p.pPr is not None and p._p.pPr.find('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi') is not None)
 imgs = len(d.inline_shapes)
 text = '\\n'.join(p.text for p in ps)
-print(len(ps), bidi, imgs, len(d.tables), int('الطاقة الشمسية' in text), int('شكل (1)' in text))
+print(len(ps), bidi, imgs, len(d.tables), int('الطاقة الشمسية' in text), int('شكل (1)' in text), int('وزارة التعليم العالي' in text and 'جامعة بغداد' in text))
 `;
   const out = execFileSync('python3', ['-c', py, path]).toString().trim().split(/\s+/).map(Number);
-  const [paras, bidi, imgs, tables, hasTitle, hasCaption] = out;
+  const [paras, bidi, imgs, tables, hasTitle, hasCaption, hasCover] = out;
   assert(paras > 40 && bidi / paras > 0.85, `Word: ${bidi}/${paras} فقرة باتجاه من اليمين لليسار`);
   assert(imgs === 2, `Word: الصور مضمّنة (${imgs})`);
   assert(tables >= 1 && hasTitle && hasCaption, 'Word: الجداول والعنوان وتعليقات الصور موجودة');
+  assert(hasCover === 1, 'Word: غلاف الجامعة مع ترويسة الوزارة');
 }
 
 async function main() {

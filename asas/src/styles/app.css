@@ -197,6 +197,10 @@ h2.sec .more { margin-inline-start: auto; font-size: 13px; color: var(--accent);
 
 /* الأقسام */
 .cats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.cats > .cat-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.uni-row { display: flex; align-items: center; gap: 8px; }
+.uni-row .uni-label { flex: none; font-size: 12.5px; color: var(--fg-3); }
+.uni-row .hscroll { flex: 1; min-width: 0; }
 .cat-card {
   display: flex; align-items: center; gap: 10px; text-align: start;
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 12px;
@@ -311,6 +315,9 @@ details.more-opts[open] > summary { border-bottom: 1px solid var(--line); margin
 .cover h1 { font-size: 23px; line-height: 1.6; margin: 14px 0 6px; color: var(--paper-fg); }
 .cover .kind { display: inline-block; font-family: var(--font); font-size: 12.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 4px 12px; border-radius: 99px; }
 .cover .by { font-family: var(--font); font-size: 13px; color: var(--fg-2); margin-top: 12px; line-height: 1.9; }
+.cover .gov { font-family: var(--font); color: var(--fg-3); font-size: 12px; line-height: 1.7; margin-bottom: 6px; }
+.cover .year { font-family: var(--font); font-size: 12.5px; color: var(--fg-3); margin-top: 10px; }
+.cover .kind + h1 { margin-top: 10px; }
 .toc { font-family: var(--font); font-size: 13.5px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
 .toc ol { margin: 6px 0 0; padding-inline-start: 22px; }
 .toc li { padding: 2px 0; }
@@ -425,6 +432,8 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
   .cover .kind { align-self: center; }
   .cover .org { font-size: 13pt; color: #000; font-weight: 700; }
   .cover .by { font-size: 12pt; color: #000; }
+  .cover .gov { font-size: 12pt; color: #000; font-weight: 700; }
+  .cover .year { font-size: 12pt; color: #000; }
   .toc { background: none; border: 1px solid #ccc; page-break-after: always; break-after: page; }
   .rsec h2 { page-break-after: avoid; break-after: avoid; font-size: 17pt; }
   figure.fig, .tbl-wrap, .eq { page-break-inside: avoid; break-inside: avoid; }

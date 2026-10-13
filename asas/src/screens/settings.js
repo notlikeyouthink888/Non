@@ -10,6 +10,7 @@ import { shareFile, openExternal } from '../core/native.js';
 import { REPORT_TYPES } from '../data/types.js';
 import { TOPICS } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
+import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
 
 export default {
@@ -116,12 +117,31 @@ function imagesCard() {
 
 function coverCard() {
   const c = state.cover;
+  const box = h('div.card');
   const inp = (k, label, ph = '') => field(label, h('input', { value: c[k] || '', placeholder: ph, oninput: (e) => { state.cover[k] = e.target.value; save(); } }));
-  return h('div.card', [
-    h('div.grid2', [inp('author', 'اسمك', 'يظهر في الغلاف'), inp('stage', 'المرحلة', 'مثال: الثالثة')]),
-    h('div.grid2', [inp('university', 'الجامعة', 'مثال: جامعة بغداد'), inp('college', 'الكلية')]),
-    h('div.grid2', [inp('department', 'القسم'), inp('supervisor', 'المشرف')]),
-  ]);
+  function render() {
+    const other = !UNI_BY_ID[c.uni];
+    fill(box, [
+      field('الجامعة', chipGroup(
+        [...UNIVERSITIES.map((u) => ({ value: u.id, label: u.name })), { value: 'other', label: 'أخرى' }],
+        other ? 'other' : c.uni,
+        (v) => {
+          update((st) => {
+            if (v === 'other') Object.assign(st.cover, { uni: 'other', university: '', college: '' });
+            else { const u = UNI_BY_ID[v]; Object.assign(st.cover, { uni: u.id, university: u.name, college: u.college, department: u.department }); }
+          }, 'cover');
+          render();
+        },
+      ), 'تملأ اسم الجامعة والكلية والقسم في غلاف كل تقرير، ويمكنك تعديلها لكل تقرير.'),
+      other ? h('div.grid2', [inp('university', 'اسم الجامعة'), inp('college', 'الكلية')]) : null,
+      h('div.grid2', [inp('department', 'القسم'), inp('stage', 'المرحلة', 'الثانية')]),
+      h('div.grid2', [inp('author', 'اسمك', 'يظهر في الغلاف'), inp('group', 'الشعبة / المجموعة')]),
+      inp('supervisor', 'المشرف (اختياري)'),
+      settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(c.ministry !== false, (v) => update((st) => { st.cover.ministry = v; }, 'cover'))),
+    ]);
+  }
+  render();
+  return box;
 }
 
 function exportCard() {
@@ -193,7 +213,7 @@ function dataCard() {
 function aboutCard() {
   return h('div.card.soft.mt', [
     h('h3', 'أساس 1.0'),
-    h('p.muted', `تقارير الهندسة المدنية بالعربية: ${REPORT_TYPES.length} نوعًا من التقارير، و${TOPICS.length} عنوانًا جاهزًا، و${Object.keys(KB).length} موضوعًا بمحتوى كامل يعمل دون إنترنت. الكتابة بالذكاء الاصطناعي عبر Claude، والصور من ويكيبيديا وويكيميديا كومنز وOpenverse مع ذكر مصادرها.`),
+    h('p.muted', `تقارير طلبة المرحلة الثانية في الهندسة المدنية بالعربية — مقاومة المواد، الرياضيات الهندسية، تكنولوجيا الخرسانة، المساحة، ميكانيك الموائع: ${REPORT_TYPES.length} نوعًا من التقارير، و${TOPICS.length} تجربة وموضوعًا بمحتوى كامل يعمل دون إنترنت مع أسئلة المناقشة. الكتابة بالذكاء الاصطناعي عبر Claude، والصور من ويكيبيديا وويكيميديا كومنز وOpenverse مع ذكر مصادرها.`),
     h('p.hint', 'تذكير: راجع كل تقرير قبل تسليمه، وتحقق من الأرقام والمواصفات المطلوبة في مادتك أو مشروعك، وعدّل ما بين الأقواس [ ].'),
   ]);
 }

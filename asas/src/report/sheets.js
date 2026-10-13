@@ -1,6 +1,6 @@
 /** أوراق التحرير: تحرير قسم (يدويًا أو بالذكاء الاصطناعي)، اختيار الصور، وبيانات الغلاف. */
 
-import { h, fill, field } from '../core/dom.js';
+import { h, fill, field, toggle, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { sheet, toast, confirmSheet } from '../core/ui.js';
 import { aiReady, state, uid } from '../core/store.js';
@@ -246,14 +246,16 @@ export function openAddFigure(report, onChanged) {
 export function openCoverEditor(report, onSaved) {
   const m = { ...report.meta };
   const titleIn = h('textarea', { rows: 2, value: report.title });
-  const inp = (k, label) => field(label, h('input', { value: m[k] || '', oninput: (e) => { m[k] = e.target.value; } }));
+  const inp = (k, label, ph = '') => field(label, h('input', { value: m[k] || '', placeholder: ph, oninput: (e) => { m[k] = e.target.value; } }));
   sheet('العنوان وبيانات الغلاف', ({ close }) => h('div', [
     field('العنوان', titleIn),
-    h('div.grid2', [inp('author', 'إعداد'), inp('stage', 'المرحلة')]),
     h('div.grid2', [inp('university', 'الجامعة'), inp('college', 'الكلية')]),
-    h('div.grid2', [inp('department', 'القسم'), inp('supervisor', 'إشراف')]),
-    h('div.grid2', [inp('org', 'الجهة / الشركة'), inp('project', 'المشروع')]),
-    h('div.grid2', [inp('location', 'الموقع'), inp('date', 'التاريخ')]),
+    h('div.grid2', [inp('department', 'القسم'), inp('subject', 'المادة')]),
+    h('div.grid2', [inp('stage', 'المرحلة'), inp('group', 'الشعبة / المجموعة')]),
+    h('div.grid2', [inp('expNo', 'رقم التجربة'), inp('author', 'اسم الطالب')]),
+    h('div.grid2', [inp('supervisor', 'بإشراف'), inp('date', 'التاريخ')]),
+    h('div.grid2', [inp('year', 'السنة الدراسية'), inp('org', 'الجهة (للتدريب والزيارة)')]),
+    settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(m.ministry !== false, (v) => { m.ministry = v; })),
     h('button.btn.primary.block.mt', {
       type: 'button',
       onclick: async () => {

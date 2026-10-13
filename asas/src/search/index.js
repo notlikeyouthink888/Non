@@ -5,9 +5,9 @@
 
 import { TOPICS } from '../data/topics.js';
 import { REPORT_TYPES } from '../data/types.js';
-import { CAT_BY_ID } from '../data/categories.js';
+import { CAT_BY_ID, CATEGORIES } from '../data/categories.js';
 import { KB } from '../data/kb/index.js';
-import { norm, queryTerms, matchTerm, stemsOf } from '../core/arabic.js';
+import { norm, stem, queryTerms, matchTerm, stemsOf } from '../core/arabic.js';
 
 let INDEX = null;
 
@@ -21,7 +21,7 @@ function buildIndex() {
     titleStems: stemsOf(t.title),
     kwStems: stemsOf(t.kw),
     enStems: stemsOf(t.en),
-    catStems: stemsOf(CAT_BY_ID[t.cat]?.name || ''),
+    catStems: stemsOf(`${CAT_BY_ID[t.cat]?.name || ''} ${CAT_BY_ID[t.cat]?.short || ''} ${CAT_BY_ID[t.cat]?.aliases || ''}`),
     hasKB: !!KB[t.id],
   }));
   for (const e of INDEX) {
@@ -36,33 +36,41 @@ function weightOf(term) {
   return Math.log(1 + n / df);
 }
 
-/** كلمات تدل على نوع التقرير المطلوب. */
+/** كلمات تدل على نوع التقرير المطلوب (الأخص أولًا؛ أول تطابق يُعتمد). */
 const TYPE_HINTS = [
-  ['lab', ['مختبري', 'مختبر', 'مختبريه', 'فحص', 'تجربه']],
-  ['training', ['تدريب', 'صيفي', 'التدريب']],
-  ['visit', ['زياره', 'ميدانيه', 'ميداني']],
-  ['daily', ['يومي', 'يوميه']],
-  ['progress', ['تقدم', 'انجاز', 'شهري', 'اسبوعي']],
-  ['inspection', ['استلام', 'فحص واستلام']],
-  ['method', ['طريقه تنفيذ', 'تنفيذ', 'method', 'ميثود']],
-  ['qc', ['جوده', 'سيطره نوعيه']],
-  ['safety', ['سلامه', 'مخاطر']],
-  ['assessment', ['تقييم', 'تشققات', 'معالجه']],
-  ['geotech', ['تحري', 'جسات', 'جيوتقني']],
-  ['boq', ['كميات', 'كلفه', 'تخمين']],
-  ['design', ['تصميم', 'تصميمي']],
-  ['survey', ['مساحي', 'مساحه']],
-  ['failure', ['انهيار', 'حادث', 'فشل']],
-  ['proposal', ['مقترح', 'مشروع تخرج', 'خطه بحث']],
-  ['research', ['بحث', 'بحثي', 'دراسه']],
-];
+  ['discussion', ['مناقشه', 'ديسكشن', 'اسئله المناقشه']],
+  ['solved', ['مسائل', 'واجب', 'تمارين', 'محلوله', 'حل']],
+  ['summary', ['ملخص', 'تلخيص', 'مراجعه', 'امتحان']],
+  ['compare', ['مقارنه', 'قارن', 'الفرق بين']],
+  ['applications', ['تطبيقات', 'تطبيق']],
+  ['seminar', ['سمنار', 'سيمنار', 'عرض تقديمي']],
+  ['project', ['مشروع', 'بروجكت']],
+  ['visit', ['زياره', 'سفره علميه']],
+  ['training', ['تدريب', 'صيفي']],
+  ['field', ['حقلي', 'حقليه', 'حقل', 'عمل حقلي']],
+  ['lab', ['مختبري', 'مختبر', 'مختبريه', 'تجربه', 'فحص', 'لاب']],
+  ['theory', ['نظري', 'نظريه', 'بحث', 'بحثي', 'دراسه']],
+].map(([id, hints]) => [id, hints.map((h) => norm(h))]); // تُوحَّد كتابتها كنص البحث (ئ ← ي…)
 
 export function detectType(q) {
   const n = ' ' + norm(q) + ' ';
+  const words = new Set(n.trim().split(/\s+/));
   for (const [id, hints] of TYPE_HINTS) {
-    if (hints.some((h) => n.includes(' ' + h + ' ') || n.includes(' ' + h))) return id;
+    const hit = hints.some((h) => (h.includes(' ') ? n.includes(' ' + h + ' ') : words.has(h) || (h.length >= 4 && [...words].some((w) => w.startsWith(h) || w === 'ال' + h))));
+    if (hit) return id;
   }
   return null;
+}
+
+/** المواد الدراسية المطابقة لنص البحث («المقاومة»، «الموائع»...). */
+export function searchSubjects(q) {
+  const terms = queryTerms(q);
+  if (!terms.length) return [];
+  return CATEGORIES.map((c) => {
+    const st = stemsOf(`${c.name} ${c.short} ${c.aliases || ''}`);
+    const s = Math.max(...terms.map((term) => matchTerm(term, st)));
+    return { c, s };
+  }).filter((x) => x.s >= 0.9).sort((a, b) => b.s - a.s).map((x) => x.c);
 }
 
 /** أنواع التقارير المطابقة لنص البحث. */
@@ -81,12 +89,16 @@ export function searchTypes(q) {
  * يعيد [{ topic, score, hasKB }] مرتبة تنازليًا.
  */
 /** كلمات تصف نوع التقرير لا موضوعه؛ تُحذف من مطابقة العناوين إن بقي غيرها. */
-const TYPE_WORDS = new Set(['طريقه', 'تنفيذ', 'يومي', 'يوميه', 'مختبري', 'مختبريه', 'زياره', 'ميدانيه', 'ميداني', 'تدريب', 'صيفي', 'شهري', 'اسبوعي', 'بحثي', 'مقترح', 'method', 'statement']);
+const TYPE_WORDS = new Set([
+  'تقرير', 'تقارير', 'مختبر', 'مختبري', 'مختبريه', 'تجربه', 'لتجربه', 'التجربه', 'حقلي', 'حقليه', 'نظري', 'بحث', 'بحثي',
+  'ملخص', 'مناقشه', 'اسئله', 'سؤال', 'حل', 'مسائل', 'محلوله', 'محلول', 'واجب', 'تطبيقات', 'مقارنه', 'سمنار', 'مشروع',
+  'زياره', 'تدريب', 'صيفي', 'مرحله', 'ثانيه', 'عملي', 'عمل', 'جامعه', 'جامعي', 'كليه',
+].flatMap((w) => { const n = norm(w); return [n, stem(n)]; }));
 
 export function searchTopics(q, { cat = null, limit = 40 } = {}) {
   const idx = INDEX || buildIndex();
   let terms = queryTerms(q);
-  const topical = terms.filter((t) => !TYPE_WORDS.has(t.raw));
+  const topical = terms.filter((t) => !TYPE_WORDS.has(t.raw) && !TYPE_WORDS.has(t.stem));
   if (topical.length) terms = topical;
   const nq = norm(q).trim();
   if (!terms.length) return [];
@@ -102,7 +114,7 @@ export function searchTopics(q, { cat = null, limit = 40 } = {}) {
       const sTitle = matchTerm(term, e.titleStems);
       const sKw = matchTerm(term, e.kwStems) * 0.85;
       const sEn = matchTerm(term, e.enStems) * 0.8;
-      const sCat = matchTerm(term, e.catStems) * 0.35;
+      const sCat = matchTerm(term, e.catStems) * 0.6; // «الموائع» تعرض عناوين المادة كلها
       const best = Math.max(sTitle, sKw, sEn, sCat);
       if (best >= 0.5) matchedW += weights[k];
       score += best * (sTitle >= best ? 3 : 2) * (weights[k] / (totalW / terms.length));
