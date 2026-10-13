@@ -15,6 +15,8 @@ import { chromium } from 'playwright-core';
 import { installMocks, stats } from './mocks.mjs';
 
 const SHOTS = process.argv.includes('--shots');
+// إبطاء المعالج (مثلًا CHECK_CPU_SLOWDOWN=6) يحاكي أجهزة CI والهواتف البطيئة ويكشف أخطاء التوقيت
+const SLOWDOWN = Number(process.env.CHECK_CPU_SLOWDOWN) || 1;
 const SHOT_DIR = 'docs/shots';
 const BROWSER = process.env.PLAYWRIGHT_CHROMIUM || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium'].find((p) => existsSync(p));
 const BASE = 'http://127.0.0.1:4173/';
@@ -32,6 +34,11 @@ function run(cmd, args) {
 
 function ok(label) { passed++; console.log(`  ✓ ${label}`); }
 function assert(cond, label) { if (!cond) throw new Error(label); ok(label); }
+
+// التنقّل وتحديث الواجهة غير متزامنين (وأبطأ في متصفحات CI): ننتظر الحالة المتوقعة نفسها
+// ثم نؤكّدها، بدل مهلة ثابتة أو محدِّد قد يطابق عناصر الشاشة السابقة. المهلة لا تُسقط الفحص؛ التأكيد يفعل.
+const appear = (locator) => locator.first().waitFor({ timeout: 10000 }).catch(() => {});
+const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
 
 async function shot(page, name) {
   if (!SHOTS) return;
@@ -57,21 +64,21 @@ async function flows(page) {
   await shot(page, '01-home');
 
   await page.locator('.search input').fill('السلمب');
-  await sleep(450);
+  await appear(page.getByText('اكتب تقريرًا بعنوان «السلمب»'));
   assert(await page.locator('.item', { hasText: 'فحص الهطول للخرسانة الطرية' }).count() >= 1, 'البحث بالعامية «السلمب» يجد فحص الهطول');
   await shot(page, '02-search');
 
   await page.locator('.search input').fill('الطاقة الشمسية في المباني');
-  await sleep(450);
+  await appear(page.getByText('اكتب تقريرًا بعنوان «الطاقة الشمسية في المباني»'));
   assert(await page.getByText('لم تجد العنوان المناسب؟').count() === 1, 'عنوان غير موجود: تظهر بطاقة «لم تجد العنوان؟»');
   await page.getByText('اقترح عناوين بالذكاء الاصطناعي').click();
-  await sleep(300);
+  await appear(page.locator('.notice.warn'));
   assert(await page.locator('.notice.warn').count() >= 1, 'دون مفتاح: يطلب تفعيل الذكاء الاصطناعي بدل الخطأ');
 
   /* ── 2. التصفح ──────────────────────────────── */
   await page.locator('.nav button').nth(1).click();
-  await page.waitForSelector('.item');
-  assert(await page.locator('.item').count() === 16, 'المكتبة: 16 قسمًا');
+  await appear(page.locator('h1.page', { hasText: 'مكتبة العناوين' }));
+  assert(await page.locator('.item').count() === 16, 'مكتبة العناوين: 16 قسمًا');
   await page.locator('.item', { hasText: 'التربة وميكانيك التربة' }).click();
   await page.waitForSelector('.topbar');
   assert(await page.locator('.item').count() >= 30, 'قسم التربة: أكثر من 30 عنوانًا');
@@ -147,7 +154,7 @@ async function flows(page) {
   await page.waitForFunction(() => document.querySelector('.sheet textarea')?.value.includes('بعد إعادة الصياغة'), null, { timeout: 10000 });
   await shot(page, '10-edit-section');
   await page.locator('.sheet button.btn.primary', { hasText: 'حفظ' }).click();
-  await sleep(400);
+  await until(page, () => document.querySelector('.rsec')?.innerText.includes('بعد إعادة الصياغة'));
   assert(await page.locator('.rsec').first().innerText().then((t) => t.includes('بعد إعادة الصياغة')), 'تحرير القسم بالذكاء الاصطناعي وحفظه');
 
   /* ── 7. استبدال صورة ─────────────────────────── */
@@ -157,6 +164,10 @@ async function flows(page) {
   await shot(page, '11-image-picker');
   await page.locator('.sheet .cand').last().click();
   await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
+  await until(page, () => {
+    const imgs = [...document.querySelectorAll('figure.fig img')];
+    return imgs.length === 2 && imgs.every((i) => i.complete && i.naturalWidth > 0);
+  });
   assert(await page.locator('figure.fig img').count() === 2, 'استبدال صورة من المرشحين');
 
   /* ── 8. تصدير Word ───────────────────────────── */
@@ -179,7 +190,7 @@ async function flows(page) {
   await page.locator('.list .item .icon-btn').first().click();
   await page.locator('.action-item', { hasText: 'حذف' }).click();
   await page.locator('.sheet .btn.danger', { hasText: 'احذف' }).click();
-  await sleep(500);
+  await until(page, (n) => document.querySelectorAll('.list .item').length === n, before - 1);
   assert(await page.locator('.list .item').count() === before - 1, 'حذف تقرير من المكتبة');
 
   /* ── 10. صحة طلبات Claude ────────────────────── */
@@ -221,6 +232,7 @@ async function main() {
     browser = await chromium.launch({ executablePath: BROWSER, args: ['--no-sandbox'] });
     const context = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2, acceptDownloads: true });
     const page = await context.newPage();
+    if (SLOWDOWN > 1) await (await context.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: SLOWDOWN });
     await installMocks(page);
 
     page.on('console', (m) => {
