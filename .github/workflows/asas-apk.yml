@@ -117,11 +117,16 @@ jobs:
           # فالوسم الذي استُعمل في إصدار سابق لا يُحذف ولا يُعاد استعماله (خطأ 422).
           TAG: asas-b${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          # إصدارات «أساس» تبقى تجريبية (pre-release) فلا تأخذ لقب «الأحدث» من إصدارات Your World.
-          gh release list --limit 100 --json tagName,isPrerelease \
-            --jq '.[] | select((.tagName | startswith("asas-")) and (.isPrerelease | not)) | .tagName' |
-          while read -r old; do
-            gh release edit "$old" --prerelease || echo "::warning::تعذّر جعل $old إصدارًا تجريبيًا"
+          # إصدارات «أساس» تبقى تجريبية (pre-release) فلا تأخذ لقب «الأحدث» من إصدارات Your World،
+          # وكل إصدار سابق يُعلَّم «(قديمة)» حتى لا يُنزَّل غير الأحدث (أرقام البناء بدأت من جديد مع هذا الملف).
+          gh release list --limit 100 --json tagName,name,isPrerelease \
+            --jq '.[] | select(.tagName | startswith("asas-")) | [.tagName, .name, (.isPrerelease | tostring)] | @tsv' |
+          while IFS=$'\t' read -r old name pre; do
+            case "$name" in
+              *"(قديمة)") [ "$pre" = true ] && continue; title="$name" ;;
+              *) title="$name (قديمة)" ;;
+            esac
+            gh release edit "$old" --prerelease --title "$title" || echo "::warning::تعذّر تحديث $old"
           done
 
           gh release create "$TAG" out/Asas.apk \
@@ -131,7 +136,7 @@ jobs:
             --title "أساس — بناء ${{ github.run_number }}" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
-          كل الإصدارات: https://github.com/${{ github.repository }}/releases — نزّل أحدث «أساس — بناء …»
+          كل الإصدارات: https://github.com/${{ github.repository }}/releases — الإصدارات السابقة معلَّمة «(قديمة)»
 
           **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Asas.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
