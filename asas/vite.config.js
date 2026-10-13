@@ -14,7 +14,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // مكتبتا Word والذكاء الاصطناعي في ملفّين منفصلين تُحمَّلان عند الحاجة فقط
-        manualChunks: { docx: ['docx'], claude: ['@anthropic-ai/sdk'] },
+        manualChunks: { docx: ['docx'], claude: ['@anthropic-ai/sdk'], pptx: ['pptxgenjs'] },
       },
     },
   },

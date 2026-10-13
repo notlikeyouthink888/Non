@@ -242,6 +242,7 @@ export default {
       const a = await actionSheet('خيارات التقرير', [
         { value: 'cover', label: 'تعديل العنوان وبيانات الغلاف', icon: 'edit' },
         { value: 'format', label: 'التنسيق والشكل (الإطار، العناوين، الخط…)', icon: 'layers' },
+        { value: 'pptx', label: 'عرض تقديمي PowerPoint (للسمنار)', icon: 'share' },
         { value: 'addimg', label: 'إضافة صورة', icon: 'image' },
         { value: 'refetch', label: 'إعادة البحث عن الصور الناقصة', icon: 'refresh' },
         aiReady() ? { value: 'regen', label: 'إعادة كتابته بالذكاء الاصطناعي', icon: 'sparkles' } : null,
@@ -253,6 +254,7 @@ export default {
       if (busy() && a !== 'copy') { toast('انتظر حتى يكتمل الإنشاء'); return; }
       if (a === 'cover') openCoverEditor(report, () => renderAll());
       else if (a === 'format') openFormatSheet(report, () => renderAll());
+      else if (a === 'pptx') exportPptx();
       else if (a === 'addimg') openAddFigure(report, () => renderAll());
       else if (a === 'refetch') refetchImages();
       else if (a === 'regen') regenerate('ai');
@@ -279,6 +281,20 @@ export default {
       toast('يجهّز ملف Word…', '', 1500);
       const { buildDocx } = await import('../export/docx.js');
       return buildDocx(report);
+    }
+
+    async function exportPptx(share = false) {
+      try {
+        toast('يجهّز العرض التقديمي…', '', 1500);
+        const { buildPptx } = await import('../export/pptx.js');
+        const blob = await buildPptx(report);
+        const name = safeFileName(report.title, 'pptx');
+        if (share || isNative) await shareFile(blob, name, report.title);
+        else { await saveFile(blob, name); toast('نُزّل العرض التقديمي', 'ok'); }
+      } catch (err) {
+        console.error(err);
+        toast('تعذّر إنشاء العرض التقديمي: ' + (err.message || ''), 'err');
+      }
     }
 
     async function exportWord() {
@@ -319,12 +335,15 @@ export default {
     async function shareMenu() {
       const a = await actionSheet('مشاركة التقرير', [
         { value: 'word', label: 'مشاركة ملف Word', icon: 'word' },
+        { value: 'pptx', label: 'مشاركة عرض PowerPoint', icon: 'share' },
         { value: 'text', label: 'مشاركة النص فقط', icon: 'file' },
         { value: 'copy', label: 'نسخ النص', icon: 'copy' },
       ]);
       if (a === 'word') {
         try { await shareFile(await buildWord(), safeFileName(report.title, 'docx'), report.title); }
         catch (err) { toast('تعذّرت المشاركة: ' + (err.message || ''), 'err'); }
+      } else if (a === 'pptx') {
+        await exportPptx(true);
       } else if (a === 'text') {
         const text = toPlainText(report);
         if (navigator.share) { try { await navigator.share({ title: report.title, text }); } catch { /* ألغى المستخدم */ } }

@@ -299,6 +299,30 @@ async function flows(page) {
   assert(statSync(docxPath).size > 20000, `تصدير Word (${Math.round(statSync(docxPath).size / 1024)} ك.ب)`);
   verifyDocx(docxPath);
 
+  /* ── 8أ. عرض تقديمي PowerPoint ─────────────── */
+  await page.locator('.topbar .icon-btn').last().click();
+  const [pdl] = await Promise.all([
+    page.waitForEvent('download', { timeout: 30000 }),
+    page.locator('.action-item', { hasText: 'عرض تقديمي PowerPoint' }).click(),
+  ]);
+  const pptxPath = join(OUT, 'report.pptx');
+  await pdl.saveAs(pptxPath);
+  {
+    const py = `
+import sys, json
+from pptx import Presentation
+p = Presentation(sys.argv[1])
+texts = [' '.join(sh.text_frame.text for sh in s.shapes if sh.has_text_frame) for s in p.slides]
+pics = sum(1 for s in p.slides for sh in s.shapes if sh.shape_type == 13)
+tables = sum(1 for s in p.slides for sh in s.shapes if sh.has_table)
+notes = sum(1 for s in p.slides if s.has_notes_slide and s.notes_slide.notes_text_frame.text.strip())
+print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'second': texts[1], 'pics': pics, 'tables': tables, 'notes': notes}, ensure_ascii=False))
+`;
+    const d = JSON.parse(execFileSync('python3', ['-c', py, pptxPath]).toString());
+    assert(d.n >= 10 && d.first.includes('الطائرات المسيّرة') && d.second.includes('المحتويات') && d.last.includes('شكرًا لحسن الاستماع'), `PowerPoint: شريحة عنوان ومحتويات وأقسام وختام (${d.n} شريحة)`);
+    assert(d.pics >= 3 && d.tables >= 1 && d.notes >= 5, `PowerPoint: صور ومعادلات صورًا وجدول وملاحظات متحدث (${d.pics} صورة)`);
+  }
+
   /* ── 8ب. تقرير مختبر بقراءات الطالب ─────────── */
   await page.goto(BASE + '#/create?topic=venturi');
   await page.waitForSelector('.type-card.on');

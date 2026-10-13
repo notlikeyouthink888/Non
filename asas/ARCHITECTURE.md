@@ -96,9 +96,38 @@ startGeneration(report, mode)            mode: ai | offline | images
 - **الغلاف**: `coverLines(report)` في `report/model.js` مصدر واحد لأسطر الغلاف في العرض وPDF وWord
   (ترويسة الوزارة، الجامعة والكلية والقسم، «تقرير مختبر … — التجربة رقم (n)»، الطالب والمرحلة والشعبة والمشرف، السنة الدراسية).
 
+### المعادلات — `core/mathconv.js` و`core/math.js` و`core/mathjax.js`
+الطلبة اشتكوا من معادلات مطبوعة بـ«/» وأقواس متداخلة. الحل طبقتان:
+- **المحوّل** (`mathconv.js`، بلا متصفح فيُختبر في Node): محلّل لفظي ونحوي صغير يحوّل `σ = P / A0` إلى
+  `\sigma = \frac{P}{A_{0}}`. القسمة كسر دائمًا: البسط سلسلة الضرب إلى اليسار، والمقام الحدّ التالي مع ما يجاوره بلا عملية
+  (`V² / 2g` ← `\frac{V^2}{2g}`)، والمشتقة لا تأخذ ما قبلها (`EI·d²y/dx²` ← `EI\cdot\frac{d^2y}{dx^2}`)، والصيغة العلمية عدد واحد
+  (`/ 1.0 × 10⁻⁶`). المعرّفات: `fcu` ← `f_{cu}`، `σmax` ← `\sigma_{\max}`، `C3S` و`Al2O3` صيغ كيميائية قائمة، `BHN` و`Re` أسماء قائمة،
+  `dx` تفاضل، `nπx` ضرب، والوحدات بعد الأرقام قائمة. سطر المعادلة يُقسَّم إلى تسمية عربية ومعادلات وفواصل (← ، ؛) وشرح بين قوسين،
+  والعربي لا يدخل المعادلة إلا داخل `\text{}` كلمة واحدة. داخل الجمل تُكتشف القطع غير العربية التي فيها علاقة أو قسمة أو أس،
+  ويُستبعد الوحدات وحدها والتواريخ ورموز المواصفات. LaTeX الجاهز من الذكاء الاصطناعي (`$…$`، ```eq) يُرسم كما هو بعد تحويل أي «/» إلى `\frac`.
+- **الرسم** (`mathjax.js`، ملف منفصل يُحمَّل في وقت الفراغ): MathJax ← SVG بوحدات em يتبع حجم الخط ولونه ويُطبع متجهيًّا،
+  والنص داخل `\text` يُكتب كلمة واحدة بخط النظام (`mtextFont`) ويُقاس بلوحة رسم حتى تتصل الحروف العربية.
+  لـ Word: PNG بدقة ×3 يُنزل بعمق المعادلة ليقع خط أساسها على خط الكتابة، والأسطر التي فيها كسور مسافتها «على الأقل» حتى لا تُقص؛
+  أو `export/omml.js` يحوّل شجرة MathML إلى معادلات Word (`m:f`، `m:rad`، `m:sSub`، `m:nary`…) وما لا يُدعم يبقى صورة.
+
+### الأسلوب واللغة والتنسيق — `report/style.js` و`report/format.js`
+- `options.level` (طالب عادي/متميّز/أكاديمي)، `options.human` (كتابة طبيعية: تعليمات للنموذج ثم `humanize()` بعد التوليد
+  تحذف العبارات القالبية والشرطات الاعتراضية و«» والتشكيل والعريض الزائد دون مسّ المعادلات والجداول والمصادر)،
+  `options.lang` (mix/ar/en؛ الإنجليزي يقلب الورقة وWord إلى LTR ويترجم الغلاف ويُعطي عناوين أقسام إنجليزية من `EN_HEADINGS`)،
+  و`options.structure` (fixed/free: عناوين يختارها النموذج حسب الموضوع، فلا تُقارن بهيكل النوع).
+- `report.format` يغلب `state.format` يغلب `FORMAT_DEFAULTS`. في العرض والطباعة سمات `data-*` ومتغيرات CSS؛ إطار الطباعة
+  عنصر ثابت يتكرر على كل صفحة داخل منطقة المحتوى، والمحتوى يبتعد عنه بحشوة `box-decoration-break: clone`. في Word حدود
+  صفحة حقيقية لقسم المحتوى، وحجم الخط والمسافة والمحاذاة والعناوين والترقيم والترويسة والتذييل من التنسيق نفسه.
+
+### العرض التقديمي — `export/pptx.js`
+pptxgenjs بشرائح 16:9: عنوان (الجهة، العنوان، النوع، الطلبة، المشرف)، محتويات، شريحة لكل قسم بنقاط مختصرة (تُكمل في شريحة
+«تابع» إن طالت)، والمعادلات صور PNG، والجداول جداول حقيقية، وشريحة لكل صورة مع تعليقها، ونص القسم كاملًا في ملاحظات المتحدث،
+ثم «شكرًا لحسن الاستماع». اتجاه كل فقرة `rtl` في العربية.
+
 ### الغلاف — `report/covers.js` و`export/cover-docx.js`
-ثمانية أنماط (كلاسيكي، إطار مزدوج، ترويسة رسمية، جدول معلومات، شريط ملوّن، شريط جانبي، ورقة مختبر، بسيط) تُبنى
-كلها من `coverData(report)`:
+تسعة أنماط (كلاسيكي، إطار مزدوج، ترويسة رسمية، جدول معلومات، شريط ملوّن، شريط جانبي، ورقة مختبر، بسيط، شعاران) تُبنى
+كلها من `coverData(report)`، مع أسماء طلبة المجموعة (`meta.students`، سطر لكل اسم ← «إعداد الطلاب» مرقّمة) ولقب المشرف
+(`meta.supTitle`) وشعار الكلية (`meta.logo2`)، وبالإنجليزية إن كان التقرير إنجليزيًا:
 - **العرض وPDF**: صفحة بنسب A4 (`aspect-ratio: 210/297`) بخطوط بوحدات `cqw` النسبية لعرضها، فالمعاينة المصغّرة في
   شبكة الاختيار والعرض في التقرير والطباعة (ارتفاع 258 ملم) متطابقة. لون المادة متغيّر CSS ‏`--cc` (يُضبط بـ `setProperty`)،
   و`print-color-adjust: exact` يطبع الأشرطة الملوّنة.
@@ -110,9 +139,10 @@ startGeneration(report, mode)            mode: ai | offline | images
 ### شكل التقرير المحفوظ
 ```js
 { id, title, typeId, topicId, catId,
-  options: { length, level, images, details, readings, cover },
-  meta: { uni, university, college, department, stage, group, author, supervisor, ministry,
-          coverStyle, logo, logoAR, subject, expNo, date, submitDate, year, org, project, location },
+  options: { length, level, lang, structure, human, images, details, readings, cover },
+  format: { numbering, toc, border, borderColor, heading, fontSize, spacing, separators, pageNumbers, header, align },
+  meta: { uni, university, college, department, stage, group, author, students, supervisor, supTitle, ministry,
+          coverStyle, logo, logoAR, logo2, logo2AR, subject, expNo, date, submitDate, year, org, project, location },
   source: 'ai' | 'offline', model, status: 'generating'|'ready'|'partial'|'error', error, notes[],
   sections: [{ h, md }],
   figures: [{ id, sec, secTitle, caption, queries[], mustShow, img, w, h, credit, cands[], status, note }],
@@ -204,6 +234,9 @@ startGeneration(report, mode)            mode: ai | offline | images
   وJSON داخل شرح وعلامات \`\`\`، ومفاتيح تحاكي أخطاء الخصوصية والمفتاح الخاطئ والحصة؛ ويتحقق من شكل كل طلب
   (مفتاح، سلسلة مجانية تنتهي بالموجّه، بلا حقول Claude، صور data URL).
 - أغلفة Word تُفحص ببنية الملف: عدد الأقسام، `w:pgBorders`، وجدول المعلومات.
+- المعادلات: المحوّل يُفحص في Node على حالات صعبة وعلى كل معادلات القاعدة ومسائلها (لا «/» بعد التحويل)، وفي المتصفح
+  يُتحقق أن الكسور SVG حقيقية (`mfrac`)، وفي Word عدد صور المعادلات أو عناصر `m:oMath` و`m:f`.
+- PowerPoint يُفحص بـ python-pptx: الشرائح الأولى والأخيرة، الصور، الجداول، وملاحظات المتحدث.
 
 يعمل الفحص في GitHub Actions بوظيفة مستقلة عن بناء APK.
 
