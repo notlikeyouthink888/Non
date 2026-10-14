@@ -51,9 +51,193 @@ export const isFree = (r) => (r?.options?.structure || 'fixed') === 'free';
  * الأقسام المطلوبة بلغة التقرير. null حين تكون العناوين حرّة حسب الموضوع.
  * @returns {{ h: string, g: string, opt?: boolean, ar: string }[] | null}
  */
-export function planSections(typeId, cat, { lang = 'mix', structure = 'fixed' } = {}) {
+export function planSections(typeId, cat, { lang = 'mix', structure = 'fixed', variant = 0 } = {}) {
   if (structure === 'free') return null;
-  return sectionsOf(getType(typeId), cat).map((s) => ({ ...s, ar: s.h, h: lang === 'en' ? EN_HEADINGS[s.h] || s.h : s.h }));
+  return sectionsOf(getType(typeId), cat).map((s) => {
+    const base = lang === 'en' ? EN_HEADINGS[s.h] || s.h : s.h;
+    return { ...s, ar: s.h, h: synonym(base, variant) };
+  });
+}
+
+/* ── التنويع: حتى لا تتشابه تقارير الطلبة عند الأستاذ ───── */
+
+export const VARIANTS = 12;
+/** صيغة عشوائية جديدة (1…12). */
+export const randomVariant = () => 1 + Math.floor(Math.random() * VARIANTS);
+
+/** بدائل العناوين: الصيغة الأولى هي الأصلية. */
+const SYN = {
+  'المقدمة': ['المقدمة', 'مقدمة', 'تمهيد', 'مدخل', 'نبذة عن الموضوع'],
+  'الهدف من التجربة': ['الهدف من التجربة', 'الغرض من التجربة', 'هدف الفحص', 'الغاية من التجربة'],
+  'النظرية': ['النظرية', 'الجانب النظري', 'الخلفية النظرية', 'الأساس النظري للتجربة'],
+  'المواصفة المعتمدة': ['المواصفة المعتمدة', 'المواصفات القياسية', 'المواصفة المستخدمة'],
+  'الأجهزة والأدوات': ['الأجهزة والأدوات', 'الأدوات المستخدمة', 'الأجهزة المستعملة', 'المعدات والأدوات', 'الأجهزة والمواد'],
+  'خطوات العمل': ['خطوات العمل', 'طريقة العمل', 'خطوات إجراء التجربة', 'طريقة إجراء الفحص', 'إجراءات العمل'],
+  'الحسابات والنتائج': ['الحسابات والنتائج', 'النتائج والحسابات', 'القراءات والحسابات', 'جدول النتائج والحسابات'],
+  'المناقشة': ['المناقشة', 'مناقشة النتائج', 'تحليل النتائج', 'المناقشة والتحليل'],
+  'الاستنتاج': ['الاستنتاج', 'الاستنتاجات', 'ما توصلنا إليه', 'الخلاصة'],
+  'الخاتمة': ['الخاتمة', 'الخلاصة', 'الاستنتاجات', 'ما خلصنا إليه', 'خاتمة التقرير'],
+  'المصادر': ['المصادر', 'المراجع', 'قائمة المصادر', 'المصادر والمراجع'],
+  'التعاريف والمفاهيم الأساسية': ['التعاريف والمفاهيم الأساسية', 'المفاهيم الأساسية', 'تعاريف مهمة', 'أهم المصطلحات'],
+  'الأساس النظري والمعادلات': ['الأساس النظري والمعادلات', 'النظرية والقوانين', 'القوانين الأساسية', 'الجانب النظري والمعادلات'],
+  'الأنواع والحالات': ['الأنواع والحالات', 'أنواعه وحالاته', 'التصنيف والحالات'],
+  'طريقة الحل خطوة بخطوة': ['طريقة الحل خطوة بخطوة', 'خطوات الحل', 'كيف نحل المسألة'],
+  'مثال محلول': ['مثال محلول', 'مثال تطبيقي', 'مسألة محلولة', 'تطبيق عددي'],
+  'التطبيقات في الهندسة المدنية': ['التطبيقات في الهندسة المدنية', 'التطبيقات العملية', 'استخداماته في الهندسة المدنية', 'أهميته في الواقع العملي'],
+  'الأهداف': ['الأهداف', 'هدف التقرير'],
+  'الهدف من العمل': ['الهدف من العمل', 'الغرض من العمل الحقلي', 'هدف العمل'],
+  'طريقة العمل في الحقل': ['طريقة العمل في الحقل', 'خطوات العمل الحقلي', 'إجراءات العمل في الموقع'],
+  'المناقشة ومصادر الخطأ': ['المناقشة ومصادر الخطأ', 'مناقشة النتائج والأخطاء', 'التحليل ومصادر الخطأ'],
+  'Introduction': ['Introduction', 'Background', 'Overview'],
+  'Objective': ['Objective', 'Aim of the Test', 'Purpose'],
+  'Theory': ['Theory', 'Theoretical Background', 'Basic Theory'],
+  'Apparatus': ['Apparatus', 'Equipment', 'Tools and Apparatus'],
+  'Procedure': ['Procedure', 'Test Procedure', 'Method'],
+  'Calculations and Results': ['Calculations and Results', 'Results and Calculations', 'Results'],
+  'Discussion': ['Discussion', 'Discussion of Results', 'Analysis and Discussion'],
+  'Conclusion': ['Conclusion', 'Conclusions', 'Summary'],
+  'References': ['References', 'Bibliography', 'Sources'],
+};
+const hash = (x) => [...String(x)].reduce((a, c) => (a * 31 + c.codePointAt(0)) >>> 0, 7);
+/** صيغة العنوان حسب رقم الصيغة (0 = الأصل). */
+export function synonym(h, variant = 0) {
+  const list = SYN[h];
+  if (!list || !variant) return h;
+  return list[(variant + hash(h)) % list.length];
+}
+
+/** طرق بدء المقدمة (للذكاء الاصطناعي). */
+const INTRO_STYLES = [
+  'ابدأ المقدمة بتعريف مباشر وبسيط للموضوع',
+  'ابدأ المقدمة بسؤال عملي يطرحه المهندس في الموقع',
+  'ابدأ المقدمة بمثال من مشروع بناء حقيقي يوضح أهمية الموضوع',
+  'ابدأ المقدمة بأهمية المادة أو الظاهرة في المنشآت',
+  'ابدأ المقدمة بلمحة تاريخية قصيرة صحيحة عن الموضوع',
+  'ابدأ المقدمة بالمشكلة الهندسية التي يحلها هذا الموضوع',
+  'ابدأ المقدمة بربط الموضوع بما درسناه في المحاضرات',
+  'ابدأ المقدمة بوصف ما يحدث فعلًا للمادة أو النموذج',
+  'ابدأ المقدمة بمقارنة بين حالتين توضح الفكرة',
+  'ابدأ المقدمة بالمواصفة أو الطريقة المعتمدة التي تنظّم الموضوع',
+  'ابدأ المقدمة بسبب إجراء هذا الفحص أو الحساب في المشاريع',
+  'ابدأ المقدمة بجملة قصيرة عن الموضوع ثم وسّعها بالتدريج',
+];
+/** أشكال الخاتمة. */
+const CONCL_STYLES = [
+  'الخاتمة نقاط مرقّمة قصيرة بما توصلنا إليه',
+  'الخاتمة فقرة واحدة متصلة',
+  'الخاتمة فقرتان: ما وجدناه، ثم توصية عملية',
+  'ابدأ الخاتمة بالنتيجة الرئيسية بالأرقام ثم فسّرها',
+  'الخاتمة تقارن النتيجة بحدود المواصفة أو بالقيم النموذجية',
+  'الخاتمة تذكر ما تعلمناه من التجربة أو الموضوع',
+  'الخاتمة توصيات لتحسين التجربة أو العمل',
+  'الخاتمة تربط النتيجة بالتطبيق في الموقع',
+  'الخاتمة ثلاث جمل فقط واضحة',
+  'الخاتمة نقاط غير مرقّمة',
+  'الخاتمة تبدأ بالهدف ثم هل تحقق ولماذا',
+  'الخاتمة تذكر مصادر الخطأ المؤثرة ثم الخلاصة',
+];
+/** تعليمات تنويع لصيغة معيّنة. */
+export function variantRules(variant, en = false) {
+  if (!variant) return '';
+  const k = (variant - 1) % VARIANTS;
+  return [
+    `# صيغة هذا التقرير رقم ${variant} (حتى لا يشبه تقارير زملاء الطالب)`,
+    `- ${INTRO_STYLES[k]}.`,
+    `- ${CONCL_STYLES[(k * 5 + 3) % VARIANTS]}.`,
+    `- ${['رتّب الأفكار داخل كل قسم ترتيبًا خاصًا بك', 'اختر أمثلة ومفردات مختلفة عن المعتاد', 'نوّع بين الجمل القصيرة والمتوسطة', 'اذكر ملاحظة شخصية واحدة على الأقل من التجربة أو الدراسة'][k % 4]}، ولا تنسخ صياغة الكتب حرفيًا.`,
+    en ? '- Write all of this in English.' : '',
+  ].filter(Boolean).join('\n');
+}
+
+/* ── خيارات المحتوى: النقاط والجداول ─────────────────── */
+
+export const LISTS = [
+  { value: 'mix', label: 'نقاط وفقرات', hint: 'نقاط للأجهزة والخطوات والنتائج، وفقرات للشرح' },
+  { value: 'few', label: 'نقاط قليلة', hint: 'فقرات في الغالب، والنقاط للخطوات فقط' },
+  { value: 'none', label: 'فقرات بلا نقاط', hint: 'كل شيء فقرات متصلة، والخطوات «أولًا… ثانيًا…»' },
+];
+const ORD = ['أولًا', 'ثانيًا', 'ثالثًا', 'رابعًا', 'خامسًا', 'سادسًا', 'سابعًا', 'ثامنًا', 'تاسعًا', 'عاشرًا'];
+const ORD_EN = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+const endDot = (t) => (/[.!؟?:]$/.test(t.trim()) ? t.trim() : `${t.trim()}.`);
+const noDot = (t) => t.trim().replace(/[.،؛,;]+$/, '');
+
+/** قائمة إلى فقرة: المرقّمة بـ «أولًا… ثانيًا…»، والنقطية بالعطف إن كانت قصيرة. */
+function listToProse(items, ordered, en, variant = 0) {
+  if (ordered) {
+    const words = en ? ORD_EN : ORD;
+    const link = en ? ['Then', 'After that', 'Next'] : ['ثم', 'بعد ذلك', 'وبعدها'];
+    return items.map((t, k) => (k < words.length && (variant + k) % 3 !== 2
+      ? `${words[k]}${en ? ',' : '،'} ${endDot(t)}`
+      : `${link[(variant + k) % link.length]}${en ? ',' : ''} ${endDot(t)}`)).join(' ');
+  }
+  const short = items.every((t) => t.length < 70 && !/[.؟!]\s/.test(t));
+  if (short && items.length > 1) {
+    const and = en ? ', and ' : '، و';
+    return endDot(items.slice(0, -1).map(noDot).join(en ? ', ' : '، ') + and + noDot(items[items.length - 1]));
+  }
+  return items.map(endDot).join(' ');
+}
+
+/** جدول Markdown إلى جمل: «رقم النموذج 1: الهطول [85]، الملاحظات هطول حقيقي.» */
+function tableToProse(head, rows, en) {
+  return rows.map((r) => endDot(r.map((c, i) => (c && c !== '—' ? `${head[i]}${en ? ': ' : ': '}${c}` : '')).filter(Boolean).join(en ? ', ' : '، '))).join(' ');
+}
+
+/**
+ * يطبّق خيارات المحتوى على نص قسم: بلا نقاط أو نقاط قليلة، وبلا جداول.
+ * لا يمسّ كتل المعادلات. variant ينوّع صياغة التحويل.
+ */
+export function applyContent(md, { lists = 'mix', tables = true, lang = 'mix', variant = 0 } = {}) {
+  if (lists === 'mix' && tables !== false) return md;
+  const en = lang === 'en';
+  const lines = String(md || '').split('\n');
+  const out = [];
+  let i = 0;
+  const OLR = /^\s*(?:\d+|[٠-٩]+)[.)\-–]\s+(.*)$/;
+  const ULR = /^\s*[-*•●▪]\s+(.*)$/;
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^\s*```/.test(l)) { // كتلة معادلات كما هي
+      out.push(l); i++;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) out.push(lines[i++]);
+      if (i < lines.length) out.push(lines[i++]);
+      continue;
+    }
+    // جدول
+    if (tables === false && /^\s*\|.*\|\s*$/.test(l) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || '')) {
+      const split = (x) => x.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      const head = split(l);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(split(lines[i++]));
+      // سطر عنوان الجدول قبله يصبح جملة عادية
+      while (out.length && !out[out.length - 1].trim()) out.pop();
+      if (out.length && /^\*\*(?:جدول|Table)[^*]*\*\*\s*:?\s*$/.test(out[out.length - 1].trim())) out.pop();
+      while (out.length && !out[out.length - 1].trim()) out.pop();
+      out.push('', tableToProse(head, rows, en), '');
+      continue;
+    }
+    // قائمة
+    const isOL = OLR.test(l);
+    if ((isOL || ULR.test(l)) && lists !== 'mix') {
+      const items = [];
+      const ordered = isOL;
+      while (i < lines.length && (ordered ? OLR.test(lines[i]) : ULR.test(lines[i]) || /^\s{2,}[-*]\s/.test(lines[i]))) {
+        const m = lines[i].match(ordered ? OLR : ULR) || lines[i].match(ULR);
+        items.push(m[1].trim());
+        i++;
+        // سطر فارغ بين عناصر القائمة نفسها
+        if (!lines[i]?.trim() && (ordered ? OLR.test(lines[i + 1] || '') : ULR.test(lines[i + 1] || ''))) i++;
+      }
+      const keep = lists === 'few' && (ordered || items.length > 3);
+      if (keep) out.push(...items.map((t, k) => (ordered ? `${k + 1}. ${t}` : `- ${t}`)));
+      else out.push(listToProse(items, ordered, en, variant));
+      continue;
+    }
+    out.push(l);
+    i++;
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 /* ── تنظيف مظهر الذكاء الاصطناعي ───────────────────── */

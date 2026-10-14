@@ -179,15 +179,20 @@ async function flows(page) {
   // التنسيق لكل تقرير: إطار مزدوج وعناوين تحتها خط وبلا ترقيم
   await page.locator('.topbar .icon-btn').last().click();
   await page.locator('.action-item', { hasText: 'التنسيق والشكل' }).click();
-  await page.locator('.sheet .chip', { hasText: 'مزدوج' }).click();
+  await page.locator('.sheet .chip', { hasText: /^مزدوج$/ }).click();
   await page.locator('.sheet .chip', { hasText: 'تحتها خط' }).click();
+  await page.locator('.sheet .chip', { hasText: 'أخضر' }).click();
   await page.locator('.sheet .row-set', { hasText: 'ترقيم الأقسام' }).locator('.switch').click();
-  await page.locator('.sheet .sheet-x').click();
+  // لا يُطبَّق شيء قبل الحفظ
+  assert(await page.locator('.paper[data-border="double"]').count() === 0, 'التنسيق: الاختيارات مسودة حتى «حفظ التغييرات»');
+  await page.locator('.sheet .fmt-save').click();
   await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
   await appear(page.locator('.paper[data-border="double"][data-heading="underline"]'));
-  assert(await page.locator('.paper[data-border="double"][data-heading="underline"]').count() === 1 && await page.locator('.rsec h2 .n').count() === 0, 'التنسيق: إطار مزدوج وعناوين تحتها خط وأقسام بلا أرقام');
+  assert(await page.locator('.paper[data-border="double"][data-heading="underline"]').count() === 1 && await page.locator('.rsec h2 .n').count() === 0, 'التنسيق: إطار مزدوج وعناوين تحتها خط وأقسام بلا أرقام بعد الحفظ');
+  assert((await page.locator('.paper').evaluate((p) => p.style.getPropertyValue('--frame'))).trim() === '#15803d', 'التنسيق: تغيير اللون يُطبَّق (أخضر)');
   info = await exportWord('format.docx');
-  assert(info.pgBorders === 1 && info.sections === 2 && !/^\d+\. المقدمة/m.test(info.text) && /^المقدمة$/m.test(info.text), 'Word: إطار على كل صفحات التقرير وعناوين بلا أرقام');
+  const firstHead = (await page.locator('.rsec h2').first().innerText()).trim();
+  assert(info.pgBorders === 1 && info.sections === 2 && new RegExp(`^${firstHead}$`, 'm').test(info.text) && !new RegExp(`^\\d+\\. ${firstHead}`, 'm').test(info.text), `Word: إطار على كل صفحات التقرير وعناوين بلا أرقام («${firstHead}»)`);
 
   // تقرير جماعي: أسماء الطلبة ولقب المشرف ونمط «شعاران»
   await page.locator('.topbar .icon-btn').last().click();
@@ -342,14 +347,15 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.waitForURL(/#\/report\//);
   await waitDone(page, 40000);
   assert(stats.lastReportPrompt.includes('Write the ENTIRE report in English') && stats.lastReportPrompt.includes('طالب عادي') && stats.lastReportPrompt.includes('كتابة طبيعية'), 'الأسلوب واللغة يصلان للذكاء الاصطناعي: إنجليزي بأسلوب طالب عادي وكتابة طبيعية');
-  assert(await page.locator('.paper[dir="ltr"]').count() === 1 && await page.locator('.rsec h2', { hasText: 'Introduction' }).count() === 1, 'تقرير إنجليزي: الورقة من اليسار لليمين وعناوين إنجليزية');
+  const enHeads = await page.locator('.rsec h2').allInnerTexts();
+  assert(await page.locator('.paper[dir="ltr"]').count() === 1 && /Introduction|Background|Overview/.test(enHeads[0] || ''), `تقرير إنجليزي: الورقة من اليسار لليمين وعناوين إنجليزية (${enHeads.slice(0, 3).join(' | ')})`);
   assert((await page.locator('.paper > .cover').innerText()).includes('Republic of Iraq'), 'تقرير إنجليزي: الغلاف بالإنجليزية');
   {
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.locator('.dock button', { hasText: 'Word' }).click()]);
     const path = join(OUT, 'english.docx');
     await dl.saveAs(path);
     const en = docxInfo(path);
-    assert(en.all.includes('University of Baghdad') && en.text.includes('Introduction') && en.bidi < 3, `Word إنجليزي: من اليسار لليمين (${en.bidi} فقرة RTL)`);
+    assert(en.all.includes('University of Baghdad') && /Introduction|Background|Overview/.test(en.text) && en.bidi < 3, `Word إنجليزي: من اليسار لليمين (${en.bidi} فقرة RTL)`);
   }
 
   /* ── 8ج. OpenRouter المجاني ─────────────────── */
@@ -409,6 +415,41 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.locator('.sheet .btn.danger', { hasText: 'احذف' }).click();
   await until(page, (n) => document.querySelectorAll('.list .item').length === n, before - 1);
   assert(await page.locator('.list .item').count() === before - 1, 'حذف تقرير من المكتبة');
+
+  /* ── 9ب. محتوى التقرير: بلا نقاط وبلا جداول وبصيغة مختلفة ── */
+  await page.goto(BASE + '#/create?topic=slump');
+  await page.waitForSelector('.type-card.on');
+  const vText = () => page.locator('.row-set', { hasText: 'تنويع الصياغة' }).locator('.t').innerText();
+  const v1 = await vText();
+  await page.getByRole('button', { name: /صيغة أخرى/ }).click();
+  assert((await vText()) !== v1 && /الصيغة \d+ من 12/.test(await vText()), `تنويع الصياغة: صيغة أخرى من 12 (${v1} ← ${await vText()})`);
+  await page.locator('.chip', { hasText: 'فقرات بلا نقاط' }).click();
+  await page.locator('.row-set', { hasText: 'جداول للقراءات' }).locator('.switch').click();
+  await page.locator('.dock button').last().click();
+  await page.waitForURL(/#\/report\//);
+  await waitDone(page);
+  const lists = await page.evaluate(() => [...document.querySelectorAll('.rsec')].slice(0, -1).reduce((n, s) => n + s.querySelectorAll('li').length, 0));
+  assert(lists === 0 && await page.locator('.tbl-wrap').count() === 0, `محتوى التقرير: فقرات بلا نقاط وبلا جداول (${lists} نقطة)`);
+  assert(await page.locator('.rsec p', { hasText: /أولًا،/ }).count() >= 1, 'الخطوات تُكتب جملًا متتابعة «أولًا… ثانيًا…» بدل قائمة');
+
+  /* ── 9ج. DeepSeek بربط الحساب دون مفتاح ───────── */
+  await page.goto(BASE + '#/settings');
+  await page.locator('.prov', { has: page.locator('strong', { hasText: /^DeepSeek$/ }) }).click();
+  // مفتاح OpenRouter من الفحص السابق يجعله مربوطًا: نفك الربط لنجرّب الربط من البداية
+  await page.getByRole('button', { name: 'فك الربط' }).click();
+  await page.getByRole('button', { name: /اربط حسابك/ }).click();
+  await page.waitForSelector('text=الحساب مربوط', { timeout: 15000 });
+  assert(stats.orLink?.verified && stats.orLink.method === 'S256', 'DeepSeek: ربط الحساب بتسجيل الدخول (PKCE S256) ومبادلة الرمز بمفتاح دون لصق');
+  await appear(page.locator('.list .item', { hasText: 'DeepSeek V3.1' }));
+  assert(await page.locator('.list .item', { hasText: 'DeepSeek V3.1' }).count() === 1 && await page.locator('.list .item', { hasText: 'Qwen' }).count() === 0, 'DeepSeek: قائمة نماذج DeepSeek فقط');
+  const dsFrom = stats.openrouter.length;
+  await page.goto(BASE + '#/create?topic=curing');
+  await page.waitForSelector('.type-card.on');
+  await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+  await page.waitForURL(/#\/report\//);
+  await waitDone(page, 40000);
+  const dsCalls = stats.openrouter.slice(dsFrom).filter((c) => c.kind === 'stream');
+  assert(dsCalls.length >= 1 && dsCalls.every((c) => c.models.every((m) => m.startsWith('deepseek/')) && !c.problems.length), `DeepSeek: التقرير كُتب بنماذج DeepSeek فقط (${dsCalls.map((c) => c.models.join('+')).join('، ')})`);
 
   /* ── 10. صحة طلبات Claude ────────────────────── */
   const bad = stats.claude.filter((c) => c.problems.length);

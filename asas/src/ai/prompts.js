@@ -6,7 +6,7 @@
 import { getType, sectionsOf, LENGTHS, LEVELS, REPORT_TYPES } from '../data/types.js';
 import { catName, CATEGORIES } from '../data/categories.js';
 import { mathPieces } from '../core/mathconv.js';
-import { planSections } from '../report/style.js';
+import { planSections, variantRules } from '../report/style.js';
 
 export const SYSTEM = `أنت «أساس»: مهندس مدني وأستاذ جامعي خبير، تكتب تقارير طلبة المرحلة الثانية في أقسام الهندسة المدنية بالجامعات العراقية (جامعة بغداد، جامعة كربلاء، الجامعة التكنولوجية وغيرها) باللغة العربية الفصحى الواضحة، أو بالإنجليزية إن طُلب ذلك. مواد المرحلة الثانية: مقاومة المواد، والرياضيات الهندسية، وتكنولوجيا الخرسانة، والمساحة، وميكانيك الموائع.
 
@@ -114,13 +114,22 @@ const LANG_RULES = {
   en: 'LANGUAGE: Write the ENTIRE report in English only (clear academic English of a second-year civil engineering student at an Iraqi university). Section headings, tables, captions and equations explanations all in English. Do not write any Arabic.',
 };
 
+/** خيارات المحتوى: النقاط والجداول. */
+function contentRules(o, en) {
+  const out = [];
+  if (o.lists === 'none') out.push(en ? '- Do NOT use bullet or numbered lists at all: write everything as connected paragraphs; write procedure steps as sentences starting with First, Second, Then….' : '- لا تستعمل أي نقاط أو قوائم مرقّمة إطلاقًا: كل المحتوى فقرات متصلة، والخطوات جمل متتابعة تبدأ بـ «أولًا، ثانيًا، ثم…».');
+  else if (o.lists === 'few') out.push(en ? '- Use lists only for the procedure steps; everything else in paragraphs.' : '- قلّل النقاط جدًا: القوائم للخطوات فقط، وكل ما عداها فقرات.');
+  if (o.tables === false) out.push(en ? '- Do NOT use any tables; present readings and results in sentences.' : '- لا تستعمل أي جداول؛ اكتب القراءات والنتائج في جمل.');
+  return out.length ? `${en ? '# Content' : '# المحتوى'}\n${out.join('\n')}` : '';
+}
+
 /** نص طلب كتابة التقرير. */
 export function reportPrompt({ title, typeId, cat, options = {}, details = '', readings = '', kb = null, meta = {} }) {
   const type = getType(typeId);
   const lang = options.lang || 'mix';
   const en = lang === 'en';
   const free = options.structure === 'free';
-  const secs = planSections(typeId, cat, { lang, structure: options.structure });
+  const secs = planSections(typeId, cat, { lang, structure: options.structure, variant: options.variant || 0 });
   const length = LENGTHS.find((l) => l.value === options.length) || LENGTHS[1];
   const level = LEVELS.find((l) => l.value === options.level) || LEVELS[0];
   const uni = [meta.university, meta.college, meta.department].filter(Boolean).join(' — ');
@@ -140,6 +149,8 @@ export function reportPrompt({ title, typeId, cat, options = {}, details = '', r
     `# الأسلوب: ${level.label}\n${(STYLE_RULES[level.value] || STYLE_RULES.student).join('\n')}`,
     options.human !== false ? HUMAN_RULES : '',
     LANG_RULES[lang] || LANG_RULES.mix,
+    contentRules(options, en),
+    variantRules(options.variant || 0, en),
     `الطول المطلوب: ${length.label} — نحو ${length.words}`,
     secs
       ? `الأقسام المطلوبة بالترتيب (اكتب كل عنوان حرفيًا بعد ##، وما بين القوسين إرشاد لمحتواه فلا تكتبه${en ? '، واكتب المحتوى بالإنجليزية' : ''}):\n${sectionsText}`

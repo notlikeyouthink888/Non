@@ -9,6 +9,10 @@
     "adjustMarginsForEdgeToEdge": "auto"
   },
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "openrouter.ai",
+      "*.openrouter.ai"
+    ]
   }
 }

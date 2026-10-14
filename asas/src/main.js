@@ -4,7 +4,7 @@ import './styles/fonts.css';
 import './styles/app.css';
 import { mountApp } from './app.js';
 import { state, save, subscribe } from './core/store.js';
-import { applyTheme } from './core/ui.js';
+import { applyTheme, toast } from './core/ui.js';
 import { loadMath } from './core/math.js';
 
 function boot() {
@@ -21,6 +21,20 @@ function boot() {
   // محرّك المعادلات يُجهَّز في وقت الفراغ حتى تظهر المعادلات مرسومة من أول عرض
   const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
   idle(() => loadMath().catch(() => {}));
+
+  // العودة من صفحة ربط الحساب (DeepSeek): يُبادَل الرمز بمفتاح ثم تُعرض الإعدادات من جديد
+  if (/[?&]code=/.test(location.href)) {
+    import('./ai/oauth.js').then((m) => m.handleCallback()).then((r) => {
+      if (!r) return;
+      try { sessionStorage.setItem('asas.linkMsg', JSON.stringify(r)); } catch { /* */ }
+      location.reload();
+    });
+  } else {
+    try {
+      const r = JSON.parse(sessionStorage.getItem('asas.linkMsg') || 'null');
+      if (r) { sessionStorage.removeItem('asas.linkMsg'); setTimeout(() => toast(r.msg, r.ok ? 'ok' : 'err', 4000), 600); }
+    } catch { /* */ }
+  }
 }
 
 window.addEventListener('error', (e) => console.error('[asas]', e.error || e.message));

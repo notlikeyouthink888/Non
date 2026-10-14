@@ -10,6 +10,7 @@ let saveTimer = null;
 /** مزوّدو الذكاء الاصطناعي: OpenRouter بنماذجه المجانية، أو Claude المدفوع الأدق. */
 export const PROVIDERS = [
   { id: 'openrouter', name: 'OpenRouter', badge: 'مجاني', note: 'نماذج مجانية بحد 50 طلبًا في اليوم — جيدة للتقارير، وأقل دقة من Claude في الحسابات' },
+  { id: 'deepseek', name: 'DeepSeek', badge: 'ربط بالحساب', note: 'نماذج DeepSeek المجانية بربط حسابك بضغطة (Google أو بريد) — بلا نسخ مفاتيح' },
   { id: 'claude', name: 'Claude', badge: 'الأدق', note: 'مدفوع بالاستهلاك — أعلى دقة في العربية والحسابات والتحقق من الصور' },
 ];
 
@@ -28,7 +29,7 @@ export const EFFORTS = [
 export const defaults = {
   meta: { createdAt: Date.now(), version: 1, onboarded: false },
   ai: {
-    provider: 'openrouter',    // openrouter | claude
+    provider: 'openrouter',    // openrouter | deepseek | claude
     mode: 'key',               // Claude: key | proxy
     apiKey: '',                // مفتاح Claude
     proxyUrl: '',
@@ -39,6 +40,10 @@ export const defaults = {
       apiKey: '',              // sk-or-v1-…
       model: 'auto',           // auto = أفضل نموذج مجاني متاح الآن، أو معرّف نموذج محدد
       visionModel: 'auto',
+    },
+    deepseek: {
+      model: 'auto',           // نموذج DeepSeek المجاني (عبر حساب OpenRouter المربوط)
+      linked: false,           // رُبط الحساب بتسجيل الدخول لا بمفتاح ملصوق
     },
     verifyImages: true,        // تحقّق الذكاء الاصطناعي من مطابقة الصور للموضوع
     usage: { input: 0, output: 0, cost: 0, calls: 0, reports: 0 },
@@ -62,7 +67,7 @@ export const defaults = {
     logo: '',                  // شعار الجامعة (صورة مصغّرة data URL) — اختياري
     logoAR: 1,                 // نسبة ارتفاع الشعار إلى عرضه
   },
-  prefs: { length: 'medium', level: 'natural', lang: 'mix', structure: 'fixed', human: true },
+  prefs: { length: 'medium', level: 'natural', lang: 'mix', structure: 'fixed', human: true, lists: 'mix', tables: true },
   exportOpts: { wordFont: 'Simplified Arabic', toc: true, cover: true, attribution: true, wordMath: 'image' },
   format: {},                  // قيم التنسيق الافتراضية للتقارير (report/format.js)
   ui: { theme: 'dark', fontSize: 'm' },
@@ -150,7 +155,7 @@ export function cleanKey(k) {
 /** هل الذكاء الاصطناعي مهيّأ للعمل؟ */
 export function aiReady() {
   const a = state.ai;
-  if (a.provider === 'openrouter') return cleanKey(a.openrouter.apiKey).length > 20;
+  if (a.provider === 'openrouter' || a.provider === 'deepseek') return cleanKey(a.openrouter.apiKey).length > 20;
   if (a.mode === 'proxy') return /^https?:\/\//.test(a.proxyUrl.trim());
   return cleanKey(a.apiKey).length > 20;
 }

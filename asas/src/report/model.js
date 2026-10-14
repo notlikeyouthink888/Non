@@ -8,7 +8,7 @@ import { catName, CATEGORIES } from '../data/categories.js';
 const CAT_EN = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.enName]));
 import { academicYear } from '../data/universities.js';
 import { fmtDate } from '../core/fmt.js';
-import { planSections, TYPE_EN, toEN, dateEN } from './style.js';
+import { planSections, TYPE_EN, toEN, dateEN, randomVariant } from './style.js';
 
 export function newReport({ title, typeId, topicId = null, options = {}, meta = {} }) {
   const topic = topicId ? TOPIC_BY_ID[topicId] : null;
@@ -31,7 +31,11 @@ export function newReport({ title, typeId, topicId = null, options = {}, meta = 
       lang: options.lang || state.prefs.lang || 'mix',
       structure: options.structure || state.prefs.structure || 'fixed',
       human: options.human ?? state.prefs.human !== false,
+      lists: options.lists || state.prefs.lists || 'mix',
+      tables: options.tables ?? state.prefs.tables !== false,
+      variant: options.variant || randomVariant(),
     },
+    format: options.numbering === undefined ? {} : { numbering: !!options.numbering },
     meta: {
       ...coverMeta,
       coverStyle: coverStyle || 'classic',

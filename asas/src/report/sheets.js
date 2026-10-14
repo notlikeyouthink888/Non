@@ -287,15 +287,17 @@ export function openCoverEditor(report, onSaved) {
 }
 
 
-/** تنسيق التقرير: الإطار والعناوين والخط والمسافات والترقيم. يُحفظ فورًا ويظهر في العرض وPDF وWord. */
+/** تنسيق التقرير: الإطار والألوان والعناوين والخط والمسافات والترقيم. يُطبَّق بزر «حفظ التغييرات». */
 export function openFormatSheet(report, onChanged) {
-  sheet('التنسيق والشكل', [
-    h('p.hint', 'يُطبَّق على هذا التقرير في العرض وPDF وWord. القيم الافتراضية للتقارير الجديدة من الإعدادات.'),
-    formatControls(() => report.format || {}, (patch) => {
-      report.format = { ...(report.format || {}), ...patch };
+  const sh = sheet('التنسيق والشكل', [
+    h('p.hint', 'اختر ثم اضغط «حفظ التغييرات» ليُطبَّق على هذا التقرير في العرض وPDF وWord. القيم الافتراضية للتقارير الجديدة من الإعدادات.'),
+    formatControls(() => report.format || {}, async (f) => {
+      report.format = { ...(report.format || {}), ...f };
       report.updatedAt = Date.now();
-      putReport(report).catch(() => {});
+      await putReport(report).catch(() => {});
+      sh.close();
       onChanged?.();
+      toast('طُبّق التنسيق ✓', 'ok');
     }),
-  ]);
+  ], { full: true });
 }

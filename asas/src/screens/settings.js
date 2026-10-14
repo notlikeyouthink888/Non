@@ -13,9 +13,10 @@ import { KB } from '../data/kb/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
 import { coverPicker, logosRow, SUP_TITLES } from '../report/covers.js';
-import { freeModels, cachedModels, modelName } from '../ai/openrouter.js';
+import { freeModels, cachedModels, modelName, isDeepSeek, DEEPSEEK_FALLBACK } from '../ai/openrouter.js';
+import { startLink, unlink } from '../ai/oauth.js';
 import { formatControls } from '../report/format.js';
-import { LANGS, STRUCTURES, STYLES } from '../report/style.js';
+import { LANGS, STRUCTURES, STYLES, LISTS } from '../report/style.js';
 
 export default {
   mount(root) {
@@ -30,7 +31,7 @@ export default {
       h('h2.sec', [icon('edit', 18), 'أسلوب الكتابة الافتراضي']),
       writingCard(),
       h('h2.sec', [icon('layers', 18), 'تنسيق التقارير الافتراضي']),
-      h('div.card', formatControls(() => state.format || {}, (patch) => update((s) => { s.format = { ...(s.format || {}), ...patch }; }, 'format'))),
+      h('div.card', formatControls(() => state.format || {}, (f) => { update((s) => { s.format = { ...(s.format || {}), ...f }; }, 'format'); toast('حُفظ التنسيق الافتراضي للتقارير الجديدة ✓', 'ok'); }, { saveText: 'حفظ التنسيق الافتراضي' })),
       h('h2.sec', [icon('file', 18), 'بيانات الغلاف الافتراضية']),
       coverCard(),
       h('h2.sec', [icon('word', 18), 'التصدير']),
@@ -52,10 +53,10 @@ export default {
         fill(status, [
           icon(on ? 'check' : 'key', 18),
           h('div.grow', on
-            ? (a.provider === 'openrouter'
+            ? (a.provider === 'deepseek' ? `مفعّل — DeepSeek بحسابك المربوط. نموذج الكتابة: ${modelName(a.deepseek?.model || 'auto')}.` : a.provider === 'openrouter'
               ? `مفعّل مجانًا عبر OpenRouter — نموذج الكتابة: ${modelName(a.openrouter.model)}.`
               : `مفعّل — يكتب التقارير بنموذج ${MODELS.find((m) => m.id === a.model)?.name}.`)
-            : (a.provider === 'openrouter'
+            : (a.provider === 'deepseek' ? 'غير مربوط. اضغط «اربط حسابك» وسجّل الدخول بـ Google أو بالبريد، ويرجعك التطبيق مفعّلًا دون نسخ أي مفتاح.' : a.provider === 'openrouter'
               ? 'غير مفعّل. أنشئ مفتاح OpenRouter المجاني والصقه هنا لتكتب التقارير بالذكاء الاصطناعي لأي عنوان.'
               : 'غير مفعّل. أضف مفتاح Claude API لتكتب التقارير بالذكاء الاصطناعي لأي عنوان، مع اقتراح العناوين والتحقق البصري من الصور.')),
         ]);
@@ -66,7 +67,7 @@ export default {
         type: 'button',
         onclick: () => { if (a.provider !== p.id) { update((s) => { s.ai.provider = p.id; }, 'ai'); renderAI(); } },
       }, [
-        h('div.row.between', [h('strong', p.name), h('span.badge' + (p.id === 'openrouter' ? '.ok' : ''), p.badge)]),
+        h('div.row.between', [h('strong', p.name), h('span.badge' + (p.id !== 'claude' ? '.ok' : ''), p.badge)]),
         h('div.s', p.note),
       ])));
 
@@ -76,7 +77,7 @@ export default {
         onclick: async () => {
           syncAll(); // نقرأ ما في الخانة فعلًا قبل الاختبار
           if (!aiReady()) {
-            toast(a.provider === 'openrouter' ? 'الصق مفتاح OpenRouter أولًا' : a.mode === 'proxy' ? 'أدخل رابط الخادم أولًا' : 'الصق مفتاح Claude أولًا', 'err');
+            toast(a.provider === 'deepseek' ? 'اربط حسابك أولًا' : a.provider === 'openrouter' ? 'الصق مفتاح OpenRouter أولًا' : a.mode === 'proxy' ? 'أدخل رابط الخادم أولًا' : 'الصق مفتاح Claude أولًا', 'err');
             return;
           }
           testBtn.disabled = true;
@@ -85,6 +86,7 @@ export default {
             const r = await testConnection();
             fill(testOut, [icon('check', 16), h('span', { style: { color: 'var(--ok)' } }, r.msg || 'تم الاتصال بنجاح')]);
             if (a.provider === 'openrouter') renderModels();
+            if (a.provider === 'deepseek') renderDeepSeek();
           } catch (err) {
             fill(testOut, [icon('alert', 16), h('span', { style: { color: 'var(--danger)' } }, aiErrorMessage(err))]);
           } finally { testBtn.disabled = false; }
@@ -155,6 +157,50 @@ export default {
         h('button.btn.sm.ghost', { type: 'button', onclick: () => { update((s) => { s.ai.usage = { input: 0, output: 0, cost: 0, calls: 0, reports: 0 }; }, 'ai'); renderAI(); } }, 'تصفير'),
       ]);
       const verifyRow = settingRow('التحقق البصري من الصور', 'يرى الذكاء الاصطناعي الصور المرشّحة ويرفض غير المطابقة للموضوع', toggle(a.verifyImages, (v) => update((s) => { s.ai.verifyImages = v; }, 'ai')));
+
+      // فرع DeepSeek: ربط الحساب بضغطة، ونماذج DeepSeek المجانية فقط
+      const dsBox = h('div.list');
+      async function renderDeepSeek() {
+        let list = cachedModels();
+        try { list = await freeModels(); } catch { /* القائمة المحفوظة */ }
+        const ds = list.filter((m) => isDeepSeek(m.id));
+        const ids = ds.length ? ds.map((m) => [m.id, m.name]) : DEEPSEEK_FALLBACK.map((id) => [id, modelName(id)]);
+        const cur = state.ai.deepseek?.model || 'auto';
+        const item = (id, title, sub) => h('button.item', {
+          type: 'button',
+          style: cur === id ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : null,
+          onclick: () => { update((s) => { s.ai.deepseek = { ...(s.ai.deepseek || {}), model: id }; }, 'ai'); refreshStatus(); renderDeepSeek(); },
+        }, [h('div.grow', [h('div.t', title), sub ? h('div.s', sub) : null]), cur === id ? icon('check', 20) : null]);
+        fill(dsBox, [
+          item('auto', 'تلقائي — أفضل DeepSeek متاح', 'يتحوّل إلى نموذج DeepSeek آخر إن ازدحم'),
+          ...ids.map(([id, name]) => item(id, name, /r1/i.test(id) ? 'يفكّر قبل أن يكتب (أبطأ وأدق في الحسابات)' : 'سريع وجيد في الكتابة العربية')),
+        ]);
+      }
+      if (a.provider === 'deepseek') {
+        const linked = aiReady();
+        fill(aiCard, [
+          status,
+          field('مزوّد الذكاء الاصطناعي', providers),
+          linked
+            ? h('div.row-set', [
+              h('div.grow', [h('div.t', 'الحساب مربوط ✓'), h('div.s', state.ai.deepseek?.linked ? 'رُبط بتسجيل الدخول' : 'يستعمل مفتاح OpenRouter المحفوظ')]),
+              h('button.btn.sm.ghost', { type: 'button', onclick: () => { unlink(); renderAI(); } }, 'فك الربط'),
+            ])
+            : h('button.btn.primary.lg.block', { type: 'button', onclick: () => startLink('deepseek').catch((e) => toast(e.message || 'تعذّر فتح صفحة الربط', 'err')) }, [icon('key', 18), 'اربط حسابك (Google أو بريد)']),
+          h('div.notice', [icon('info', 18), h('div.grow', [
+            'يفتح صفحة تسجيل الدخول، وبعد الموافقة يرجعك التطبيق مفعّلًا. DeepSeek نفسه لا يسمح للتطبيقات بالكتابة عبر حساب موقعه، ',
+            'لذلك يمر الربط بحساب OpenRouter المجاني (يُنشأ تلقائيًا بحساب Google) ويكتب بنماذج DeepSeek فقط. ',
+            'في التلفون إن لم يفتح تسجيل Google داخل التطبيق فاختر الدخول بالبريد الإلكتروني. ',
+            'ومرة واحدة فعّل النماذج المجانية من ', link('https://openrouter.ai/settings/privacy', 'إعدادات الخصوصية'), '.',
+          ])]),
+          h('div.row.wrap', [testBtn, testOut]),
+          h('div.field.mt', [h('label', 'نموذج DeepSeek'), dsBox]),
+          verifyRow,
+          usageRow,
+        ]);
+        renderDeepSeek();
+        return;
+      }
 
       if (a.provider === 'openrouter') {
         fill(aiCard, [
@@ -292,6 +338,8 @@ function writingCard() {
       field('اللغة', chipGroup(LANGS.map((x) => ({ value: x.value, label: x.label })), p.lang || 'mix', set('lang'))),
       field('عناوين الأقسام', chipGroup(STRUCTURES.map((x) => ({ value: x.value, label: x.label })), p.structure || 'fixed', set('structure'))),
       settingRow('كتابة طبيعية كأنها من الطالب', 'بلا عبارات قالبية ولا شرطات طويلة ولا «» ولا تشكيل، وعريض أقل', toggle(p.human !== false, set('human'))),
+      field('النقاط', chipGroup(LISTS.map((x) => ({ value: x.value, label: x.label })), p.lists || 'mix', set('lists'))),
+      settingRow('جداول في التقارير', null, toggle(p.tables !== false, set('tables'))),
     ]);
   };
   draw();

@@ -6,6 +6,7 @@
 import { getType, sectionsOf } from '../data/types.js';
 import { CAT_BY_ID } from '../data/categories.js';
 import { CAT_REFS, GENERIC } from '../data/kb/index.js';
+import { synonym } from './style.js';
 
 const bullets = (arr) => arr.map((x) => `- ${x}`).join('\n');
 const numbered = (arr) => arr.map((x, i) => `${i + 1}. ${x}`).join('\n');
@@ -48,15 +49,81 @@ function genericIntro(title, cat, type) {
   return `يتناول هذا التقرير موضوع «${title}»${c ? ` من مادة ${c.name}` : ''} لطلبة المرحلة الثانية في قسم الهندسة المدنية، ويعرضه وفق هيكل ${type.name}${type.steps ? ' مع الخطوات المرقّمة' : ''}.`;
 }
 
-/** خاتمة مولّدة من محتوى القاعدة. */
-function conclusion(kb, title) {
+/** صيغ مختلفة لكل نقطة في الخاتمة: تُختار حسب رقم صيغة التقرير حتى لا تتشابه تقارير الطلبة. */
+const CONCL = {
+  obj: [
+    (x) => `حقق التقرير غرضه المتمثل في: ${x}.`,
+    (x) => `تمكّنّا من خلال هذا العمل من ${x.replace(/^(?:إيجاد|حساب|تعيين|قياس|دراسة|معرفة)/, (m) => m)}.`,
+    (x) => `الهدف الأساسي كان ${x}، وقد تحقق بالخطوات المذكورة.`,
+    (x) => `بيّن العمل كيفية ${x.replace(/^(?:إيجاد|حساب|تعيين|قياس|دراسة|معرفة)\s*/, '')}.`,
+    (x) => `أوضحت التجربة طريقة ${x.replace(/^(?:إيجاد|حساب|تعيين|قياس|دراسة|معرفة)\s*/, '')} عمليًا.`,
+  ],
+  limits: [
+    (x) => `تُقارن النتائج دائمًا بالقيم النموذجية والحدود المعتمدة، ومنها: ${x}`,
+    (x) => `لا تكتمل قراءة النتيجة إلا بمقارنتها بالحدود المعروفة، مثل: ${x}`,
+    (x) => `من القيم المرجعية التي نقارن بها: ${x}`,
+    (x) => `للحكم على النتيجة نرجع إلى الحدود المعتمدة، ومنها: ${x}`,
+  ],
+  uses: [
+    (t, x) => `تكمن أهمية «${t}» عمليًا في: ${x}.`,
+    (t, x) => `يُستفاد من هذا الموضوع في الواقع العملي في: ${x}.`,
+    (t, x) => `من التطبيقات المباشرة لما درسناه: ${x}.`,
+    (t, x) => `يحتاج المهندس المدني هذا في: ${x}.`,
+  ],
+  notes: [
+    (x) => `من أهم ما يجب الانتباه له: ${x}`,
+    (x) => `لاحظنا أن الدقة تتأثر كثيرًا بما يلي: ${x}`,
+    (x) => `أكثر ما يؤثر في صحة النتيجة: ${x}`,
+    (x) => `نوصي عند إعادة العمل بالانتباه إلى أن ${x}`,
+  ],
+  problems: [
+    (x) => `من الأخطاء التي يجب تجنبها: ${x}`,
+    (x) => `خطأ شائع يقع فيه الطلبة: ${x}`,
+    (x) => `يجب الحذر من: ${x}`,
+  ],
+};
+
+/** خاتمة مولّدة من محتوى القاعدة، بصيغة وترتيب وشكل يختلف حسب رقم الصيغة. */
+function conclusion(kb, title, variant = 0) {
+  const v = variant || 1;
+  const pick = (arr, k) => arr[(v + k) % arr.length];
   const pts = [];
-  if (kb.obj) pts.push(`حقق التقرير غرضه المتمثل في: ${kb.obj.replace(/\.$/, '')}.`);
-  if (kb.limits?.[0]) pts.push(`تُقارن النتائج دائمًا بالقيم النموذجية والحدود المعتمدة، ومنها: ${kb.limits[0]}`);
-  if (kb.uses?.length) pts.push(`تكمن أهمية «${title}» عمليًا في: ${kb.uses.slice(0, 3).join('، ')}.`);
-  if (kb.notes?.[0]) pts.push(`من أهم ما يجب الانتباه له: ${kb.notes[0]}`);
-  if (kb.problems?.[0] && pts.length < 4) pts.push(`من الأخطاء التي يجب تجنبها: ${kb.problems[0]}`);
-  return bullets(pts.map((p) => p.replace(/\.\.$/, '.').replace(/:\s*\./, '.')));
+  if (kb.obj) pts.push(pick(CONCL.obj, 0)(kb.obj.replace(/\.$/, '')));
+  if (kb.limits?.length) pts.push(pick(CONCL.limits, 1)(kb.limits[v % kb.limits.length]));
+  if (kb.uses?.length) pts.push(pick(CONCL.uses, 2)(title, [...kb.uses].sort((a, b) => ((a.length * v) % 7) - ((b.length * v) % 7)).slice(0, 3).join('، ')));
+  if (kb.notes?.length) pts.push(pick(CONCL.notes, 3)(kb.notes[v % kb.notes.length]));
+  if (kb.problems?.length && pts.length < 4) pts.push(pick(CONCL.problems, 4)(kb.problems[v % kb.problems.length]));
+  const clean = pts.map((p) => p.replace(/\.\.$/, '.').replace(/:\s*\./, '.'));
+  // ترتيب مختلف: الهدف أولًا دائمًا، والبقية تُدوَّر
+  const rest = clean.slice(1);
+  const rot = rest.length ? v % rest.length : 0;
+  const ordered = [clean[0], ...rest.slice(rot), ...rest.slice(0, rot)].filter(Boolean);
+  const form = v % 3;
+  if (form === 1) return numbered(ordered);
+  if (form === 2) return ordered.join(' ');
+  return bullets(ordered);
+}
+
+/** جمل افتتاحية مختلفة تسبق مقدمة القاعدة. */
+const INTRO_LEAD = [
+  null,
+  (t, c) => `يُعد موضوع «${t}» من الموضوعات الأساسية في ${c || 'الهندسة المدنية'}.`,
+  (t) => `نتناول في هذا التقرير «${t}».`,
+  (t, c) => `من المواضيع التي درسناها في ${c || 'المرحلة الثانية'} موضوع «${t}».`,
+  null,
+  (t) => `يعرض هذا التقرير «${t}» بشكل مبسط ومنظم.`,
+  (t, c) => `يحتاج طالب الهندسة المدنية إلى فهم «${t}» جيدًا، لأنه يرتبط مباشرة بالعمل في الموقع${c ? ` وبمادة ${c}` : ''}.`,
+  null,
+  (t) => `في هذا التقرير نوضّح «${t}» من الناحيتين النظرية والعملية.`,
+  (t, c) => `تتناول ${c ? `مادة ${c}` : 'المادة'} عدة مواضيع مهمة، ومنها «${t}» الذي نعرضه هنا.`,
+  (t) => `يهدف هذا التقرير إلى التعريف بـ«${t}» وبيان أهميته.`,
+  null,
+];
+
+/** يبدّل ترتيب عناصر قائمة لا يهم ترتيبها (تعاريف، أجهزة، تطبيقات) حسب الصيغة. */
+function shuffle(arr, v) {
+  if (!v || arr.length < 3) return arr;
+  return arr.map((x, i) => [x, (i * 7 + v * 13) % 11]).sort((a, b) => a[1] - b[1]).map(([x]) => x);
 }
 
 function refsOf(kb, cat) {
@@ -68,9 +135,15 @@ function refsOf(kb, cat) {
 function fieldMd(key, kb, ctx) {
   const v = kb ? kb[key] : null;
   switch (key) {
-    case 'intro': return kb?.intro?.length ? kb.intro.join('\n\n') : null;
+    case 'intro': {
+      if (!kb?.intro?.length) return null;
+      const lead = INTRO_LEAD[(ctx.variant || 0) % INTRO_LEAD.length];
+      const paras = [...kb.intro];
+      if (lead) paras[0] = `${lead(ctx.title, CAT_BY_ID[ctx.cat]?.name)} ${paras[0]}`;
+      return paras.join('\n\n');
+    }
     case 'defs':
-      if (kb?.defs?.length) return bullets(kb.defs);
+      if (kb?.defs?.length) return bullets(shuffle(kb.defs, ctx.variant));
       return kb?.intro?.length && !ctx.used.has('intro') ? kb.intro[0] : null;
     case 'obj': return kb?.obj || null;
     case 'std':
@@ -85,7 +158,7 @@ function fieldMd(key, kb, ctx) {
       const app = kb?.app || kb?.equip;
       if (!app?.length && !kb?.mat?.length) return null;
       const out = [];
-      if (app?.length) out.push(bullets(app));
+      if (app?.length) out.push(bullets(shuffle(app, ctx.variant)));
       if (kb.mat?.length) out.push(`### المواد والنماذج\n\n${bullets(kb.mat)}`);
       return out.join('\n\n');
     }
@@ -118,7 +191,7 @@ function fieldMd(key, kb, ctx) {
     case 'compare': return kb?.compare ? `**جدول (1): المقارنة**\n\n${table(kb.compare)}` : null;
     case 'choose': return kb?.choose?.length ? numbered(kb.choose) : null;
     case 'given': return kb?.given ? `${table(kb.given)}\n\n> استبدل القيم ببيانات مشروعك.` : null;
-    case 'concl': return kb ? conclusion(kb, ctx.title) : null;
+    case 'concl': return kb ? conclusion(kb, ctx.title, ctx.variant) : null;
     case 'refs': return refsOf(kb, ctx.cat);
     case 'trainingIntro': return GENERIC.trainingIntro.join('\n\n');
     case 'visitInfo': {
@@ -139,7 +212,7 @@ function fieldMd(key, kb, ctx) {
       return kb ? numbered(secs) : null;
     }
     default:
-      return Array.isArray(v) && v.length ? bullets(v) : null;
+      return Array.isArray(v) && v.length ? bullets(shuffle(v, ctx.variant)) : null;
   }
 }
 
@@ -147,7 +220,7 @@ function fieldMd(key, kb, ctx) {
  * يبني أقسام التقرير.
  * @returns {{ sections: {h, md}[], coverage: number }}
  */
-export function composeOffline({ title, typeId, cat, kb, meta = {} }) {
+export function composeOffline({ title, typeId, cat, kb, meta = {}, variant = 0 }) {
   const type = getType(typeId);
   const secs = sectionsOf(type, cat);
   const used = new Set();
@@ -156,6 +229,7 @@ export function composeOffline({ title, typeId, cat, kb, meta = {} }) {
     title,
     cat,
     meta,
+    variant,
     used,
     lab: ['lab', 'field'].includes(type.id),
     discOnly: type.id === 'discussion' || type.id === 'summary' || type.id === 'seminar',
@@ -179,7 +253,7 @@ export function composeOffline({ title, typeId, cat, kb, meta = {} }) {
     // قسم اختياري لا مادة له في هذا الموضوع: يُحذف بدل أن يبقى قالبًا فارغًا
     if (!md && s.opt && kb) return;
     if (md) filled++;
-    sections.push({ h: s.h, md: md || `[اكتب هنا: ${s.g}]` });
+    sections.push({ h: synonym(s.h, variant), md: md || `[اكتب هنا: ${s.g}]` });
   });
 
   return { sections, coverage: filled / sections.length };

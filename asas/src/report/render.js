@@ -8,7 +8,7 @@ import { bidi } from '../core/arabic.js';
 import { figuresOf, figureNumbers } from './model.js';
 import { renderCoverHTML, renderNoCover, hasCover } from './covers.js';
 import { state } from '../core/store.js';
-import { fmtOf } from './format.js';
+import { fmtOf, secNumber } from './format.js';
 import { isEnglish } from './style.js';
 import { mathEl, eqLineEl, isTall } from '../core/math.js';
 
@@ -69,7 +69,9 @@ export function renderToc(report) {
   if (secs.length < 3 || !fmtOf(report).toc) return null;
   return h('nav.toc', [
     h('strong', isEnglish(report) ? 'Contents' : 'المحتويات'),
-    h('ol', report.sections.map((s, i) => (s.h ? h('li', h('a', { href: `#sec-${i}`, onclick: (e) => { e.preventDefault(); document.getElementById(`sec-${i}`)?.scrollIntoView({ behavior: 'smooth' }); } }, s.h)) : null))),
+    h('ul.toc-list', report.sections.map((s, i) => (s.h ? h('li', h('a', { href: `#sec-${i}`, onclick: (e) => { e.preventDefault(); document.getElementById(`sec-${i}`)?.scrollIntoView({ behavior: 'smooth' }); } }, [
+      fmtOf(report).numbering ? h('span.n', secNumber(sectionNo(i, report), fmtOf(report), isEnglish(report))) : null, s.h,
+    ])) : null))),
   ]);
 }
 
@@ -113,7 +115,7 @@ export function renderSection(report, i, { live = false, editable = true, handle
   const nums = numbers || figureNumbers(report);
   const figs = figuresOf(report, i, { all: true });
   return h('section.rsec' + (live ? '.live' : ''), { id: `sec-${i}`, dataset: { i } }, [
-    s.h ? h('h2', [fmtOf(report).numbering ? h('span.n', `${toArabicOrdinal(i, report)}`) : null, bidi(s.h)]) : null,
+    s.h ? h('h2', [fmtOf(report).numbering ? h('span.n', secNumber(sectionNo(i, report), fmtOf(report), isEnglish(report)).trim()) : null, bidi(s.h)]) : null,
     editable && !live ? h('div.tools.no-print', [
       h('button.icon-btn', { type: 'button', 'aria-label': 'تحرير القسم', title: 'تحرير', onclick: () => handlers.onEdit?.(i) }, icon('edit', 17)),
     ]) : null,
@@ -123,7 +125,7 @@ export function renderSection(report, i, { live = false, editable = true, handle
 }
 
 /** ترقيم الأقسام (1. 2. ...) متجاهلًا القسم التمهيدي بلا عنوان. */
-function toArabicOrdinal(i, report) {
+export function sectionNo(i, report) {
   const offset = report.sections[0] && !report.sections[0].h ? 0 : 1;
-  return `${i + offset}.`;
+  return i + offset;
 }

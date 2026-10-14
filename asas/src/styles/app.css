@@ -413,6 +413,8 @@ ol.steps-mini a { color: var(--accent-2); }
 .toc { font-family: var(--font); font-size: 13.5px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }
 .toc ol { margin: 6px 0 0; padding-inline-start: 22px; }
 .toc li { padding: 2px 0; }
+.toc ul.toc-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.toc .n { font-weight: 700; color: var(--hc, var(--accent)); }
 .toc a { color: var(--fg-2); text-decoration: none; }
 
 .rsec { position: relative; margin-bottom: 8px; scroll-margin-top: 70px; }
@@ -436,16 +438,30 @@ ol.steps-mini a { color: var(--accent-2); }
 .paper[dir="ltr"] { font-family: "Times New Roman", "Liberation Serif", Georgia, serif; }
 .paper[dir="ltr"] .rsec p { text-align: justify; }
 .paper[data-align="start"] .rsec p { text-align: start; }
-.paper[data-heading="color"] .rsec h2 { color: var(--accent); }
+.paper { --hc: color-mix(in srgb, var(--frame) 72%, var(--paper-fg)); }
+.paper[data-heading="color"] .rsec h2, .paper[data-heading="color"] .rsec h2 .n { color: var(--hc); }
+.rsec h2 .n { color: var(--hc); }
 .paper[data-heading="underline"] .rsec h2, .paper[data-heading="underline"] .rsec h2 .n { color: var(--paper-fg); text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1.5px; }
 .paper[data-heading="plain"] .rsec h2, .paper[data-heading="plain"] .rsec h2 .n { color: var(--paper-fg); }
-.paper[data-heading="band"] .rsec h2 { background: var(--accent-soft); border-inline-start: 4px solid var(--accent); padding: 4px 10px; border-radius: 6px; }
+.paper[data-heading="band"] .rsec h2 { background: color-mix(in srgb, var(--frame) 14%, transparent); border-inline-start: 4px solid var(--hc); padding: 4px 10px; border-radius: 6px; color: var(--paper-fg); }
+.paper[data-heading="boxed"] .rsec h2 { border: 1.5px solid var(--hc); border-radius: 6px; padding: 2px 12px; width: fit-content; color: var(--hc); }
+.paper[data-heading="line"] .rsec h2 { border-bottom: 2px solid var(--hc); padding-bottom: 4px; color: var(--hc); }
+.paper[data-hal="center"] .rsec h2 { justify-content: center; text-align: center; margin-inline: auto; }
+.paper[data-indent="1"] .rsec p { text-indent: 1.6em; }
 .paper[data-sep="1"] .rsec + .rsec { border-top: 1px solid var(--paper-line); padding-top: 4px; }
 .pframe { display: none; }
-.paper:not([data-border="none"]) .secs { border: 1.5px solid var(--frame); border-radius: 4px; padding: 6px 12px; }
+.paper:not([data-border="none"]) .secs { border-radius: 4px; padding: 8px 14px; }
+.paper[data-border="single"] .secs { border: 1.5px solid var(--frame); }
 .paper[data-border="double"] .secs { border: 4px double var(--frame); }
 .paper[data-border="thick"] .secs { border: 4px solid var(--frame); box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--frame); }
-.paper[data-border="art"] .secs { border: 3px solid var(--frame); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--frame), 0 0 0 3px var(--paper), 0 0 0 4px var(--frame); }
+.paper[data-border="thinthick"] .secs { border: 1px solid var(--frame); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 7px var(--frame); }
+.paper[data-border="art"] .secs { border: 3px solid var(--frame); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--frame), inset 0 0 0 7px var(--paper), inset 0 0 0 8px var(--frame); }
+.paper[data-border="triple"] .secs { border: 1px solid var(--frame); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px var(--frame), inset 0 0 0 7px var(--paper), inset 0 0 0 8px var(--frame); }
+.paper[data-border="dashed"] .secs { border: 2px dashed var(--frame); }
+.paper[data-border="dotted"] .secs { border: 3px dotted var(--frame); }
+.paper[data-border="wave"] .secs { border: 9px solid transparent; border-image: var(--wave) 9 round; }
+.paper[data-border="ridge"] .secs { border: 6px ridge var(--frame); }
+.paper[data-border="bold"] .secs { border: 5px solid var(--frame); }
 
 /* المعادلات: رسم SVG بحجم الخط ولونه (core/math.js) */
 .eq { text-align: center; margin: 12px 0; padding: 6px 4px; overflow-x: auto; overflow-y: hidden; }
@@ -543,17 +559,27 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
   .nav, .topbar, .dock, .rsec .tools, .fig-tools, .fig-pending, .no-print, #toast-root, #sheet-root, .notice, .gen-panel { display: none !important; }
   .wrap { max-width: none; padding: 0; }
   .paper { border: none; border-radius: 0; padding: 0; margin: 0; font-size: var(--doc-fs, 14pt); line-height: var(--doc-lh, 1.9); }
-  .paper[data-heading="color"] .rsec h2 { color: var(--frame); }
-  .paper[data-heading="color"] .rsec h2 .n { color: var(--frame); }
   .paper[data-heading="band"] .rsec h2 { border-inline-start-color: var(--frame); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* إطار الصفحات: عنصر ثابت يتكرر على كل صفحة مطبوعة، والمحتوى يبتعد عنه */
   /* الطابعة تقص ما يخرج عن منطقة المحتوى، فالإطار على حدّها والمحتوى يبتعد عنه بحشوة تتكرر في كل صفحة */
   .paper:not([data-border="none"]) .secs { border: none !important; box-shadow: none !important; padding: 6mm 7mm; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .paper:not([data-border="none"]) .toc { margin: 6mm 7mm; }
-  .paper:not([data-border="none"]) .pframe { display: block; position: fixed; inset: 0; pointer-events: none; border: 1.5px solid var(--frame); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .paper:not([data-border="none"]) .pframe { display: block; position: fixed; inset: 0; pointer-events: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .paper[data-border="single"] .pframe { border: 1.5px solid var(--frame); }
   .paper[data-border="double"] .pframe { border: 4px double var(--frame); }
   .paper[data-border="thick"] .pframe { border: 4px solid var(--frame); box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px var(--frame); }
+  .paper[data-border="thinthick"] .pframe { border: 1px solid var(--frame); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 7px var(--frame); }
   .paper[data-border="art"] .pframe { border: 3px solid var(--frame); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px var(--frame), inset 0 0 0 7px #fff, inset 0 0 0 8px var(--frame); }
+  .paper[data-border="triple"] .pframe { border: 1px solid var(--frame); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px var(--frame), inset 0 0 0 7px #fff, inset 0 0 0 8px var(--frame); }
+  .paper[data-border="dashed"] .pframe { border: 2px dashed var(--frame); }
+  .paper[data-border="dotted"] .pframe { border: 3px dotted var(--frame); }
+  .paper[data-border="wave"] .pframe { border: 9px solid transparent; border-image: var(--wave) 9 round; }
+  .paper[data-border="ridge"] .pframe { border: 6px ridge var(--frame); }
+  .paper[data-border="bold"] .pframe { border: 5px solid var(--frame); }
+  .paper { color: var(--doc-ink, #000); }
+  .paper[data-heading="underline"] .rsec h2, .paper[data-heading="plain"] .rsec h2, .paper[data-heading="band"] .rsec h2 { color: var(--doc-ink, #000); }
+  .paper .rsec h2 .n, .paper[data-heading="color"] .rsec h2, .paper[data-heading="boxed"] .rsec h2, .paper[data-heading="line"] .rsec h2 { color: var(--frame); }
+  .paper[data-heading="boxed"] .rsec h2, .paper[data-heading="line"] .rsec h2 { border-color: var(--frame); }
   .cover { max-width: none; width: 100%; aspect-ratio: auto; height: 258mm; margin: 0; border-radius: 0; box-shadow: none; page-break-after: always; break-after: page; }
   .cover-off { border-bottom: 1px solid #999; }
   .toc { background: none; border: 1px solid #ccc; page-break-after: always; break-after: page; }
@@ -563,3 +589,9 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
   .tbl-wrap { overflow: visible; }
   .tbl-wrap table { font-size: 11pt; }
 }
+
+/* عيّنات الألوان في خيارات التنسيق */
+.sw-l { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(127,127,127,.5); display: inline-block; }
+.fmt-h { margin: 16px 0 6px; font-size: 14px; color: var(--fg-2); }
+.fmt-save { position: sticky; bottom: 8px; z-index: 2; }

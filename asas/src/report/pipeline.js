@@ -14,7 +14,7 @@ import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits } fro
 import { splitSections, wordsOf, normalizeHeadings } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
-import { planSections, humanize, isRefsHeading } from './style.js';
+import { planSections, humanize, isRefsHeading, applyContent } from './style.js';
 import { findCandidates, verifyLoadable, storeCandidate, toBase64Jpeg, slimCandidate, pool } from '../images/pipeline.js';
 
 const jobs = new Map();
@@ -98,6 +98,17 @@ async function run(job) {
   r.error = '';
   r.notes = [];
   r.source = useAI ? 'ai' : 'offline';
+  // دون اتصال: المحتوى عربي بأقسام النوع، فتُسجَّل الخيارات الفعلية قبل تخطيط الصور
+  const offNotes = [];
+  if (!useAI && r.options.lang === 'en') { r.options.lang = 'mix'; offNotes.push('النسخة دون اتصال بالعربية فقط؛ للتقرير بالإنجليزية أنشئه بالذكاء الاصطناعي.'); }
+  if (!useAI && r.options.structure === 'free') { r.options.structure = 'fixed'; offNotes.push('العناوين حسب الموضوع تحتاج الذكاء الاصطناعي؛ استُعملت أقسام النوع المعتمدة.'); }
+  /** تنظيف الكتابة ثم خيارات المحتوى (بلا نقاط، بلا جداول) على كل الأقسام عدا المصادر. */
+  const finish = (secs) => secs.map((s) => {
+    if (isRefsHeading(s.h)) return s;
+    let md = r.options.human !== false ? humanize(s.md, r.options) : s.md;
+    md = applyContent(md, r.options);
+    return { ...s, md };
+  });
   r.model = useAI ? activeModelId() : null;
   await putReport(r);
 
@@ -143,7 +154,7 @@ async function run(job) {
     });
     clearTimeout(raf);
     r.sections = splitSections(normalizeHeadings(res.text, titles));
-    if (r.options.human !== false) r.sections = r.sections.map((s) => (isRefsHeading(s.h) ? s : { ...s, md: humanize(s.md, r.options) }));
+    r.sections = finish(r.sections);
     r.words = wordsOf(r.sections);
     r.usage.cost = (r.usage.cost || 0) + (res.cost || 0);
     r.usage.output = (r.usage.output || 0) + (res.usage?.output_tokens || 0);
@@ -154,11 +165,9 @@ async function run(job) {
     emit(job, 'text');
     setPhase(job, 'write', 'done', `${r.words} كلمة`);
   } else {
-    const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb, meta: r.meta });
-    r.sections = r.options.human !== false ? sections.map((s) => (isRefsHeading(s.h) ? s : { ...s, md: humanize(s.md) })) : sections;
-    // دون اتصال: المحتوى عربي بأقسام النوع، فتُسجَّل الخيارات الفعلية حتى يُعرض ويُصدَّر صحيحًا
-    if (r.options.lang === 'en') { r.options.lang = 'mix'; r.notes.push('النسخة دون اتصال بالعربية فقط؛ للتقرير بالإنجليزية أنشئه بالذكاء الاصطناعي.'); }
-    if (r.options.structure === 'free') { r.options.structure = 'fixed'; r.notes.push('العناوين حسب الموضوع تحتاج الذكاء الاصطناعي؛ استُعملت أقسام النوع المعتمدة.'); }
+    const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb, meta: r.meta, variant: r.options.variant || 0 });
+    r.sections = finish(sections);
+    r.notes.push(...offNotes);
     r.words = wordsOf(sections);
     if (coverage < 0.6) r.notes.push('هذه نسخة دون اتصال: بعض الأقسام قالب بإرشادات بين أقواس معقوفة لتكملها، أو فعّل الذكاء الاصطناعي لكتابة التقرير كاملًا.');
     emit(job, 'text');
@@ -184,7 +193,8 @@ async function run(job) {
 async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null }) {
   const r = job.report;
   const count = Math.max(0, Math.min(6, wanted ?? r.options.images));
-  const secs = sectionsOf(getType(r.typeId), r.catId);
+  // عناوين الأقسام كما ستُكتب (بلغة التقرير وصيغته) حتى تُطابَق الصور بأقسامها
+  const secs = planSections(r.typeId, r.catId, r.options) || sectionsOf(getType(r.typeId), r.catId);
   setPhase(job, 'plan', 'run');
   let figs = [];
   if (useAI) {

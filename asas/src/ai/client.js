@@ -9,7 +9,9 @@ import { state, modelInfo, MODELS } from '../core/store.js';
 import * as claude from './claude.js';
 import * as or from './openrouter.js';
 
-const isOR = () => state.ai.provider === 'openrouter';
+// فرع DeepSeek يعمل عبر حساب OpenRouter المربوط بنماذج DeepSeek فقط
+const isOR = () => state.ai.provider === 'openrouter' || state.ai.provider === 'deepseek';
+const isDS = () => state.ai.provider === 'deepseek';
 
 export const streamText = (opts) => (isOR() ? or.streamText(opts) : claude.streamText(opts));
 export const jsonCall = (opts) => (isOR() ? or.jsonCall(opts) : claude.jsonCall(opts));
@@ -22,6 +24,7 @@ export function aiErrorMessage(err) {
 
 /** معرّف النموذج المستعمل الآن (يُحفظ مع التقرير). */
 export function activeModelId() {
+  if (isDS()) return `ds:${state.ai.deepseek?.model || 'auto'}`;
   return isOR() ? `or:${state.ai.openrouter.model || 'auto'}` : state.ai.model;
 }
 
@@ -29,11 +32,13 @@ export function activeModelId() {
 export function modelLabel(id) {
   if (!id) return '';
   if (id.startsWith('or:')) return `OpenRouter — ${or.modelName(id.slice(3))}`;
+  if (id.startsWith('ds:')) return `DeepSeek — ${id.slice(3) === 'auto' ? 'تلقائي' : or.modelName(id.slice(3))}`;
   return MODELS.find((m) => id.startsWith(m.id))?.name || id;
 }
 
 /** نص مختصر لشارة الحالة في الرأس. */
 export function aiShortLabel() {
+  if (isDS()) return `DeepSeek · ${or.modelName(state.ai.deepseek?.model || 'auto')}`;
   if (isOR()) return `مجاني · ${or.modelName(state.ai.openrouter.model)}`;
   return modelInfo().name.replace('Claude ', '');
 }

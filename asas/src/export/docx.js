@@ -22,10 +22,11 @@ import { docxMath, hasArabic } from './omml.js';
 import { figuresOf, figureNumbers } from '../report/model.js';
 import { hasCover } from '../report/covers.js';
 import { coverSection } from './cover-docx.js';
-import { fmtOf, frameColor } from '../report/format.js';
+import { fmtOf, frameColor, textColor, secNumber, BORDERS, MARGINS } from '../report/format.js';
 import { isEnglish } from '../report/style.js';
 
 let ACCENT = 'B45309';
+let INK = '000000';
 const HAS_AR = /[\u0600-\u06FF]/;
 /** إعدادات المستند الحالي (تُضبط في بداية buildDocx): الحجم والمسافة واللغة والتنسيق. */
 let BODY_SIZE = 28; // 14pt بأنصاف النقاط
@@ -48,7 +49,7 @@ function run(text, o = {}) {
     size: o.size || BODY_SIZE, sizeComplexScript: o.size || BODY_SIZE,
     font: o.font ? { ascii: o.font, hAnsi: o.font, cs: o.font } : o.mono ? { ascii: 'Consolas', hAnsi: 'Consolas', cs: fonts().cs } : fonts(),
     rightToLeft: rtl,
-    color: o.color,
+    color: o.color || INK,
     underline: o.u ? {} : undefined,
     highlight: o.ph ? 'yellow' : undefined,
     language: { value: 'en-US', bidirectional: 'ar-IQ' },
@@ -165,7 +166,7 @@ function para(children, o = {}) {
     spacing: tall
       ? { after: o.after ?? 120, before: (o.before ?? 0) + 40, line: Math.round(line * 1.35), lineRule: LineRuleType.AT_LEAST }
       : { after: o.after ?? 120, before: o.before ?? 0, line, ...(o.lineRule ? { lineRule: o.lineRule } : {}) },
-    indent: o.indent,
+    indent: o.indent || (o.body && F.indent ? { firstLine: 480 } : undefined),
     heading: o.heading,
     keepNext: o.keepNext,
     shading: o.shading,
@@ -179,13 +180,17 @@ function heading(text, level = 1, { sep = false } = {}) {
   const size = Math.round(BODY_SIZE * (level === 1 ? 1.22 : level === 2 ? 1.08 : 1));
   const main = level === 1;
   // لون صريح دائمًا: بدونه يلوّن نمط «عنوان 1» في Word العنوان بالأزرق
-  const color = main && (F.heading === 'color' || F.heading === 'band') ? ACCENT : '111111';
+  const colored = ['color', 'boxed', 'line'].includes(F.heading);
+  const color = main && colored ? ACCENT : INK;
   const border = {};
+  const line = (w = 12) => ({ style: BorderStyle.SINGLE, size: w, color: ACCENT, space: 4 });
   if (main && sep) border.top = { style: BorderStyle.SINGLE, size: 6, color: 'A0A0A0', space: 10 };
   if (main && F.heading === 'band') border[EN ? 'left' : 'right'] = { style: BorderStyle.SINGLE, size: 24, color: ACCENT, space: 6 };
+  if (main && F.heading === 'line') border.bottom = line(16);
+  if (main && F.heading === 'boxed') Object.assign(border, { top: line(), bottom: line(), left: line(), right: line() });
   return para(runs(text, { b: true, size, color, u: main && F.heading === 'underline', math: false }), {
     heading: level === 1 ? HeadingLevel.HEADING_1 : level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
-    align: AlignmentType.START, before: main ? (sep ? 380 : 320) : 200, after: 120, keepNext: true, line: 300,
+    align: main && F.headAlign === 'center' ? AlignmentType.CENTER : AlignmentType.START, before: main ? (sep ? 380 : 320) : 200, after: 120, keepNext: true, line: 300,
     shading: main && F.heading === 'band' ? { type: ShadingType.CLEAR, color: 'auto', fill: 'F3F4F6' } : undefined,
     border: Object.keys(border).length ? border : undefined,
   });
@@ -226,7 +231,7 @@ function blocks(md) {
     else if (b.t === 'p') {
       const r = inline(b.text);
       if (r.length === 1 && r[0].math !== undefined) out.push(para([mathRun(r[0].math, true, r[0].src)], { align: AlignmentType.CENTER, ltr: true, before: 80, after: 120, line: 240, lineRule: LineRuleType.AT_LEAST }));
-      else out.push(para(runs(b.text)));
+      else out.push(para(runs(b.text), { body: true }));
     }
     else if (b.t === 'ol' || b.t === 'ul') out.push(...listItems(b.items, b.t === 'ol'));
     else if (b.t === 'table') { out.push(table(b)); out.push(para([run('')], { after: 60 })); }
@@ -265,17 +270,20 @@ async function figureParas(fig, num) {
 function tocParas(report) {
   const out = [heading(EN ? 'Contents' : 'المحتويات', 1)];
   report.sections.forEach((s, i) => {
-    if (s.h) out.push(para([F.numbering ? run(`${i + 1}. `, { b: true, color: ACCENT }) : null, run(s.h)].filter(Boolean), { align: AlignmentType.START, after: 60 }));
+    if (s.h) out.push(para([F.numbering ? run(secNumber(secNo(report, i), F, EN), { b: true, color: ACCENT }) : null, run(s.h)].filter(Boolean), { align: AlignmentType.START, after: 60 }));
   });
   out.push(new Paragraph({ children: [new PageBreak()] }));
   return out;
 }
 
+/** رقم القسم متجاهلًا القسم التمهيدي بلا عنوان. */
+const secNo = (report, i) => i + (report.sections[0] && !report.sections[0].h ? 0 : 1);
+
 /** إطار الصفحات حسب التنسيق (بأحجام Word بثُمن النقطة). */
 function pageBorders(report) {
-  const style = { single: [BorderStyle.SINGLE, 12], double: [BorderStyle.DOUBLE, 6], thick: [BorderStyle.THICK_THIN_SMALL_GAP, 24], art: [BorderStyle.THIN_THICK_THIN_SMALL_GAP, 24] }[F.border];
-  if (!style) return undefined;
-  const b = { style: style[0], size: style[1], color: frameColor(report, F).replace('#', '').toUpperCase(), space: 24 };
+  const w = BORDERS.find((x) => x.value === F.border)?.word;
+  if (!w) return undefined;
+  const b = { style: BorderStyle[w[0]], size: w[1], color: frameColor(report, F).replace('#', '').toUpperCase(), space: 24 };
   return {
     pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.PAGE },
     pageBorderTop: b, pageBorderBottom: b, pageBorderLeft: b, pageBorderRight: b,
@@ -288,7 +296,9 @@ export async function buildDocx(report) {
   EN = isEnglish(report);
   BODY_SIZE = Math.round((F.fontSize || 14) * 2);
   LINE = Math.round((F.spacing || 1.5) * 240);
-  ACCENT = F.heading === 'color' || F.heading === 'band' ? frameColor(report, F).replace('#', '').toUpperCase() : '222222';
+  // اللون المختار يطبَّق على العناوين والترقيم والإطار دائمًا، ولون الكتابة على النص
+  ACCENT = frameColor(report, F).replace('#', '').toUpperCase();
+  INK = textColor(F).replace('#', '').toUpperCase();
   await prepareMath(report, opts.wordMath);
   const nums = figureNumbers(report);
   const withCover = hasCover(report, opts.cover !== false);
@@ -300,7 +310,7 @@ export async function buildDocx(report) {
 
   for (let i = 0; i < report.sections.length; i++) {
     const s = report.sections[i];
-    if (s.h) children.push(heading(F.numbering ? `${i + 1}. ${s.h}` : s.h, 1, { sep: F.separators && i > 0 }));
+    if (s.h) children.push(heading(F.numbering ? `${secNumber(secNo(report, i), F, EN)}${s.h}` : s.h, 1, { sep: F.separators && i > 0 }));
     children.push(...blocks(s.md));
     for (const f of figuresOf(report, i)) children.push(...(await figureParas(f, nums.get(f.id))));
   }
@@ -338,7 +348,7 @@ export async function buildDocx(report) {
       {
         properties: {
           page: {
-            margin: { top: 1300, bottom: 1300, left: 1300, right: 1300, header: 600, footer: 600 },
+            margin: (() => { const m = MARGINS.find((x) => x.value === F.margins)?.twip || 1300; return { top: m, bottom: m, left: m, right: m, header: 600, footer: 600 }; })(),
             ...(withCover ? { pageNumbers: { start: 1 } } : {}),
             ...(pageBorders(report) ? { borders: pageBorders(report) } : {}),
           },

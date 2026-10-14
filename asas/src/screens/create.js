@@ -21,7 +21,8 @@ import { topbar, kbBadge } from './common.js';
 import { modelName } from '../ai/openrouter.js';
 import { coverPicker, COVER_BY_ID, peopleFields, logosRow } from '../report/covers.js';
 import { bidi } from '../core/arabic.js';
-import { LANGS, STRUCTURES } from '../report/style.js';
+import { LANGS, STRUCTURES, LISTS, VARIANTS, randomVariant } from '../report/style.js';
+import { fmtOf } from '../report/format.js';
 import { fmtDate } from '../core/fmt.js';
 
 const DETAIL_HINTS = {
@@ -50,6 +51,10 @@ export default {
       lang: state.prefs.lang || 'mix',
       structure: state.prefs.structure || 'fixed',
       human: state.prefs.human !== false,
+      lists: state.prefs.lists || 'mix',
+      tables: state.prefs.tables !== false,
+      numbering: fmtOf(null).numbering,
+      variant: randomVariant(),
       images: null,
       details: '',
       readings: '',
@@ -88,6 +93,7 @@ export default {
           st.images = t.figures;
           imgCount.textContent = String(st.images);
           renderTypes();
+          renderWriting();
           renderReadings();
           renderMeta();
         },
@@ -178,6 +184,15 @@ export default {
           st.lang === 'en' && !ai ? 'الإنجليزية تحتاج الذكاء الاصطناعي؛ النسخة دون اتصال بالعربية.' : lg.hint),
         field('عناوين الأقسام', chipGroup(STRUCTURES.map((x) => ({ value: x.value, label: x.label })), st.structure, (v) => { st.structure = v; renderWriting(); }), sr.hint),
         settingRow('كتابة طبيعية كأنها من الطالب', 'بلا عبارات قالبية ولا شرطات طويلة ولا «» ولا تشكيل، وعريض أقل', toggle(st.human, (v) => { st.human = v; })),
+        h('h2.sec', 'محتوى التقرير'),
+        field('النقاط', chipGroup(LISTS.map((x) => ({ value: x.value, label: x.label })), st.lists, (v) => { st.lists = v; renderWriting(); }), LISTS.find((x) => x.value === st.lists)?.hint),
+        settingRow('جداول', st.tables ? 'جداول للقراءات والنتائج والمقارنات' : 'بلا جداول: القراءات والنتائج تُكتب في جمل', toggle(st.tables, (v) => { st.tables = v; renderWriting(); })),
+        settingRow('صور', st.images > 0 ? `${st.images} صورة — غيّر العدد من «عدد الصور»` : 'بلا صور', toggle(st.images > 0, (v) => { st.images = v ? Math.max(1, getType(st.typeId).figures || 2) : 0; imgCount.textContent = String(st.images); renderWriting(); })),
+        settingRow('ترقيم الأقسام', st.numbering ? '1. المقدمة، 2. … (وشكل الترقيم من «التنسيق»)' : 'عناوين بلا أرقام', toggle(st.numbering, (v) => { st.numbering = v; })),
+        h('div.row-set', [
+          h('div.grow', [h('div.t', `تنويع الصياغة: الصيغة ${st.variant} من ${VARIANTS}`), h('div.s', 'لكل تقرير صيغة مختلفة في العناوين والمقدمة والخاتمة وترتيب النقاط، حتى لا يتشابه تقريرك مع تقارير زملائك')]),
+          h('button.btn.sm', { type: 'button', onclick: () => { let v; do v = randomVariant(); while (v === st.variant); st.variant = v; renderWriting(); } }, '🎲 صيغة أخرى'),
+        ]),
       ]);
     }
 
@@ -255,6 +270,8 @@ export default {
         s.prefs.lang = st.lang;
         s.prefs.structure = st.structure;
         s.prefs.human = st.human;
+        s.prefs.lists = st.lists;
+        s.prefs.tables = st.tables;
         if (st.saveCover) {
           ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'supTitle', 'students', 'ministry', 'logo', 'logoAR', 'logo2', 'logo2AR'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
           s.cover.style = st.meta.coverStyle;
@@ -265,7 +282,7 @@ export default {
         title,
         typeId: st.typeId,
         topicId: topic?.id || null,
-        options: { length: st.length, level: st.level, lang: st.lang, structure: st.structure, human: st.human, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId, cover: st.cover },
+        options: { length: st.length, level: st.level, lang: st.lang, structure: st.structure, human: st.human, lists: st.lists, tables: st.tables, variant: st.variant, numbering: st.numbering, images: state.images.enabled ? st.images : 0, details: st.details, readings: st.readings, catId: st.catId, cover: st.cover },
         meta: { ...st.meta, subject: CAT_BY_ID[st.catId]?.name || '' },
       });
       if (imgHint) report.imgHint = imgHint;

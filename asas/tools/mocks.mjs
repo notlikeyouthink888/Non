@@ -52,7 +52,7 @@ function pageOf(f, i) {
   };
 }
 
-export const stats = { claude: [], openrouter: [], orModels: 0, orKey: 0, images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
+export const stats = { claude: [], openrouter: [], orModels: 0, orKey: 0, orChallenge: null, orLink: null, images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
 
 async function onWikimedia(route) {
   const url = new URL(route.request().url());
@@ -228,7 +228,8 @@ function orValidate(req, body) {
   if (h['x-api-key'] || h['anthropic-version']) problems.push('رؤوس Anthropic في طلب OpenRouter');
   if (!Array.isArray(body.models) || !body.models.length || body.models.length > 3) problems.push('models غير صحيح');
   else {
-    if (body.models[body.models.length - 1] !== 'openrouter/free') problems.push('الموجّه المجاني ليس آخر بديل');
+    const dsOnly = body.models.every((m) => m.startsWith('deepseek/'));
+    if (!dsOnly && body.models[body.models.length - 1] !== 'openrouter/free') problems.push('الموجّه المجاني ليس آخر بديل');
     if (body.models.some((m) => m !== 'openrouter/free' && !m.endsWith(':free'))) problems.push('نموذج غير مجاني في السلسلة');
     if (body.models.some((m) => /guard/.test(m))) problems.push('نموذج أمان في السلسلة');
     if (body.model !== body.models[0]) problems.push('model لا يطابق أول البدائل');
@@ -259,6 +260,14 @@ async function onOpenRouter(route) {
   const auth = req.headers().authorization || '';
   if (url.pathname === '/api/v1/models') { stats.orModels++; return json(route, OR_MODELS); }
   if (/bad/.test(auth)) return orError(route, 401, 'No auth credentials found');
+  if (url.pathname === '/api/v1/auth/keys') {
+    const b = JSON.parse(req.postData() || '{}');
+    const { createHash } = await import('node:crypto');
+    const ch = createHash('sha256').update(b.code_verifier || '').digest('base64url');
+    stats.orLink = { code: b.code, method: b.code_challenge_method, verified: ch === stats.orChallenge };
+    if (b.code !== 'mock-code' || ch !== stats.orChallenge) return orError(route, 400, 'Invalid code');
+    return json(route, { key: 'sk-or-v1-linked-0123456789abcdefghijklmnop', user_id: 'user_mock' });
+  }
   if (url.pathname === '/api/v1/key') {
     stats.orKey++;
     return json(route, { data: { label: 'sk-or-v1-abc...xyz', limit: null, limit_remaining: null, usage: 0, usage_daily: 0, is_free_tier: true } });
@@ -297,11 +306,21 @@ async function onOpenRouter(route) {
   return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: orSse(text, body.models[0]) });
 }
 
+/** صفحة تسجيل الدخول: تعيد المستخدم فورًا إلى رابط العودة برمز (كما بعد الموافقة). */
+async function onOpenRouterAuth(route) {
+  const u = new URL(route.request().url());
+  stats.orChallenge = u.searchParams.get('code_challenge');
+  const back = new URL(u.searchParams.get('callback_url'));
+  back.searchParams.set('code', 'mock-code');
+  return route.fulfill({ status: 302, headers: { location: back.toString() } });
+}
+
 /** يربط كل المحاكيات بصفحة Playwright ويمنع أي اتصال حقيقي آخر. */
 export async function installMocks(page) {
   await page.route(/^https:\/\/api\.anthropic\.com\//, onClaude);
   await page.route(/^https:\/\/openrouter\.ai\/api\//, onOpenRouter);
+  await page.route(/^https:\/\/openrouter\.ai\/auth/, onOpenRouterAuth);
   await page.route(/^https:\/\/(commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org)\//, onWikimedia);
   await page.route(/^https:\/\/api\.openverse\.org\//, onOpenverse);
-  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost|api\.anthropic\.com|openrouter\.ai\/api|commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org|api\.openverse\.org)/, (r) => r.abort());
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost|api\.anthropic\.com|openrouter\.ai\/api|openrouter\.ai\/auth|commons\.wikimedia\.org|upload\.wikimedia\.org|[a-z]+\.wikipedia\.org|api\.openverse\.org)/, (r) => r.abort());
 }

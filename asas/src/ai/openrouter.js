@@ -138,7 +138,18 @@ export async function freeModels({ force = false, signal } = {}) {
  * سلسلة النماذج لطلب واحد: المختار (أو الأفضل)، ثم بديل من عائلة أخرى، ثم الموجّه المجاني.
  * kind: 'text' | 'vision'
  */
+/** نماذج DeepSeek المجانية المعروفة (حين تتعذّر قراءة القائمة الحيّة). */
+export const DEEPSEEK_FALLBACK = ['deepseek/deepseek-chat-v3.1:free', 'deepseek/deepseek-chat-v3-0324:free', 'deepseek/deepseek-r1-0528:free'];
+export const isDeepSeek = (id) => familyOf(id) === 'deepseek';
+
 export function chainFor(kind, list) {
+  // فرع DeepSeek: الكتابة بنماذج DeepSeek فقط (والتحقق من الصور بنموذج يرى الصور لأن DeepSeek لا يراها)
+  if (state.ai.provider === 'deepseek' && kind === 'text') {
+    const pick = state.ai.deepseek?.model;
+    const pool = list.filter((m) => isDeepSeek(m.id) && (!m.ctx || m.ctx >= 16000)).map((m) => m.id);
+    const ids = [...(pick && pick !== 'auto' ? [pick] : []), ...pool, ...(pool.length ? [] : DEEPSEEK_FALLBACK)];
+    return [...new Set(ids)].slice(0, 3);
+  }
   const o = state.ai.openrouter;
   const pick = kind === 'vision' ? o.visionModel : o.model;
   // سياق أقل من 16 ألف رمز لا يتسع لتعليمات التقرير ونصه
@@ -165,6 +176,15 @@ export function modelName(id) {
   if (id === FREE_ROUTER) return 'الموجّه المجاني';
   const m = cachedModels().find((x) => x.id === id);
   return m?.name || String(id).split('/').pop().replace(/:free$/, '');
+}
+
+/* ── ربط الحساب (OAuth PKCE): مفتاح يُنشأ تلقائيًا بعد تسجيل الدخول ── */
+
+/** يبادل رمز العودة من صفحة تسجيل الدخول بمفتاح الحساب. */
+export async function exchangeCode(code, verifier) {
+  const res = await request('/auth/keys', { method: 'POST', auth: false, body: { code, code_verifier: verifier, code_challenge_method: 'S256' }, timeout: 30000 });
+  if (!res?.key) throw new ORError(400, 'لم يُرجع OpenRouter مفتاحًا');
+  return res.key;
 }
 
 /* ── الاتصال ─────────────────────────────────────── */
@@ -530,6 +550,10 @@ export async function testConnection(signal) {
     ? 'حدّك 50 طلبًا مجانيًا في اليوم، أو 1000 إن اشتريت رصيدًا بقيمة 10 دولارات أو أكثر'
     : 'حساب مجاني: 50 طلبًا في اليوم و20 في الدقيقة';
   // اسم النموذج اللاتيني في آخر الجملة وبلا أقواس بعده حتى لا ينقلب ترتيب العرض
+  if (state.ai.provider === 'deepseek') {
+    const ds = list.filter((m) => isDeepSeek(m.id)).length;
+    return { ok: true, msg: `تم الاتصال بـ DeepSeek — ${tier}. نماذج DeepSeek المجانية المتاحة: ${ds || 'من القائمة الاحتياطية'}، والكتابة بـ ${modelName(chain[0])}` };
+  }
   return { ok: true, msg: `تم الاتصال — ${tier}. المتاح الآن ${list.length} نموذجًا مجانيًا، والكتابة بـ ${modelName(chain[0])}` };
 }
 
