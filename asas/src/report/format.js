@@ -6,7 +6,7 @@
 
 import { h, field, chipGroup, toggle, settingRow } from '../core/dom.js';
 import { state } from '../core/store.js';
-import { coverColor } from './covers.js';
+import { reportColor } from './covers.js';
 
 export const FORMAT_DEFAULTS = {
   numbering: true,
@@ -43,7 +43,7 @@ export const BORDERS = [
   { value: 'bold', label: 'سميك', word: ['THICK', 24] },
 ];
 export const BORDER_COLORS = [
-  { value: 'subject', label: 'لون المادة' },
+  { value: 'subject', label: 'لون الغلاف' },
   { value: 'black', label: 'أسود', hex: '#111111' },
   { value: 'navy', label: 'كحلي', hex: '#1e3a8a' },
   { value: 'blue', label: 'أزرق', hex: '#1d4ed8' },
@@ -111,7 +111,7 @@ export function fmtOf(report) {
 
 /** لون الإطار والعناوين. */
 export function frameColor(report, f = fmtOf(report)) {
-  if (f.borderColor === 'subject') return coverColor(report?.catId);
+  if (f.borderColor === 'subject') return reportColor(report);
   return BORDER_COLORS.find((c) => c.value === f.borderColor)?.hex || '#111111';
 }
 export const textColor = (f) => TEXT_COLORS.find((c) => c.value === f.textColor)?.hex || '#000000';

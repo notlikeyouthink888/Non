@@ -277,10 +277,10 @@ h2.sec .more { margin-inline-start: auto; font-size: 13px; color: var(--accent);
 .stepper button { width: 34px; height: 34px; border-radius: 9px; font-size: 18px; font-weight: 700; color: var(--fg-2); }
 .stepper button:active { background: var(--surface-3); }
 .stepper span { min-width: 30px; text-align: center; font-weight: 700; }
-details.more-opts { border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; background: var(--surface); margin-bottom: 14px; }
-details.more-opts > summary { cursor: pointer; padding: 11px 0; font-weight: 700; font-size: 14px; list-style: none; display: flex; align-items: center; gap: 8px; }
-details.more-opts > summary::-webkit-details-marker { display: none; }
-details.more-opts[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+details.more-opts, details.fold { border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; background: var(--surface); margin-bottom: 14px; }
+details.more-opts > summary, details.fold > summary { cursor: pointer; padding: 11px 0; font-weight: 700; font-size: 14px; list-style: none; display: flex; align-items: center; gap: 8px; }
+details.more-opts > summary::-webkit-details-marker, details.fold > summary::-webkit-details-marker { display: none; }
+details.more-opts[open] > summary, details.fold[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
 
 /* ── الحالات ───────────────────────────────────── */
 .empty { text-align: center; color: var(--fg-3); padding: 34px 18px; font-size: 14px; }
@@ -395,6 +395,63 @@ ol.steps-mini a { color: var(--accent-2); }
 .cs-logos .cv-hl { background: color-mix(in srgb, var(--cc) 14%, #fff); border: .4cqw solid var(--cc); border-radius: 1.5cqw; padding: 2cqw 3cqw; }
 .cs-logos .cv-sup { font-size: 3cqw; margin-bottom: 2cqw; }
 .cs-logos .cv-bot { align-items: stretch; }
+/* ── الأنماط الحديثة (مستوحاة من Canva): الزخرفة SVG خلف المحتوى ── */
+.cover .cv-deco { position: absolute; inset: 0; pointer-events: none; }
+.cover .cv-deco svg { width: 100%; height: 100%; display: block; }
+.cover .cv-orn { display: flex; align-items: center; justify-content: center; gap: 1.6cqw; margin: 1.2cqw auto; width: 46%; }
+.cover .cv-orn i { flex: 1; height: .35cqw; background: var(--ca); border-radius: 1cqw; }
+.cover .cv-orn b { width: 1.8cqw; height: 1.8cqw; background: var(--ca); transform: rotate(45deg); }
+.cover .cv-bar { width: 14cqw; height: .9cqw; background: var(--ca); border-radius: 1cqw; margin: 1cqw auto; }
+.cover .cv-info { font-size: 3cqw; line-height: 1.85; text-align: start; }
+.cover .cv-info b { color: var(--cc); }
+/* ملكي */
+.cs-royal .cv { padding: 9cqw 13cqw 29cqw; }
+.cs-royal .cv-org { color: var(--cc); }
+.cs-royal .cv-kind { font-size: 4.2cqw; letter-spacing: .02em; }
+.cs-royal .cv-title { color: var(--ca2); font-size: 5.8cqw; margin-top: 0; }
+/* شريط مزدوج */
+.cs-stripe .cv { padding: 9cqw 8cqw 10cqw 19cqw; }
+.cs-stripe[dir="rtl"] .cv { padding: 9cqw 19cqw 10cqw 8cqw; }
+.cs-stripe .cv-uni { font-size: 4.6cqw; font-weight: 800; color: var(--cc); }
+.cs-stripe .cv-kind { font-size: 4.4cqw; }
+.cs-stripe .cv-bot { align-items: flex-start; }
+/* لوحة العنوان */
+.cs-panel .cv { padding: 9cqw 7cqw 18cqw; }
+.cs-panel .cv-head2 { display: flex; align-items: center; justify-content: space-between; gap: 3cqw; text-align: start; }
+.cs-panel .cv-head2 .cv-org > div:first-child { font-size: 4.2cqw; color: var(--cc); font-weight: 800; }
+.cs-panel .cv-gov { font-size: 2.5cqw; }
+.cs-panel .cv-panel { position: relative; border: .55cqw solid var(--cc); border-radius: 2.4cqw; background: color-mix(in srgb, var(--cc) 7%, #fff); padding: 8cqw 5cqw 6cqw; }
+.cs-panel .cv-tab { position: absolute; top: -.55cqw; left: 50%; transform: translateX(-50%); background: var(--cc); color: #fff; font-weight: 700; font-size: 3.2cqw; padding: 1.2cqw 5cqw; border-radius: 0 0 2cqw 2cqw; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+.cs-panel .cv-title { font-size: 6cqw; margin: 0; }
+.cs-panel .cv-bot { align-items: flex-start; }
+.cover .cv-info.cv-barred { border-inline-start: 1.4cqw solid var(--ca); padding-inline-start: 3cqw; }
+/* عصري */
+.cs-modern .cv { padding: 9cqw 8cqw 12cqw; text-align: start; }
+.cs-modern .cv-top { align-items: flex-start; max-width: 52%; }
+.cs-modern .cv-mid { align-items: flex-start; }
+.cs-modern .cv-tblock { border-inline-start: 1.8cqw solid var(--cc); padding-inline-start: 3.5cqw; }
+.cs-modern .cv-title { font-size: 7.2cqw; line-height: 1.35; margin: 0; }
+.cs-modern .cv-kind { font-size: 3.6cqw; margin-top: 1.5cqw; }
+.cs-modern .cv-bar { margin: 1.2cqw 0; }
+.cs-modern .cv-bot { align-items: flex-start; }
+.cover .cv-grid { border-collapse: collapse; font-size: 3cqw; line-height: 1.6; }
+.cover .cv-grid th { text-align: start; padding: .5cqw 0; padding-inline-end: 4cqw; white-space: nowrap; color: var(--cc); }
+.cover .cv-grid td { text-align: start; padding: .5cqw 0; }
+/* أمواج */
+.cs-waves .cv { padding: 27cqw 9cqw 26cqw; }
+.cs-waves .cv-kind { font-size: 3.8cqw; }
+/* هندسي */
+.cs-geo .cv { padding: 25cqw 9cqw 27cqw; }
+.cs-geo .cv-kind { border-bottom: .5cqw solid var(--ca); padding-bottom: .6cqw; }
+/* لوحة هندسية */
+.cs-blueprint .cv { padding: 11cqw 10cqw; }
+.cs-blueprint .cv-tbox { background: #fff; border: 1.1cqw double var(--cc); padding: 3cqw 4cqw; width: 100%; box-sizing: border-box; }
+.cs-blueprint .cv-tbox .cv-title { margin: 0; }
+.cs-blueprint .cv-table { background: #fff; }
+.cs-blueprint .cv-table th, .cs-blueprint .cv-table td { border-color: var(--cc); }
+/* زوايا مزخرفة */
+.cs-corners .cv { padding: 14cqw 13cqw 13cqw; }
+.cs-corners .cv-kind { font-size: 3.6cqw; }
 /* بلا غلاف */
 .cover-off { text-align: center; padding: 4px 6px 14px; border-bottom: 1px solid var(--paper-line); margin-bottom: 14px; }
 .cover-off h1 { font-size: 22px; line-height: 1.6; margin: 6px 0; color: var(--paper-fg); }
@@ -408,6 +465,14 @@ ol.steps-mini a { color: var(--accent-2); }
 .cp-page { pointer-events: none; }
 .cp-page .cover { margin: 0; border-radius: 3px; box-shadow: 0 1px 5px rgba(0, 0, 0, .35); }
 .cp-name { font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.4; }
+.cp-new { display: inline-block; margin-inline-start: 4px; font-size: 9.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 0 4px; }
+/* لون الغلاف وحقوله */
+.color-row { gap: 10px; margin-top: 8px; font-size: 13px; color: var(--fg-2); }
+.color-in { width: 44px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
+.cv-fields, .cv-labels { margin-top: 10px; }
+.label-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.label-row input { flex: 1; }
+.label-row input:disabled { opacity: .45; }
 .logo-row { display: flex; align-items: center; gap: 10px; }
 .logo-row img { width: 46px; height: 46px; object-fit: contain; background: #fff; border-radius: 10px; padding: 3px; }
 .toc { font-family: var(--font); font-size: 13.5px; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; }

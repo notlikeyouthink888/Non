@@ -12,7 +12,7 @@ import { TOPICS } from '../data/topics.js';
 import { KB } from '../data/kb/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { testConnection, aiErrorMessage } from '../ai/client.js';
-import { coverPicker, logosRow, SUP_TITLES } from '../report/covers.js';
+import { coverPicker, logosRow, SUP_TITLES, coverDesign } from '../report/covers.js';
 import { freeModels, cachedModels, modelName, isDeepSeek, DEEPSEEK_FALLBACK } from '../ai/openrouter.js';
 import { startLink, unlink } from '../ai/oauth.js';
 import { formatControls } from '../report/format.js';
@@ -280,8 +280,10 @@ function coverCard() {
   const c = state.cover;
   const box = h('div.card');
   const inp = (k, label, ph = '') => field(label, h('input', { value: c[k] || '', placeholder: ph, oninput: (e) => { state.cover[k] = e.target.value; save(); } }));
+  const saved = new Proxy(state.cover, { set: (t, k, v) => { update((st) => { st.cover[k] = v; }, 'cover'); return true; } });
   function render() {
     const other = !UNI_BY_ID[c.uni];
+    const picker = c.enabled !== false ? coverPicker(sample, c.style || 'classic', (v) => update((st) => { st.cover.style = v; }, 'cover')) : null;
     fill(box, [
       field('الجامعة', chipGroup(
         [...UNIVERSITIES.map((u) => ({ value: u.id, label: u.name })), { value: 'other', label: 'أخرى' }],
@@ -299,11 +301,12 @@ function coverCard() {
       h('div.grid2', [inp('author', 'اسمك', 'يظهر في الغلاف'), inp('group', 'الشعبة / المجموعة')]),
       inp('supervisor', 'المشرف (اختياري)'),
       field('لقب المشرف', chipGroup([{ value: '', label: 'بلا' }, ...SUP_TITLES.map((t) => ({ value: t, label: t }))], c.supTitle || '', (v) => update((st) => { st.cover.supTitle = v; }, 'cover'))),
-      settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(c.ministry !== false, (v) => update((st) => { st.cover.ministry = v; }, 'cover'))),
       settingRow('صفحة غلاف للتقارير الجديدة', 'تستطيع إلغاءها أو تغيير نمطها لكل تقرير', toggle(c.enabled !== false, (v) => { update((st) => { st.cover.enabled = v; }, 'cover'); render(); })),
-      c.enabled !== false ? field('نمط الغلاف الافتراضي', coverPicker(sample, c.style || 'classic', (v) => update((st) => { st.cover.style = v; }, 'cover'))) : null,
+      picker ? field('نمط الغلاف الافتراضي', picker) : null,
+      // اللون والحقول تُحفظ في الإعدادات مباشرة وتُطبَّق على التقارير الجديدة
+      coverDesign(saved, () => picker?.refresh()),
       // تغييرات الشعارين تُحفظ في الإعدادات مباشرة
-      logosRow(new Proxy(state.cover, { set: (t, k, v) => { update((st) => { st.cover[k] = v; }, 'cover'); return true; } }), render, () => toast('تعذّرت قراءة الصورة', 'err')),
+      logosRow(saved, render, () => toast('تعذّرت قراءة الصورة', 'err')),
     ]);
   }
   // تقرير نموذجي لمعاينة الأنماط ببيانات الطالب المحفوظة

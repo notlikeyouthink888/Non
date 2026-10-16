@@ -124,7 +124,7 @@ async function flows(page) {
   /* ── 3ج. الغلاف اختياري وبأنماط متعددة ───────── */
   const openCover = async () => {
     const det = page.locator('details.more-opts', { has: page.locator('summary', { hasText: 'الغلاف' }) });
-    if (!(await det.evaluate((d) => d.open))) await det.locator('summary').click();
+    if (!(await det.evaluate((d) => d.open))) await det.locator(':scope > summary').click();
   };
   const makeOffline = async (topic, style) => {
     await page.goto(BASE + '#/library');
@@ -147,7 +147,7 @@ async function flows(page) {
   await page.goto(BASE + '#/create?topic=compression_test');
   await page.waitForSelector('.type-card.on');
   await openCover();
-  assert(await page.locator('.cover-picker .cp').count() === 9, 'الغلاف: 9 أنماط بمعاينة حيّة لبيانات التقرير');
+  assert(await page.locator('.cover-picker .cp').count() === 17, 'الغلاف: 17 نمطًا (منها 8 حديثة مستوحاة من Canva) بمعاينة حيّة لبيانات التقرير');
   await page.locator('.cover-picker').scrollIntoViewIfNeeded();
   await shot(page, '14-cover-styles');
 
@@ -206,6 +206,33 @@ async function flows(page) {
   assert(await page.locator('.paper > .cover.cs-logos .cv-students li').count() === 3, 'الغلاف: «إعداد الطلاب» قائمة مرقّمة بأسماء المجموعة (نمط شعاران)');
   info = await exportWord('students.docx');
   assert(info.text.includes('زينب كريم') && info.text.includes('إعداد الطلاب'), 'Word: أسماء طلبة المجموعة في الغلاف');
+
+  // لون الغلاف ولونه الثاني، وإخفاء الحقول، وتغيير عناوينها — بنمط حديث بزخرفة
+  await page.locator('.topbar .icon-btn').last().click();
+  await page.locator('.action-item', { hasText: 'تعديل العنوان وبيانات الغلاف' }).click();
+  await page.locator('.sheet .cp[data-id="royal"]').click();
+  const design = page.locator('.sheet .cv-design');
+  await page.locator('.sheet .field', { has: page.locator('label', { hasText: /^بإشراف$/ }) }).locator('input').fill('أحمد سلمان');
+  await design.locator('.field').first().locator('.chip', { hasText: 'أخضر' }).click();
+  await design.locator('.chip', { hasText: 'فضي' }).click();
+  assert((await page.locator('.sheet .cp[data-id="royal"] .cover').evaluate((c) => c.style.getPropertyValue('--cc'))).trim() === '#15803d', 'لون الغلاف: المعاينة تتلوّن فورًا بالأخضر');
+  await design.locator('details.cv-fields > summary').click();
+  await design.locator('.cv-fields .row-set', { hasText: 'اسم المادة' }).locator('.switch').click();
+  await design.locator('.cv-fields .row-set', { hasText: 'جمهورية العراق' }).locator('.switch').click();
+  await design.locator('details.cv-labels > summary').click();
+  await design.locator('input[data-label="sup"]').fill('المشرف');
+  await design.locator('.label-row', { has: page.locator('input[data-label="students"]') }).locator('.switch').click();
+  await page.locator('.sheet button.btn.primary', { hasText: 'حفظ' }).click();
+  await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
+  await appear(page.locator('.paper > .cover.cs-royal'));
+  const royal = page.locator('.paper > .cover.cs-royal');
+  const vars = await royal.evaluate((c) => [c.style.getPropertyValue('--cc').trim(), c.style.getPropertyValue('--ca').trim(), !!c.querySelector('.cv-deco svg path')]);
+  assert(vars[0] === '#15803d' && vars[1] === '#94a3b8' && vars[2], `لون الغلاف أخضر ولونه الثاني فضي وزخرفة النمط «ملكي» (${vars.join('، ')})`);
+  const rt = await royal.innerText();
+  assert(!rt.includes('مقاومة المواد') && !rt.includes('جمهورية العراق') && rt.includes('تقرير مختبر'), 'إخفاء اسم المادة وترويسة الوزارة من الغلاف');
+  assert(rt.includes('المشرف:') && rt.includes('أحمد سلمان') && !rt.includes('بإشراف') && !rt.includes('إعداد الطلاب') && rt.includes('زينب كريم'), 'عناوين الحقول: «بإشراف» صارت «المشرف»، و«إعداد الطلاب» حُذفت وبقيت الأسماء');
+  info = await exportWord('royal.docx');
+  assert(info.behind === 1 && info.colors.includes('15803D') && info.text.includes('المشرف: م.م أحمد سلمان') && !info.text.includes('جمهورية العراق'), `Word: زخرفة الغلاف خلف النص واللون الأخضر والحقول نفسها (${info.behind} زخرفة)`);
 
   // معادلات Word القابلة للتعديل (خيار في الإعدادات)
   const reportUrl = page.url();
@@ -491,7 +518,9 @@ W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
 def rtl(p):
   b = p._p.pPr.find(W + 'bidi') if p._p.pPr is not None else None
   return b is not None and b.get(W + 'val') not in ('false', '0')
-print(json.dumps({'sections': z.count('<w:sectPr'), 'pgBorders': int('<w:pgBorders' in z), 'text': '\\n'.join(p.text for p in d.paragraphs), 'firstTable': first,
+import re
+print(json.dumps({'sections': z.count('<w:sectPr'), 'pgBorders': int('<w:pgBorders' in z), 'behind': z.count('behindDoc="1"'),
+  'colors': sorted(set(re.findall(r'w:color w:val="([0-9A-Fa-f]{6})"', z))), 'text': '\\n'.join(p.text for p in d.paragraphs), 'firstTable': first,
   'eqImgs': z.count('name="معادلة"'), 'omath': z.count('<m:oMath>') + z.count('<m:oMath '), 'mfrac': z.count('<m:f>'),
   'all': '\\n'.join([p.text for p in d.paragraphs] + [c.text for t in d.tables for r in t.rows for c in r.cells]),
   'bidi': sum(1 for p in d.paragraphs if p.text.strip() and rtl(p))}, ensure_ascii=False))

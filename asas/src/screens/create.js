@@ -19,7 +19,7 @@ import { newReport } from '../report/model.js';
 import { startGeneration } from '../report/pipeline.js';
 import { topbar, kbBadge } from './common.js';
 import { modelName } from '../ai/openrouter.js';
-import { coverPicker, COVER_BY_ID, peopleFields, logosRow } from '../report/covers.js';
+import { coverPicker, COVER_BY_ID, peopleFields, logosRow, coverDesign } from '../report/covers.js';
 import { bidi } from '../core/arabic.js';
 import { LANGS, STRUCTURES, LISTS, VARIANTS, randomVariant } from '../report/style.js';
 import { fmtOf } from '../report/format.js';
@@ -134,7 +134,7 @@ export default {
     const coverSum = h('span');
     const updateCoverSum = () => { coverSum.textContent = `الغلاف — ${st.cover ? COVER_BY_ID[st.meta.coverStyle]?.name || '' : 'بدون غلاف'} • ${st.meta.university || 'الجامعة'}`; };
     const previewReport = () => ({
-      title: st.title.trim() || 'عنوان التقرير', typeId: st.typeId, catId: st.catId, options: { cover: true },
+      title: st.title.trim() || 'عنوان التقرير', typeId: st.typeId, catId: st.catId, options: { cover: true, lang: st.lang },
       meta: { ...st.meta, subject: CAT_BY_ID[st.catId]?.name || '' },
     });
 
@@ -143,9 +143,11 @@ export default {
       const labLike = ['lab', 'field'].includes(st.typeId);
       const other = !UNI_BY_ID[st.meta.uni];
       updateCoverSum();
+      const picker = st.cover ? coverPicker(previewReport, st.meta.coverStyle, (v) => { st.meta.coverStyle = v; updateCoverSum(); }) : null;
       fill(metaBox, [
         settingRow('صفحة غلاف', st.cover ? 'غلاف بالنمط المختار في العرض وPDF وWord' : 'التقرير يبدأ بالعنوان مباشرة دون صفحة غلاف', toggle(st.cover, (v) => { st.cover = v; renderMeta(); })),
-        st.cover ? field('نمط الغلاف', coverPicker(previewReport, st.meta.coverStyle, (v) => { st.meta.coverStyle = v; updateCoverSum(); }), 'المعاينة ببيانات تقريرك؛ تستطيع تغيير النمط لاحقًا من «تعديل العنوان وبيانات الغلاف».') : null,
+        st.cover ? field('نمط الغلاف', picker, 'المعاينة ببيانات تقريرك؛ تستطيع تغيير النمط لاحقًا من «تعديل العنوان وبيانات الغلاف».') : null,
+        st.cover ? coverDesign(st.meta, () => picker.refresh()) : null,
         st.cover ? logosRow(st.meta, renderMeta, () => toast('تعذّرت قراءة الصورة', 'err')) : null,
         field('الجامعة', chipGroup(
           [...UNIVERSITIES.map((u) => ({ value: u.id, label: u.name })), { value: 'other', label: 'أخرى' }],
@@ -163,7 +165,6 @@ export default {
         labLike ? h('div.grid2', [metaInput('submitDate', 'تاريخ التسليم', 'اختياري'), h('div')]) : null,
         ...peopleFields(st.meta),
         site ? h('div.grid2', [metaInput('org', 'الجهة / الشركة'), metaInput('location', 'الموقع')]) : null,
-        settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(st.meta.ministry !== false, (v) => { st.meta.ministry = v; })),
         h('label.row', { style: { gap: '8px', fontSize: '13px' } }, [
           h('input', { type: 'checkbox', checked: st.saveCover, onchange: (e) => { st.saveCover = e.target.checked; } }),
           'احفظ هذه البيانات لتقاريري القادمة',
@@ -180,7 +181,7 @@ export default {
       const sr = STRUCTURES.find((x) => x.value === st.structure) || STRUCTURES[0];
       fill(writingBox, [
         field('الأسلوب', chipGroup(LEVELS.map((l) => ({ value: l.value, label: l.label })), st.level, (v) => { st.level = v; renderWriting(); }), lv.hint),
-        field('اللغة', chipGroup(LANGS.map((l) => ({ value: l.value, label: l.label })), st.lang, (v) => { st.lang = v; renderWriting(); }),
+        field('اللغة', chipGroup(LANGS.map((l) => ({ value: l.value, label: l.label })), st.lang, (v) => { st.lang = v; renderWriting(); renderMeta(); }),
           st.lang === 'en' && !ai ? 'الإنجليزية تحتاج الذكاء الاصطناعي؛ النسخة دون اتصال بالعربية.' : lg.hint),
         field('عناوين الأقسام', chipGroup(STRUCTURES.map((x) => ({ value: x.value, label: x.label })), st.structure, (v) => { st.structure = v; renderWriting(); }), sr.hint),
         settingRow('كتابة طبيعية كأنها من الطالب', 'بلا عبارات قالبية ولا شرطات طويلة ولا «» ولا تشكيل، وعريض أقل', toggle(st.human, (v) => { st.human = v; })),
@@ -273,7 +274,7 @@ export default {
         s.prefs.lists = st.lists;
         s.prefs.tables = st.tables;
         if (st.saveCover) {
-          ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'supTitle', 'students', 'ministry', 'logo', 'logoAR', 'logo2', 'logo2AR'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
+          ['uni', 'university', 'college', 'department', 'stage', 'author', 'group', 'supervisor', 'supTitle', 'students', 'ministry', 'logo', 'logoAR', 'logo2', 'logo2AR', 'coverColor', 'coverAccent', 'hide', 'labels'].forEach((k) => { s.cover[k] = st.meta[k] ?? s.cover[k]; });
           s.cover.style = st.meta.coverStyle;
           s.cover.enabled = st.cover;
         }

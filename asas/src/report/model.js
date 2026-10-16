@@ -114,46 +114,70 @@ export function supervisorOf(meta = {}) {
   return n ? (t && !n.startsWith(t) ? `${t} ${n}` : n) : '';
 }
 
+/** عناوين حقول الغلاف الافتراضية بالعربية والإنجليزية (يستطيع الطالب تغييرها أو حذفها). */
+export const COVER_LABELS = {
+  ar: { student: 'اسم الطالب', students: 'إعداد الطلاب', sup: 'بإشراف', stage: 'المرحلة', subject: 'المادة', exp: 'رقم التجربة', date: 'التاريخ', expDate: 'تاريخ التجربة', submit: 'تاريخ التسليم', year: 'السنة الدراسية', org: 'الجهة', loc: 'الموقع' },
+  en: { student: 'Student', students: 'Prepared by', sup: 'Supervised by', stage: 'Stage', subject: 'Subject', exp: 'Experiment No.', date: 'Date', expDate: 'Date of Experiment', submit: 'Date of Submission', year: 'Academic Year', org: 'Organization', loc: 'Location' },
+};
+
+/** العناوين الفعلية: ما غيّره الطالب (والفارغ يعني بلا عنوان) وإلا الافتراضي بلغة التقرير. */
+export function labelsOf(meta = {}, en = false) {
+  const d = COVER_LABELS[en ? 'en' : 'ar'];
+  const o = meta.labels || {};
+  return Object.fromEntries(Object.keys(d).map((k) => [k, typeof o[k] === 'string' ? o[k].trim() : d[k]]));
+}
+
+/** «العنوان: القيمة»، أو القيمة وحدها إن حُذف العنوان. */
+export const labeled = (label, value) => (label ? `${label}: ${value}` : value);
+
+/** ما أخفاه الطالب من الغلاف (الوزارة محفوظة قديمًا في meta.ministry). */
+export function hiddenOf(meta = {}) {
+  return { ...(meta.hide || {}), ...(meta.ministry === false ? { ministry: true } : {}) };
+}
+
 /**
  * أسطر الغلاف بصيغة تقارير الجامعات العراقية — مصدر واحد للعرض وPDF وWord.
  * بالعربية أو بالإنجليزية حسب لغة التقرير. الطلبة المتعددون يُكتبون قائمة «إعداد الطلاب».
- * @returns {{ gov: string[], org: string[], kind: string, by: string[], students: string[], year: string, en: boolean }}
+ * تحترم ما أخفاه الطالب من الحقول وعناوينها المعدّلة.
+ * @returns {{ gov: string[], org: string[], kind: string, by: string[], students: string[], year: string, subject: string, en: boolean }}
  */
 export function coverLines(report) {
   const m = report.meta || {};
   const type = getType(report.typeId);
   const en = report.options?.lang === 'en';
-  const subject = en ? (CAT_EN[report.catId] || m.subject || '') : m.subject || '';
-  const students = studentsOf(m);
-  const sup = supervisorOf(m);
+  const hide = hiddenOf(m);
+  const L = labelsOf(m, en);
+  const subject = hide.subject ? '' : en ? (CAT_EN[report.catId] || m.subject || '') : m.subject || '';
+  const expNo = hide.expNo ? '' : m.expNo;
+  const students = hide.students ? [] : studentsOf(m);
+  const sup = hide.supervisor ? '' : supervisorOf(m);
   let kind;
   if (en) {
     const t = TYPE_EN[type.id] || 'Report';
     kind = type.id === 'lab' || type.id === 'field'
-      ? `${subject ? `${subject} ` : ''}${t}${m.expNo ? ` — ${type.id === 'lab' ? 'Experiment' : 'Field Work'} No. (${m.expNo})` : ''}`
+      ? `${subject ? `${subject} ` : ''}${t}${expNo ? ` — ${type.id === 'lab' ? 'Experiment' : 'Field Work'} No. (${expNo})` : ''}`
       : `${t}${subject ? ` — ${subject}` : ''}`;
-  } else if (type.id === 'lab') kind = `تقرير مختبر ${subject || ''}`.trim() + (m.expNo ? ` — التجربة رقم (${m.expNo})` : '');
-  else if (type.id === 'field') kind = `تقرير العمل الحقلي${m.expNo ? ` رقم (${m.expNo})` : ''}${subject ? ` — ${subject}` : ''}`;
+  } else if (type.id === 'lab') kind = `تقرير مختبر ${subject || ''}`.trim() + (expNo ? ` — التجربة رقم (${expNo})` : '');
+  else if (type.id === 'field') kind = `تقرير العمل الحقلي${expNo ? ` رقم (${expNo})` : ''}${subject ? ` — ${subject}` : ''}`;
   else kind = `${type.name}${subject ? ` — ${subject}` : ''}`;
   const stage = en ? toEN(m.stage) : m.stage;
-  const stageGroup = [stage ? (en ? `${stage} Stage` : `المرحلة ${stage}`) : '', m.group ? (en ? `Group (${m.group})` : `الشعبة ${m.group}`) : ''].filter(Boolean).join(' — ');
-  const L = en
-    ? { student: 'Student', sup: 'Supervised by', org: 'Organization', loc: 'Location', date: 'Date', year: 'Academic Year' }
-    : { student: 'اسم الطالب', sup: 'بإشراف', org: 'الجهة', loc: 'الموقع', date: 'التاريخ', year: 'السنة الدراسية' };
+  const stageGroup = hide.stage ? '' : [stage ? (en ? `${stage} Stage` : `المرحلة ${stage}`) : '', m.group ? (en ? `Group (${m.group})` : `الشعبة ${m.group}`) : ''].filter(Boolean).join(' — ');
+  const tr = (x) => (en ? toEN(x) : x);
   return {
     en,
-    gov: m.ministry === false ? [] : en ? ['Republic of Iraq', 'Ministry of Higher Education and Scientific Research'] : ['جمهورية العراق', 'وزارة التعليم العالي والبحث العلمي'],
-    org: [m.university, m.college, m.department].filter(Boolean).map((x) => (en ? toEN(x) : x)),
-    kind,
+    subject,
+    gov: hide.ministry ? [] : en ? ['Republic of Iraq', 'Ministry of Higher Education and Scientific Research'] : ['جمهورية العراق', 'وزارة التعليم العالي والبحث العلمي'],
+    org: [!hide.university && m.university, !hide.college && m.college, !hide.department && m.department].filter(Boolean).map(tr),
+    kind: hide.kind ? '' : kind,
     students,
     by: [
-      students.length === 1 ? `${L.student}: ${students[0]}` : '',
+      students.length === 1 ? labeled(L.student, students[0]) : '',
       stageGroup,
-      sup ? `${L.sup}: ${sup}` : '',
-      m.org ? `${L.org}: ${m.org}` : '',
-      m.location ? `${L.loc}: ${m.location}` : '',
-      m.date ? `${L.date}: ${en ? dateEN(m.date) : m.date}` : '',
+      sup ? labeled(L.sup, sup) : '',
+      m.org ? labeled(L.org, m.org) : '',
+      m.location ? labeled(L.loc, m.location) : '',
+      m.date && !hide.date ? labeled(L.date, en ? dateEN(m.date) : m.date) : '',
     ].filter(Boolean),
-    year: m.year ? `${L.year} ${m.year}` : '',
+    year: m.year && !hide.year ? (L.year ? `${L.year} ${m.year}` : m.year) : '',
   };
 }

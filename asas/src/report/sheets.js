@@ -10,7 +10,7 @@ import { streamText, aiErrorMessage, isTransientError } from '../ai/client.js';
 import { holdAwake, retryTransient } from '../core/keepalive.js';
 import { parseBlocks, wordsOf } from './md.js';
 import { blocksToNodes } from './render.js';
-import { coverPicker, hasCover, peopleFields, logosRow } from './covers.js';
+import { coverPicker, hasCover, peopleFields, logosRow, coverDesign } from './covers.js';
 import { formatControls } from './format.js';
 import { findCandidates, verifyLoadable, storeCandidate, storeLocalFile } from '../images/pipeline.js';
 
@@ -262,9 +262,11 @@ export function openCoverEditor(report, onSaved) {
   const coverBox = h('div');
   const preview = () => ({ ...report, title: titleIn.value.trim() || report.title, meta: { ...m }, options: { ...report.options, cover: true } });
   function renderCoverBox() {
+    const picker = coverOn ? coverPicker(preview, m.coverStyle, (v) => { m.coverStyle = v; }) : null;
     fill(coverBox, [
       settingRow('صفحة غلاف', coverOn ? 'غلاف بالنمط المختار' : 'التقرير يبدأ بالعنوان مباشرة', toggle(coverOn, (v) => { coverOn = v; renderCoverBox(); })),
-      coverOn ? field('نمط الغلاف', coverPicker(preview, m.coverStyle, (v) => { m.coverStyle = v; })) : null,
+      coverOn ? field('نمط الغلاف', picker) : null,
+      coverOn ? coverDesign(m, () => picker.refresh()) : null,
       coverOn ? logosRow(m, renderCoverBox, () => toast('تعذّرت قراءة الصورة', 'err')) : null,
     ]);
   }
@@ -279,7 +281,6 @@ export function openCoverEditor(report, onSaved) {
     h('div.grid2', [inp('supervisor', 'بإشراف'), inp('date', labLike ? 'تاريخ التجربة' : 'التاريخ')]),
     ...peopleFields(m),
     h('div.grid2', [labLike ? inp('submitDate', 'تاريخ التسليم') : inp('org', 'الجهة (للتدريب والزيارة)'), inp('year', 'السنة الدراسية')]),
-    settingRow('ترويسة الوزارة', 'جمهورية العراق — وزارة التعليم العالي والبحث العلمي', toggle(m.ministry !== false, (v) => { m.ministry = v; })),
     h('button.btn.primary.block.mt', {
       type: 'button',
       onclick: async () => {

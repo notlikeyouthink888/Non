@@ -21,7 +21,7 @@ import { loadMath, isTall, eqLineRTL, ltrSep } from '../core/math.js';
 import { docxMath, hasArabic } from './omml.js';
 import { figuresOf, figureNumbers } from '../report/model.js';
 import { hasCover } from '../report/covers.js';
-import { coverSection } from './cover-docx.js';
+import { coverSection, coverDeco } from './cover-docx.js';
 import { fmtOf, frameColor, textColor, secNumber, BORDERS, MARGINS } from '../report/format.js';
 import { isEnglish } from '../report/style.js';
 
@@ -302,6 +302,7 @@ export async function buildDocx(report) {
   await prepareMath(report, opts.wordMath);
   const nums = figureNumbers(report);
   const withCover = hasCover(report, opts.cover !== false);
+  const deco = withCover ? await coverDeco(report) : null;
   const children = [];
 
   // بلا غلاف: يبدأ التقرير بعنوانه ونوعه
@@ -344,7 +345,7 @@ export async function buildDocx(report) {
     },
     sections: [
       // الغلاف قسم مستقل بلا ترويسة ولا ترقيم، فيبدأ ترقيم الصفحات من 1 بعده
-      ...(withCover ? [coverSection(report, { run, runs: (t, o = {}) => runs(t, { ...o, math: false }), para })] : []),
+      ...(withCover ? [coverSection(report, { run, runs: (t, o = {}) => runs(t, { ...o, math: false }), para, deco })] : []),
       {
         properties: {
           page: {

@@ -9,8 +9,8 @@ import { getImage } from '../core/db.js';
 import { parseBlocks, inline, plain } from '../report/md.js';
 import { mathPieces } from '../core/mathconv.js';
 import { loadMath, isTall } from '../core/math.js';
-import { figuresOf, figureNumbers, coverLines } from '../report/model.js';
-import { coverColor } from '../report/covers.js';
+import { figuresOf, figureNumbers, coverLines, labelsOf, labeled } from '../report/model.js';
+import { reportColor } from '../report/covers.js';
 import { isEnglish } from '../report/style.js';
 
 const W = 13.333;
@@ -44,7 +44,7 @@ function textHeight(t, width, pt) {
 
 export async function buildPptx(report) {
   const en = isEnglish(report);
-  const color = coverColor(report.catId).replace('#', '');
+  const color = reportColor(report).replace('#', '');
   const align = en ? 'left' : 'right';
   const rtl = !en;
   const pptx = new PptxGenJS();
@@ -89,9 +89,10 @@ export async function buildPptx(report) {
     if (org) txt(s, org, { x: M, y: 0.6, w: W - 2 * M, h: 0.6, fontSize: 18, bold: true, align: 'center', color: '374151' });
     txt(s, report.title, { x: M, y: 1.7, w: W - 2 * M, h: 1.9, fontSize: 40, bold: true, align: 'center', valign: 'middle', color, fit: 'shrink' });
     txt(s, L.kind, { x: M, y: 3.6, w: W - 2 * M, h: 0.6, fontSize: 20, align: 'center', color: '4B5563' });
+    const T = labelsOf(report.meta || {}, en);
     const who = [
-      L.students.length ? `${en ? (L.students.length > 1 ? 'Prepared by' : 'Student') : (L.students.length > 1 ? 'إعداد الطلاب' : 'إعداد الطالب')}: ${L.students.join(en ? ', ' : '، ')}` : '',
-      ...L.by.filter((x) => !/^(اسم الطالب|Student):/.test(x)),
+      L.students.length ? labeled(L.students.length > 1 ? T.students : T.student, L.students.join(en ? ', ' : '، ')) : '',
+      ...L.by.filter((x) => !(L.students.length === 1 && x === labeled(T.student, L.students[0]))),
     ].filter(Boolean);
     txt(s, who.join('\n'), { x: M, y: 4.45, w: W - 2 * M, h: 2.2, fontSize: 18, align: 'center', color: '1F2937', fit: 'shrink' });
   }
