@@ -117,3 +117,4 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew lintRelease --no-daemon --console=plain </dev/null
+          cat app/build/reports/lint-results-release.txt || true
