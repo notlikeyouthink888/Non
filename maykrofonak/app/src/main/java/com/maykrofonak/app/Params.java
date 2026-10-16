@@ -15,9 +15,9 @@ final class Params {
 
     private Params() {}
 
-    /** شريط «قوة المايك» 0..100 ← من -32 إلى -12 dBFS. */
+    /** شريط «قوة المايك» 0..100 ← من -28 إلى -8 dBFS (الافتراضي -16، قريب من علوّ الموسيقى). */
     static float micPctToDb(int pct) {
-        return -32f + 0.2f * pct;
+        return -28f + 0.2f * pct;
     }
 
     static float dbToLin(float db) {

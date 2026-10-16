@@ -6,7 +6,7 @@ package com.maykrofonak.app;
  * وينزل بسرعة إذا ارتفع الصوت فجأة (وهذا يساعد ضد الصفير أيضاً).
  */
 final class Leveler {
-    static final float MIN_DB = -6f, MAX_DB = 24f, START_DB = 15f;
+    static final float MIN_DB = -6f, MAX_DB = 42f, START_DB = 30f;
 
     private final int blockLen;
     private final float attack, release;
@@ -18,7 +18,7 @@ final class Leveler {
     Leveler(float fs) {
         blockLen = Math.max(1, (int) (fs * 0.05f));
         attack = (float) (1 - Math.exp(-0.05 / 0.25));    // ثابت زمني 0.25 ث للنزول
-        release = (float) (1 - Math.exp(-0.05 / 2.5));    // 2.5 ث للصعود
+        release = (float) (1 - Math.exp(-0.05 / 1.5));    // 1.5 ث للصعود
     }
 
     /**

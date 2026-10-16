@@ -195,6 +195,36 @@ public class DspTest {
         assertTrue(chain.leveler().gainDb() <= Leveler.MAX_DB);
     }
 
+    /**
+     * بعض التلفونات تسجّل الكلام واطي جداً (≈ ‎-55 dBFS). لازم يطلع صوتك واضح وعالي
+     * خلال ثانيتين، وما تكتمه بوابة الضوضاء.
+     */
+    @Test
+    public void veryQuietMicStillComesOutLoud() {
+        VoiceChain chain = new VoiceChain(FS);
+        Random r = new Random(21);
+        float[] buf = new float[240];
+        double ph = 0, acc = 0;
+        int cnt = 0;
+        for (int c = 0; c < FS * 4 / 240; c++) {
+            for (int i = 0; i < buf.length; i++) {
+                double t = (double) (c * 240 + i) / FS;
+                ph += 2 * Math.PI * (130 + 30 * Math.sin(t * 3)) / FS;
+                double s = 0;
+                for (int h = 1; h <= 14; h++) s += Math.sin(h * ph) * formant(h * 130) / h;
+                double env = 0.5 + 0.5 * Math.sin(2 * Math.PI * 3 * t);   // مقاطع كلام
+                buf[i] = (float) (0.003 * s * env + 0.00003 * r.nextGaussian());
+            }
+            chain.process(buf, buf.length, false);
+            if (c * 240 >= FS * 2) {
+                for (float v : buf) acc += v * v;
+                cnt += buf.length;
+            }
+        }
+        float outDb = Params.linToDb(Math.sqrt(acc / cnt));
+        assertTrue("quiet mic must come out loud, got " + outDb + " dBFS", outDb > -24f);
+    }
+
     @Test
     public void gateClosesOnRoomNoiseAndOpensOnVoice() {
         NoiseGate gate = new NoiseGate(FS);
@@ -291,12 +321,19 @@ public class DspTest {
      */
     @Test
     public void latencyStaysBoundedUnderDriftAndBurstyOutput() {
-        simulate(1.00015, 960);
-        simulate(0.99985, 960);
-        simulate(1.0, 2048);
+        int small = FS / 100, full = FS / 4;   // عتبة بدء أندرويد 12+ / المخزن كله (قبل 12)
+        for (int threshold : new int[] {small, full}) {
+            simulate(1.00015, 960, threshold);
+            simulate(0.99985, 960, threshold);
+            simulate(1.0, 2048, threshold);
+        }
     }
 
-    private static void simulate(double inputClock, int burst) {
+    /**
+     * @param startThreshold أندرويد ما يسحب أي صوت لحد ما يوصل المخزن لهذا المستوى
+     *                       (هذا اللي سبّب الصمت التام بأول نسخة لما كان المخزن ما يتعبّى أبداً).
+     */
+    private static void simulate(double inputClock, int burst, int startThreshold) {
         int chunk = 240;
         int target = FS * 40 / 1000;
         LatencyControl lat = new LatencyControl(FS, target, FS * 160 / 1000, chunk);
@@ -304,7 +341,9 @@ public class DspTest {
         float[] in = new float[chunk], out = new float[chunk * 2 + 8];
         Random r = new Random(9);
 
-        double queue = target;
+        double queue = Math.max(target, startThreshold);   // نفس تعبئة المحرّك قبل play()
+        boolean started = false;
+        double consumedTotal = 0;
         double consumerClock = -0.5;   // البلوتوث يبدأ بعد نص ثانية
         double t = 0;
         int underruns = 0;
@@ -315,6 +354,9 @@ public class DspTest {
             while (consumerClock + burst / (double) FS <= t) {
                 consumerClock += burst / (double) FS;
                 if (consumerClock < 0) continue;
+                if (!started && queue < startThreshold) continue;   // ما بدأ التشغيل بعد
+                started = true;
+                consumedTotal += burst;
                 if (queue < burst) {
                     if (t > 2) underruns++;
                     lat.onUnderrun();
@@ -332,6 +374,7 @@ public class DspTest {
             if (t > 20) maxLateQueue = Math.max(maxLateQueue, queue);
         }
         double maxMs = maxLateQueue * 1000 / FS;
+        assertTrue("playback never started (threshold " + startThreshold + ")", started && consumedTotal > FS * (seconds - 5));
         assertTrue("queue grew to " + maxMs + " ms (clock " + inputClock + ")", maxMs < 40 + burst * 1000.0 / FS + 20);
         assertTrue("too many underruns: " + underruns, underruns <= 4);
     }

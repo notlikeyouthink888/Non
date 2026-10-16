@@ -48,6 +48,10 @@ final class MicEngine implements Runnable {
 
     /** أعلى مستوى للإخراج بآخر دفعة (0..1) لعرضه بالواجهة. */
     static volatile float level;
+    /** للتشخيص على الشاشة: مستوى المايك الداخل، والتأخير بمخزن المكبّر (ms)، ومصدر المايك. */
+    static volatile float inLevel;
+    static volatile int queueMs;
+    static volatile int sourceUsed = -1;
 
     private final Context ctx;
     private final AudioManager am;
@@ -135,6 +139,8 @@ final class MicEngine implements Runnable {
         } finally {
             releaseAll();
             level = 0f;
+            inLevel = 0f;
+            queueMs = 0;
         }
         if (result == FAIL_MIC) post(() -> cb.onEngineError(this, ERR_MIC));
         else if (result == FAIL_SILENT) post(() -> cb.onEngineError(this, ERR_MIC_SILENT));
@@ -157,10 +163,12 @@ final class MicEngine implements Runnable {
         float[] in = new float[chunk];
         float[] out = new float[chunk * 2 + 8];
 
+        // المايك العادي أولاً: صوته أعلى ومضبوط على كل التلفونات. المصادر الثانية «خام» وتطلع
+        // واطية جداً على أجهزة كثيرة، فنستعملها فقط إذا العادي ما اشتغل.
         int[] sources = Build.VERSION.SDK_INT >= 29
-                ? new int[] {MediaRecorder.AudioSource.VOICE_PERFORMANCE, MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                        MediaRecorder.AudioSource.MIC}
-                : new int[] {MediaRecorder.AudioSource.VOICE_RECOGNITION, MediaRecorder.AudioSource.MIC};
+                ? new int[] {MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                        MediaRecorder.AudioSource.VOICE_PERFORMANCE}
+                : new int[] {MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.VOICE_RECOGNITION};
 
         boolean silentOnly = false, started = false;
         for (int s = 0; s < sources.length && running; s++) {
@@ -187,12 +195,12 @@ final class MicEngine implements Runnable {
         if (record.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) return FAIL_MIC;
 
         if (!alreadyStarted) {
-            prefill(lat.target());
+            prefill(Math.max(lat.target(), startThreshold()));
             track.play();
             post(() -> cb.onEngineStarted(this));
         }
 
-        long framesIn = 0;
+        long framesIn = 0, lastHeadMoveAt = 0, lastHeadSeen = -1;
         boolean heard = false;
         int micRetries = 0, trackRetries = 0;
         while (running) {
@@ -215,6 +223,13 @@ final class MicEngine implements Runnable {
                 if (!heard && framesIn > rate * 2L && !silenced) return NEXT_SOURCE;
             }
 
+            float inPk = 0f;
+            for (int i = 0; i < n; i++) {
+                float a = Math.abs(in[i]);
+                if (a > inPk) inPk = a;
+            }
+            inLevel = inPk;
+
             syncNoiseSuppressor();
             chain.process(in, n, unsafe);
             float pk = chain.peak();
@@ -225,7 +240,18 @@ final class MicEngine implements Runnable {
                 underruns = u;
                 lat.onUnderrun();
             }
-            int action = lat.decide(queued(), n, pk < 0.004f);
+            long q = queued();
+            queueMs = (int) (q * 1000 / rate);
+            if (headTotal != lastHeadSeen) {
+                lastHeadSeen = headTotal;
+                lastHeadMoveAt = framesIn;
+            } else if (framesIn - lastHeadMoveAt > rate) {
+                // المكبّر ما بدأ يسحب الصوت (عتبة البدء أعلى من المتوقّع على هذا الجهاز): نعبّي المخزن كله
+                Log.w(TAG, "output stalled with " + q + " frames queued; topping up to start playback");
+                prefill(track.getBufferSizeInFrames());
+                lastHeadMoveAt = framesIn;
+            }
+            int action = lat.decide(q, n, pk < 0.004f);
             if (action == LatencyControl.DROP) continue;
 
             int m = rs.process(in, n, lat.step(), out);
@@ -252,6 +278,8 @@ final class MicEngine implements Runnable {
             record = r;
             recFloat = useFloat;
             recShorts = useFloat ? null : new short[chunk];
+            sourceUsed = source;
+            preferBuiltInMic();
             attachNoiseSuppressor();
             watchSilencing();
             return true;
@@ -301,6 +329,20 @@ final class MicEngine implements Runnable {
         int r = record.read(recShorts, 0, n, AudioRecord.READ_BLOCKING);
         for (int i = 0; i < r; i++) buf[i] = recShorts[i] * (1f / 32768f);
         return r;
+    }
+
+    /** مايك التلفون نفسه، حتى لو المكبّر بيه مايك (مكبّرات المكالمات) ما ينختار بالغلط. */
+    private void preferBuiltInMic() {
+        try {
+            for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
+                if (d.getType() == AudioDeviceInfo.TYPE_BUILTIN_MIC) {
+                    record.setPreferredDevice(d);
+                    return;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // نكمل بالاختيار الافتراضي
+        }
     }
 
     private void attachNoiseSuppressor() {
@@ -399,6 +441,13 @@ final class MicEngine implements Runnable {
             } catch (RuntimeException ignored) {
                 // نكمل بالحجم الافتراضي
             }
+            if (Build.VERSION.SDK_INT >= 31) {
+                try {
+                    track.setStartThresholdInFrames(Math.max(chunk * 2, rate / 100));
+                } catch (RuntimeException ignored) {
+                    // نعبّي المخزن كله قبل البدء بدل هذا
+                }
+            }
             routing = router -> {
                 AudioDeviceInfo d = router.getRoutedDevice();
                 if (d != null && Speakers.isPhoneSpeaker(d.getType()) && !unsafe) {
@@ -448,9 +497,24 @@ final class MicEngine implements Runnable {
     private boolean rebuildTrack(int rate, int chunk, LatencyControl lat) {
         closeTrack();
         if (!openTrack(rate, chunk)) return false;
-        prefill(lat.target());
+        prefill(Math.max(lat.target(), startThreshold()));
         track.play();
         return true;
+    }
+
+    /**
+     * أندرويد ما يبدأ يشغّل الصوت إلا لما يتعبّى المخزن لحد «عتبة البدء»، وافتراضياً هي المخزن كله.
+     * من أندرويد 12 نحددها صغيرة؛ قبله نعبّي المخزن كله بصمت (والتحكّم بالتأخير يفرّغه بعدين).
+     */
+    private int startThreshold() {
+        if (Build.VERSION.SDK_INT >= 31) {
+            try {
+                return track.getStartThresholdInFrames();
+            } catch (RuntimeException ignored) {
+                // نرجع للطريقة القديمة
+            }
+        }
+        return track.getBufferSizeInFrames();
     }
 
     private void prefill(int frames) {

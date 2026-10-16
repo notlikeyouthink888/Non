@@ -45,10 +45,20 @@ public final class MainActivity extends Activity implements MicService.Listener 
     private TextView micState, micHint, speakerStatus, speakerName, openBluetooth;
     private ImageView speakerIcon;
     private SeekBar volume, micGain, fxAmount;
-    private TextView volumeValue, micValue, fxAmountValue;
+    private TextView volumeValue, micValue, fxAmountValue, micDiag;
     private View fxAmountRow;
     private Switch antiFeedback, noiseReduction;
     private final TextView[] chips = new TextView[Effects.COUNT];
+
+    private final float[] recentIn = new float[8];   // آخر ثانيتين (كل 250 ms)
+    private int recentPos;
+    private final Runnable diagTick = new Runnable() {
+        @Override
+        public void run() {
+            refreshDiag();
+            main.postDelayed(this, 250);
+        }
+    };
 
     /** طلب تشغيل ينتظر رجوعنا للواجهة (بعد الإذن أو من الاختصار). */
     private boolean startOnResume;
@@ -113,6 +123,7 @@ public final class MainActivity extends Activity implements MicService.Listener 
         refreshVolume();
         refreshMic();
         showPendingError();
+        main.post(diagTick);
     }
 
     @Override
@@ -133,6 +144,7 @@ public final class MainActivity extends Activity implements MicService.Listener 
 
     @Override
     protected void onStop() {
+        main.removeCallbacks(diagTick);
         MicService.removeListener(this);
         am.unregisterAudioDeviceCallback(deviceCallback);
         getContentResolver().unregisterContentObserver(volumeObserver);
@@ -218,6 +230,7 @@ public final class MainActivity extends Activity implements MicService.Listener 
         fxAmount = findViewById(R.id.fxAmount);
         fxAmountValue = findViewById(R.id.fxAmountValue);
         fxAmountRow = findViewById(R.id.fxAmountRow);
+        micDiag = findViewById(R.id.micDiag);
         antiFeedback = findViewById(R.id.antiFeedback);
         noiseReduction = findViewById(R.id.noiseReduction);
         chips[Effects.NONE] = findViewById(R.id.fxNone);
@@ -231,6 +244,15 @@ public final class MainActivity extends Activity implements MicService.Listener 
     private void setupControls() {
         micButton.setOnClickListener(v -> onMicTapped());
         openBluetooth.setOnClickListener(v -> openBluetoothSettings());
+        findViewById(R.id.testSound).setOnClickListener(v -> {
+            AudioDeviceInfo out = Speakers.best(am);
+            if (out == null) {
+                Toast.makeText(this, R.string.test_sound_none, Toast.LENGTH_SHORT).show();
+                showConnectDialog();
+            } else if (!TestTone.play(out)) {
+                Toast.makeText(this, R.string.test_sound_failed, Toast.LENGTH_SHORT).show();
+            }
+        });
 
         volume.setOnSeekBarChangeListener(new SimpleSeek() {
             @Override
@@ -314,6 +336,36 @@ public final class MainActivity extends Activity implements MicService.Listener 
                 micHint.setText(R.string.hint_idle);
                 break;
         }
+    }
+
+    /** سطر المستويات تحت الزر: يبيّن إذا المايك يسمعك وكم يطلع للمكبّر. */
+    private void refreshDiag() {
+        if (MicService.state() != MicService.State.LIVE) {
+            micDiag.setVisibility(View.INVISIBLE);
+            java.util.Arrays.fill(recentIn, 0f);
+            return;
+        }
+        recentIn[recentPos] = MicEngine.inLevel;
+        recentPos = (recentPos + 1) % recentIn.length;
+        float maxIn = 0f;
+        for (float v : recentIn) maxIn = Math.max(maxIn, v);
+        micDiag.setVisibility(View.VISIBLE);
+        if (maxIn < 0.0003f && !MicService.micSilenced()) {   // ‎-70 dBFS: المايك ما يوصله صوت
+            micDiag.setText(R.string.diag_quiet);
+            micDiag.setTextColor(getColor(R.color.warn));
+        } else {
+            micDiag.setText(getString(R.string.diag_line, bars(MicEngine.inLevel), bars(MicEngine.level), MicEngine.queueMs));
+            micDiag.setTextColor(getColor(R.color.text_dim));
+        }
+    }
+
+    /** مستوى بخمس شرائط: ‎-60 dBFS ← فارغ، 0 dBFS ← مليان. */
+    private static String bars(float peak) {
+        float db = Params.linToDb(peak);
+        int n = Math.max(0, Math.min(5, Math.round((db + 60f) / 12f)));
+        StringBuilder sb = new StringBuilder(5);
+        for (int i = 0; i < 5; i++) sb.append(i < n ? '▮' : '▯');
+        return sb.toString();
     }
 
     private void refreshSpeaker() {

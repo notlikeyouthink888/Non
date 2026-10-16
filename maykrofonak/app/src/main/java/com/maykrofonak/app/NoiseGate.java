@@ -7,12 +7,12 @@ package com.maykrofonak.app;
 final class NoiseGate {
     private static final float CLOSED_GAIN = 0.12f;   // ‎-18 dB
     private static final float MIN_FLOOR = 3e-5f, MAX_FLOOR = 0.015f;
-    private static final float MIN_OPEN = 0.0016f;    // ‎-56 dBFS
+    private static final float MIN_OPEN = 0.00025f;   // ‎-72 dBFS: بعض المايكات تسجّل الكلام واطي جداً
 
     private final float envAtt, envRel, att, rel;
     private final int blockLen, holdLen;
     private float ms;               // متوسط مربّع الإشارة (غلاف)
-    private float floor = 0.001f;   // تقدير ضوضاء الخلفية
+    private float floor = 0.001f;   // تقدير ضوضاء الخلفية (ينزل بسرعة لمستوى الغرفة الحقيقي)
     private float gain = 1f;
     private double blockSum;
     private int blockCount, hold;
