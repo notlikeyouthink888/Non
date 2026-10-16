@@ -72,14 +72,17 @@ jobs:
           path: maykrofonak/out/Maykrofonak.apk
           if-no-files-found: error
 
+      # الإصدارات بهذا المستودع ثابتة (immutable): كل بناء ياخذ وسم جديد ولا يُحذف شيء.
+      # --latest=false حتى ما ياخذ مكان «آخر إصدار» لتطبيقات المستودع الثانية.
       - name: نشره في إصدار للتنزيل المباشر
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: maykrofonak-b${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          gh release delete maykrofonak-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create maykrofonak-latest out/Maykrofonak.apk \
+          gh release create "$TAG" out/Maykrofonak.apk \
             --target "$GITHUB_SHA" \
-            --title "مايكرفونك — أحدث نسخة" \
+            --latest=false \
+            --title "مايكرفونك — نسخة ${{ github.run_number }}" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
           مبني من: \`$GITHUB_SHA\`
 

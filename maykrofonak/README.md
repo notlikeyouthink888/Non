@@ -5,7 +5,8 @@
 
 ## التنزيل
 
-**[نزّل أحدث نسخة (Maykrofonak.apk)](https://github.com/notlikeyouthink888/Non/releases/download/maykrofonak-latest/Maykrofonak.apk)**
+**[صفحة نسخ مايكرفونك](https://github.com/notlikeyouthink888/Non/releases?q=maykrofonak&expanded=true)**
+— أعلى نسخة بالصفحة هي الأحدث؛ نزّل منها `Maykrofonak.apk`.
 
 افتح الرابط من متصفّح التلفون ← نزّل الملف ← افتحه ← اسمح بـ«التثبيت من مصادر غير معروفة»
 إذا طلبها ← ثبّت. النسخ الجديدة تتثبّت فوق القديمة بدون حذف.
@@ -82,7 +83,8 @@ cd maykrofonak
 ```
 
 يحتاج JDK 17+ وAndroid SDK (platform 35). كل دفعة على الفرع تبني APK تلقائياً عبر
-GitHub Actions وتنشره في إصدار `maykrofonak-latest`.
+GitHub Actions وتنشره في إصدار جديد باسم `maykrofonak-b<رقم البناء>-<المحاولة>`
+(إصدارات هذا المستودع ثابتة ما تنحذف، فكل بناء ياخذ وسم جديد).
 
 مفتاح التوقيع في `keystore/` مخصّص للتثبيت الشخصي حتى تتثبّت النسخ فوق بعض؛
 للنشر على Google Play استعمل مفتاحاً خاصاً غير منشور.
