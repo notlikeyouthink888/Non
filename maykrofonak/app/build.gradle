@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.maykrofonak.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.maykrofonak.app'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // مفتاح توقيع ثابت داخل المستودع حتى كل نسخة جديدة تتثبّت فوق القديمة
+    // بدون حذف. مخصّص للتثبيت الشخصي؛ للنشر على المتجر استعمل مفتاحاً خاصاً.
+    signingConfigs {
+        shared {
+            storeFile file('../keystore/maykrofonak.keystore')
+            storeType 'pkcs12'
+            storePassword 'maykrofonak'
+            keyAlias 'maykrofonak'
+            keyPassword 'maykrofonak'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.shared
+        }
+        debug {
+            signingConfig signingConfigs.shared
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        textReport = true
+        textOutput = file('stdout')
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

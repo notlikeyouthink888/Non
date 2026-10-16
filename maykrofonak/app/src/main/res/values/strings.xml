@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مايكرفونك</string>
+    <string name="tagline">تلفونك صار مايك، وصوتك يطلع من المكبّر</string>
+
+    <!-- المكبّر -->
+    <string name="speaker_connected">المكبّر متصل</string>
+    <string name="speaker_none">ماكو مكبّر متصل</string>
+    <string name="speaker_none_hint">شغّل المكبّر ووصّله بالبلوتوث</string>
+    <string name="open_bluetooth">البلوتوث</string>
+    <string name="open_bluetooth_long">افتح البلوتوث</string>
+    <string name="out_bluetooth">مكبّر بلوتوث</string>
+    <string name="out_wired">سماعة سلكية</string>
+    <string name="out_usb">جهاز صوت USB</string>
+    <string name="out_hdmi">شاشة HDMI</string>
+    <string name="out_other">مكبّر خارجي</string>
+
+    <!-- حالة المايك -->
+    <string name="state_idle">اضغط على المايك وابدأ احجي</string>
+    <string name="hint_idle">صوتك راح يطلع من المكبّر مباشرة</string>
+    <string name="state_starting">ثواني ويشتغل…</string>
+    <string name="hint_starting">نجهّز المايك والمكبّر</string>
+    <string name="state_live">المايك شغّال، احجي</string>
+    <string name="hint_live">صوتك يطلع من: %1$s · اضغط مرة ثانية للإيقاف</string>
+    <string name="state_silenced">المايك متوقف مؤقتاً</string>
+    <string name="hint_silenced">مكالمة أو تطبيق ثاني ماخذ المايك هسه، يرجع وحده بعدها</string>
+    <string name="state_waiting">بانتظار المكبّر…</string>
+    <string name="hint_waiting">وصّل المكبّر بالبلوتوث، والمايك يشتغل وحده أول ما يتصل · اضغط للإلغاء</string>
+    <string name="cd_mic_start">شغّل المايك</string>
+    <string name="cd_mic_stop">أوقف المايك</string>
+
+    <!-- الإعدادات -->
+    <string name="volume_label">صوت المكبّر</string>
+    <string name="mic_label">قوة المايك</string>
+    <string name="fx_label">المؤثرات</string>
+    <string name="fx_none">طبيعي</string>
+    <string name="fx_echo">صدى</string>
+    <string name="fx_hall">قاعة</string>
+    <string name="fx_deep">خشن</string>
+    <string name="fx_thin">رفيع</string>
+    <string name="fx_radio">راديو</string>
+    <string name="fx_amount">قوة الصدى</string>
+    <string name="anti_feedback">منع الصفير</string>
+    <string name="anti_feedback_desc">يكتشف الصفير ويطفيه وحده، وصوتك يبقى قوي</string>
+    <string name="noise">تنقية الصوت</string>
+    <string name="noise_desc">يخفّف أصوات الخلفية لما تسكت</string>
+    <string name="tip">نصيحة: إذا صار صفير بعّد التلفون عن المكبّر شوية أو نزّل الصوت</string>
+    <string name="footer">يشتغل بدون إنترنت · ما يسجّل ولا يحفظ صوتك</string>
+
+    <!-- نوافذ -->
+    <string name="connect_title">وصّل المكبّر</string>
+    <string name="connect_msg">شغّل المكبّر ووصّله بتلفونك عن طريق البلوتوث. أول ما يتصل، المايك يشتغل وحده.</string>
+    <string name="ok">تمام</string>
+    <string name="cancel">إلغاء</string>
+    <string name="open_settings">افتح الإعدادات</string>
+    <string name="perm_title">نحتاج إذن المايكروفون</string>
+    <string name="perm_msg">حتى ينقل التطبيق صوتك للمكبّر لازم تسمح له يستخدم المايكروفون.\n\nافتح الإعدادات ← الأذونات ← المايكروفون ← اسمح.</string>
+    <string name="perm_denied">بدون إذن المايكروفون ما يكدر يشتغل التطبيق</string>
+    <string name="err_title">ما اشتغل المايك</string>
+    <string name="err_mic">المايك مستخدم من تطبيق ثاني أو مكالمة. سكّرها وجرّب مرة ثانية.</string>
+    <string name="err_mic_silent">المايك ما يوصله أي صوت. تأكد إن «الوصول للمايكروفون» مفعّل من الإعدادات السريعة (اسحب الشريط العلوي)، وجرّب مرة ثانية.</string>
+    <string name="err_output">ما كدرنا نشغّل الصوت على المكبّر. افصل المكبّر ورجّع وصّله، وجرّب مرة ثانية.</string>
+    <string name="err_start">النظام ما سمح يشتغل المايك. افتح التطبيق وجرّب مرة ثانية.</string>
+    <string name="err_route">الصوت صار يطلع من التلفون مو من المكبّر، فوقّفنا المايك حتى ما يصير صفير. تأكد إن المكبّر مختار لتشغيل الصوت وجرّب مرة ثانية.</string>
+
+    <!-- الإشعار -->
+    <string name="notif_channel">المايك</string>
+    <string name="notif_channel_desc">إشعار يظهر طول ما المايك شغّال</string>
+    <string name="notif_live_title">المايك شغّال</string>
+    <string name="notif_live_text">صوتك يطلع من %1$s</string>
+    <string name="notif_silenced">متوقف مؤقتاً، المايك مستخدم من مكالمة أو تطبيق ثاني</string>
+    <string name="notif_wait_title">بانتظار المكبّر</string>
+    <string name="notif_wait_text">المايك يرجع يشتغل وحده أول ما يتصل المكبّر</string>
+    <string name="notif_starting">ثواني ويشتغل…</string>
+    <string name="notif_stop">إيقاف</string>
+
+    <!-- اختصار الأيقونة -->
+    <string name="shortcut_start">شغّل المايك</string>
+    <string name="shortcut_start_long">شغّل المايك مباشرة</string>
+</resources>

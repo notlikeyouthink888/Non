@@ -1,0 +1,119 @@
+name: مايكرفونك — بناء APK
+
+on:
+  push:
+    branches:
+      - main
+      - ccr-6cca0ed8-xpj94n
+    paths:
+      - 'maykrofonak/**'
+      - '.github/workflows/maykrofonak-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maykrofonak-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: maykrofonak
+
+jobs:
+  apk:
+    name: اختبار وبناء ملف التثبيت
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تهيئة Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            maykrofonak/*.gradle
+            maykrofonak/app/*.gradle
+            maykrofonak/gradle/wrapper/gradle-wrapper.properties
+
+      - name: تهيئة Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: قبول التراخيص مسبقاً
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: اختبارات معالجة الصوت
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace --console=plain </dev/null
+
+      - name: بناء APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace --console=plain </dev/null
+
+      - name: تسمية الملف
+        id: name
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/Maykrofonak.apk
+          echo "size=$(du -h out/Maykrofonak.apk | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: رفع الملف كمُخرَج
+        uses: actions/upload-artifact@v4
+        with:
+          name: Maykrofonak-APK
+          path: maykrofonak/out/Maykrofonak.apk
+          if-no-files-found: error
+
+      - name: نشره في إصدار للتنزيل المباشر
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete maykrofonak-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create maykrofonak-latest out/Maykrofonak.apk \
+            --target "$GITHUB_SHA" \
+            --title "مايكرفونك — أحدث نسخة" \
+            --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — نزّله على تلفونك وثبّته.
+          مبني من: \`$GITHUB_SHA\`
+
+          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Maykrofonak.apk\` ←
+          افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إذا طلبها ← ثبّت.
+
+          النسخ الجديدة تتثبّت فوق القديمة مباشرة بدون حذف."
+
+  lint:
+    name: فحص Lint (للمعلومات فقط)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            maykrofonak/*.gradle
+            maykrofonak/app/*.gradle
+            maykrofonak/gradle/wrapper/gradle-wrapper.properties
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Lint
+        run: |
+          chmod +x gradlew
+          ./gradlew lintRelease --no-daemon --console=plain </dev/null

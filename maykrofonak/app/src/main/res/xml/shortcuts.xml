@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="mic_on"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_start"
+        android:shortcutLongLabel="@string/shortcut_start_long">
+        <intent
+            android:action="com.maykrofonak.app.action.START"
+            android:targetPackage="com.maykrofonak.app"
+            android:targetClass="com.maykrofonak.app.MainActivity" />
+    </shortcut>
+</shortcuts>
