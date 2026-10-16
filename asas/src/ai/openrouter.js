@@ -414,6 +414,8 @@ export async function streamText({ system, prompt, effort = 'high', maxTokens = 
   } catch (err) {
     // توقف البث بلا بيانات لمدة طويلة: مهلة لا إلغاء من المستخدم
     if (err?.name === 'AbortError' && !signal?.aborted && res._link.timedOut()) throw new ORError(408, 'stream stalled', { kind: 'timeout' });
+    // انقطاع الشبكة أثناء البث (مثل الخروج من التطبيق): خطأ شبكة عابر لا «خطأ غير متوقع»
+    if (!(err instanceof ORError) && !signal?.aborted && err?.name !== 'AbortError') throw new ORError(0, String(err?.message || err), { kind: 'network', partial: true });
     throw err;
   }
   const text = stripThink(acc).trim();
@@ -558,6 +560,16 @@ export async function testConnection(signal) {
 }
 
 /* ── رسائل الأخطاء ───────────────────────────────── */
+
+/** هل الخطأ عابر (شبكة، مهلة، ازدحام مؤقت) فتصح إعادة المحاولة تلقائيًا؟ */
+export function isTransient(err) {
+  if (err?.name === 'AbortError') return false;
+  if (err instanceof TypeError) return true; // فشل fetch نفسه
+  if (!(err instanceof ORError)) return false;
+  if (['network', 'timeout', 'empty'].includes(err.kind)) return true;
+  if ([0, 408, 500, 502, 503, 504].includes(err.status)) return true;
+  return err.status === 429 && /upstream|provider|temporarily/i.test(err.message || '');
+}
 
 export function errorMessage(err) {
   const short = (s) => String(s || '').replace(/\s+/g, ' ').slice(0, 180);

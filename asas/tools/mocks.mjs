@@ -52,7 +52,10 @@ function pageOf(f, i) {
   };
 }
 
-export const stats = { claude: [], openrouter: [], orModels: 0, orKey: 0, orChallenge: null, orLink: null, images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
+/** تحكّم الفحص: dropNext يقطع البث التالي في منتصفه (كأن الشبكة انقطعت عند الخروج من التطبيق). */
+export const ctl = { dropNext: 0 };
+
+export const stats = { orContinued: 0, claude: [], openrouter: [], orModels: 0, orKey: 0, orChallenge: null, orLink: null, images: 0, commons: 0, wikipedia: 0, openverse: 0, lastReportPrompt: '' };
 
 async function onWikimedia(route) {
   const url = new URL(route.request().url());
@@ -295,7 +298,26 @@ async function onOpenRouter(route) {
   }
   stats.openrouter.push({ kind, models: body.models, problems, images, rf: null });
   const isEdit = userText.includes('القسم المطلوب تعديله');
-  if (!isEdit) stats.lastReportPrompt = userText;
+  const isCont = userText.includes('تكملة بعد انقطاع الاتصال');
+  if (!isEdit && !isCont) stats.lastReportPrompt = userText;
+  if (isCont) {
+    // التكملة: يبدأ النموذج من القسم الذي انقطع فيه (بعنوانه) حتى النهاية
+    stats.orContinued++;
+    const started = (userText.match(/الأقسام التي بدأت كتابتها: (.+)\./) || [])[1] || '';
+    const lastHead = started.split('، ').pop().trim();
+    const full = reportMarkdown(userText);
+    const at = full.indexOf(`## ${lastHead}`);
+    await new Promise((r) => setTimeout(r, 200));
+    return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: orSse(at >= 0 ? full.slice(at) : full, body.models[0]) });
+  }
+  if (!isEdit && ctl.dropNext > 0) {
+    // نصف التقرير ثم انقطاع الاتصال من المزوّد أثناء البث
+    ctl.dropNext--;
+    const full = reportMarkdown(userText);
+    const sse = orSse(full.slice(0, Math.round(full.length * 0.6)), body.models[0]).replace(/data: \{[^\n]*"finish_reason":"stop"[^\n]*\n\n/, '').replace('data: [DONE]\n\n', '');
+    await new Promise((r) => setTimeout(r, 400));
+    return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse + 'data: {"error":{"code":502,"message":"Network connection lost"}}\n\n' });
+  }
   // نموذج مجاني يكتب أحيانًا عناوين بصيغ مختلفة، ويضع تفكيره بين <think>
   const text = isEdit
     ? 'نص القسم بعد إعادة الصياغة بنموذج مجاني.\n\n1. خطوة أولى محسّنة.\n2. خطوة ثانية محسّنة.'

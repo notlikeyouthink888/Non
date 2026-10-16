@@ -22,6 +22,11 @@ export function aiErrorMessage(err) {
   return err instanceof or.ORError ? or.errorMessage(err) : claude.aiErrorMessage(err);
 }
 
+/** خطأ شبكة عابر (من أي مزوّد) تصح إعادة محاولته تلقائيًا. */
+export function isTransientError(err) {
+  return err instanceof or.ORError || err instanceof TypeError ? or.isTransient(err) : claude.isTransient(err);
+}
+
 /** معرّف النموذج المستعمل الآن (يُحفظ مع التقرير). */
 export function activeModelId() {
   if (isDS()) return `ds:${state.ai.deepseek?.model || 'auto'}`;

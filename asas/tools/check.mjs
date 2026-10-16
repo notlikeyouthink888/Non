@@ -12,7 +12,7 @@ import { mkdirSync, existsSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
-import { installMocks, stats } from './mocks.mjs';
+import { installMocks, stats, ctl } from './mocks.mjs';
 
 const SHOTS = process.argv.includes('--shots');
 // إبطاء المعالج (مثلًا CHECK_CPU_SLOWDOWN=6) يحاكي أجهزة CI والهواتف البطيئة ويكشف أخطاء التوقيت
@@ -450,6 +450,27 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await waitDone(page, 40000);
   const dsCalls = stats.openrouter.slice(dsFrom).filter((c) => c.kind === 'stream');
   assert(dsCalls.length >= 1 && dsCalls.every((c) => c.models.every((m) => m.startsWith('deepseek/')) && !c.problems.length), `DeepSeek: التقرير كُتب بنماذج DeepSeek فقط (${dsCalls.map((c) => c.models.join('+')).join('، ')})`);
+
+  /* ── 9د. الخروج من التطبيق أثناء الكتابة: يكمل تلقائيًا بلا خطأ ── */
+  const setVisible = (v) => page.evaluate((vis) => {
+    Object.defineProperty(document, 'visibilityState', { value: vis ? 'visible' : 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, v);
+  ctl.dropNext = 1;
+  await page.goto(BASE + '#/create?topic=tension_test');
+  await page.waitForSelector('.type-card.on');
+  await setVisible(false); // المستخدم يخرج من التطبيق بعد بدء الكتابة
+  await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+  await page.waitForURL(/#\/report\//);
+  await page.waitForFunction(() => /سيكمل تلقائيًا/.test(document.querySelector('.gen-panel')?.innerText || ''), null, { timeout: 15000 });
+  assert(await page.locator('.notice.err').count() === 0, 'انقطاع الاتصال أثناء الخروج من التطبيق: «سيكمل تلقائيًا من حيث توقف» بدل الخطأ');
+  await sleep(800);
+  assert(stats.orContinued === 0, 'لا يعيد الطلب وهو خارج التطبيق: ينتظر رجوعك');
+  await setVisible(true);
+  await waitDone(page, 40000);
+  const contHeads = await page.locator('.rsec h2').allInnerTexts();
+  assert(stats.orContinued === 1 && contHeads.length === 10 && new Set(contHeads).size === contHeads.length && await page.locator('.notice.err').count() === 0,
+    `بعد الرجوع: أكمل التقرير من حيث انقطع دون تكرار ولا خطأ (${contHeads.length} قسمًا)`);
 
   /* ── 10. صحة طلبات Claude ────────────────────── */
   const bad = stats.claude.filter((c) => c.problems.length);

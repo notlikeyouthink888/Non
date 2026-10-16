@@ -6,7 +6,8 @@ import { sheet, toast, confirmSheet } from '../core/ui.js';
 import { aiReady, state, uid } from '../core/store.js';
 import { putReport, deleteImages } from '../core/db.js';
 import { SYSTEM, EDIT_ACTIONS, editPrompt } from '../ai/prompts.js';
-import { streamText, aiErrorMessage } from '../ai/client.js';
+import { streamText, aiErrorMessage, isTransientError } from '../ai/client.js';
+import { holdAwake, retryTransient } from '../core/keepalive.js';
 import { parseBlocks, wordsOf } from './md.js';
 import { blocksToNodes } from './render.js';
 import { coverPicker, hasCover, peopleFields, logosRow } from './covers.js';
@@ -44,8 +45,9 @@ export function openSectionEditor(report, i, onSaved) {
     ctrl = new AbortController();
     const before = ta.value;
     setBusy(true);
+    const awake = holdAwake('يحرّر القسم…');
     try {
-      const res = await streamText({
+      const res = await retryTransient(() => streamText({
         system: SYSTEM,
         prompt: editPrompt({
           title: report.title, typeId: report.typeId, sectionTitle: headIn.value.trim() || sec.h,
@@ -56,6 +58,11 @@ export function openSectionEditor(report, i, onSaved) {
         signal: ctrl.signal,
         onText: (snap) => { ta.value = cleanSection(snap, sec.h); renderPreview(); },
         onPhase: (p) => fill(status, [h('div.spinner'), h('span.muted', p === 'thinking' ? 'يفكّر…' : 'يكتب…')]),
+      }), {
+        signal: ctrl.signal,
+        tries: 3,
+        isTransient: isTransientError,
+        onRetry: () => fill(status, [h('div.spinner'), h('span.muted', 'انقطع الاتصال — يعيد المحاولة تلقائيًا…')]),
       });
       ta.value = cleanSection(res.text, sec.h);
       renderPreview();
@@ -66,6 +73,7 @@ export function openSectionEditor(report, i, onSaved) {
       renderPreview();
       fill(status, [icon('alert', 16), h('span.muted', aiErrorMessage(err))]);
     } finally {
+      awake.release();
       setBusy(false);
     }
   }

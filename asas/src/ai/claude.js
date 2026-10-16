@@ -119,6 +119,14 @@ export async function streamText({ system, prompt, effort = 'high', maxTokens = 
   return { text: textOf(msg), stopReason: msg.stop_reason, usage: msg.usage, model: msg.model, cost };
 }
 
+/** هل الخطأ عابر (انقطاع الشبكة، مهلة، ازدحام) فتصح إعادة المحاولة تلقائيًا؟ */
+export function isTransient(err) {
+  if (err instanceof Anthropic.APIUserAbortError || err?.name === 'AbortError') return false;
+  if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.InternalServerError) return true;
+  if (err instanceof Anthropic.APIError) return [408, 409, 500, 502, 503, 504, 529].includes(err.status) || /overloaded/i.test(err.message || '');
+  return err instanceof TypeError || /network|fetch|connection|stream/i.test(String(err?.message || ''));
+}
+
 /** رسالة خطأ عربية مفهومة لكل حالة. */
 export function aiErrorMessage(err) {
   const short = (s) => String(s || '').replace(/\s+/g, ' ').slice(0, 160);

@@ -26,6 +26,12 @@
 
         </activity>
 
+        <!-- خدمة أمامية أثناء كتابة التقرير حتى لا يُجمَّد التطبيق أو تنقطع شبكته عند الخروج منه -->
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -40,6 +46,12 @@
     <!-- الإنترنت: للذكاء الاصطناعي (Claude API) وجلب الصور من ويكيبيديا وويكيميديا كومنز.
          التقارير المحفوظة والمحتوى الجاهز يعملان دون اتصال. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- إبقاء الكتابة تعمل حين تخرج من التطبيق، وإشعار «التقرير جاهز» -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- حفظ ملفات Word في مجلد المستندات على أندرويد 9 وما قبله فقط -->
     <uses-permission

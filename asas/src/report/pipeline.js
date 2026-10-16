@@ -10,7 +10,8 @@ import { getKB } from '../data/kb/index.js';
 import { TOPIC_BY_ID } from '../data/topics.js';
 import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
-import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits } from '../ai/client.js';
+import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits, isTransientError } from '../ai/client.js';
+import { holdAwake, retryTransient } from '../core/keepalive.js';
 import { splitSections, wordsOf, normalizeHeadings } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
@@ -40,7 +41,44 @@ function emit(job, type) {
 
 function setPhase(job, id, status, detail = '') {
   job.phases[id] = { status, detail };
+  if (status === 'run') job.awake?.update(detail || `${PHASES.find((p) => p.id === id)?.label || ''}…`);
   emit(job, 'phase');
+}
+
+/* ── الاستمرار بعد انقطاع الاتصال ─────────────────── */
+
+const headingsOf = (t) => [...String(t).matchAll(/^##\s+(.+)$/gm)].map((m) => m[1].trim());
+
+/** ما كُتب حتى آخر فقرة كاملة (بلا جدول أو معادلة مقطوعة)، ليُكمَل منه بعد الانقطاع. */
+export function keepWritten(text) {
+  let t = String(text || '').trimEnd();
+  const cut = t.lastIndexOf('\n\n');
+  if (cut > t.length * 0.5) t = t.slice(0, cut).trimEnd();
+  if ((t.match(/^```/gm) || []).length % 2) t = t.slice(0, t.lastIndexOf('```')).trimEnd();
+  return t;
+}
+
+/** يصل التكملة بما كُتب: يحذف عنوانًا مكرّرًا للقسم الأخير أو عنوان التقرير إن أعاده النموذج. */
+export function joinContinuation(kept, cont) {
+  if (!kept) return cont;
+  let c = String(cont || '').trimStart().replace(/^#\s+[^\n]*\n+/, '');
+  const lastH = headingsOf(kept).pop();
+  const m = c.match(/^##\s+(.+)\n*/);
+  if (m && lastH && m[1].trim() === lastH) c = c.slice(m[0].length);
+  return `${kept.trimEnd()}\n\n${c.trimStart()}`;
+}
+
+function continuePrompt(base, kept, en) {
+  const heads = headingsOf(kept);
+  return `${base}
+
+# تكملة بعد انقطاع الاتصال
+انقطع الاتصال أثناء كتابة هذا التقرير. الأقسام التي بدأت كتابتها: ${heads.join('، ') || '—'}.
+هذا آخر ما كُتب حرفيًا (لا تُعِده):
+<<<
+${kept.slice(-3500)}
+>>>
+أكمل التقرير من بعد هذا النص مباشرة وبنفس اللغة والأسلوب: ابدأ بالفقرة أو القسم التالي، ولا تكرر أي شيء كُتب، ولا تكتب أي تعليق عن الانقطاع.${en ? '\nContinue in English exactly where the text stops; never repeat what was already written.' : ''}`;
 }
 
 /**
@@ -59,6 +97,8 @@ export function startGeneration(report, mode = 'ai') {
     done: false,
   };
   jobs.set(report.id, job);
+  // يبقى التطبيق يعمل (وشبكته متصلة) لو خرج المستخدم منه أثناء الكتابة
+  job.awake = holdAwake(mode === 'images' ? 'يجلب صور التقرير…' : `يكتب «${report.title.slice(0, 40)}»…`);
   job.promise = run(job)
     .catch((err) => {
       const r = job.report;
@@ -75,6 +115,8 @@ export function startGeneration(report, mode = 'ai') {
       return putReport(r);
     })
     .finally(() => {
+      const st = job.report.status;
+      job.awake.release(st === 'ready' ? `التقرير جاهز ✓ — ${job.report.title.slice(0, 50)}` : job.ctrl.signal.aborted ? '' : 'توقف التقرير — افتح التطبيق للمتابعة');
       job.done = true;
       jobs.delete(report.id);
       emit(job, 'done');
@@ -140,17 +182,37 @@ async function run(job) {
       emit(job, 'text');
       saveSoon();
     };
-    const res = await streamText({
-      system: SYSTEM,
-      prompt: reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, readings: r.options.readings || '', kb, meta: r.meta }),
-      effort: state.ai.effort,
-      maxTokens: 64000,
+    const basePrompt = reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, readings: r.options.readings || '', kb, meta: r.meta });
+    // إن انقطع الاتصال (خروج من التطبيق أو شبكة ضعيفة) نحتفظ بما كُتب ونكمل منه تلقائيًا بعد عودة الاتصال
+    let kept = '';
+    let last = '';
+    const res = await retryTransient(async () => {
+      const out = await streamText({
+        system: SYSTEM,
+        prompt: kept ? continuePrompt(basePrompt, kept, r.options.lang === 'en') : basePrompt,
+        effort: state.ai.effort,
+        maxTokens: 64000,
+        signal,
+        onText: (snap) => {
+          last = joinContinuation(kept, snap);
+          pending = last;
+          if (!raf) raf = setTimeout(flush, 120);
+        },
+        onPhase: (p) => setPhase(job, 'write', 'run', p === 'thinking' ? (kept ? 'يكمل من حيث توقف…' : 'يفكّر ويخطط للتقرير…') : p === 'fallback' ? 'تحويل الطلب إلى نموذج بديل…' : 'يكتب التقرير…'),
+      });
+      return { ...out, text: joinContinuation(kept, out.text) };
+    }, {
       signal,
-      onText: (snap) => {
-        pending = snap;
-        if (!raf) raf = setTimeout(flush, 120);
+      tries: 4,
+      isTransient: isTransientError,
+      onRetry: ({ background }) => {
+        const k = keepWritten(last.length > kept.length ? last : kept);
+        kept = k.length >= 400 ? k : '';
+        r.retries = (r.retries || 0) + 1;
+        setPhase(job, 'write', 'run', background
+          ? 'انقطع الاتصال أثناء خروجك من التطبيق — سيكمل تلقائيًا من حيث توقف'
+          : 'انقطع الاتصال — يعيد المحاولة ويكمل من حيث توقف…');
       },
-      onPhase: (p) => setPhase(job, 'write', 'run', p === 'thinking' ? 'يفكّر ويخطط للتقرير…' : p === 'fallback' ? 'تحويل الطلب إلى نموذج بديل…' : 'يكتب التقرير…'),
     });
     clearTimeout(raf);
     r.sections = splitSections(normalizeHeadings(res.text, titles));
@@ -199,13 +261,13 @@ async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null
   let figs = [];
   if (useAI) {
     try {
-      const res = await jsonCall({
+      const res = await retryTransient(() => jsonCall({
         system: SYSTEM,
         prompt: figurePrompt({ title: r.title, typeId: r.typeId, cat: r.catId, count, kb, lang: r.options.lang }),
         schema: FIGURE_SCHEMA,
         effort: 'low',
         signal,
-      });
+      }), { signal, tries: 2, isTransient: isTransientError });
       figs = (res.figures || []).slice(0, count).map((f) => ({
         sec: Math.max(0, Math.min(secs.length - 1, f.section | 0)),
         secTitle: secs[Math.max(0, Math.min(secs.length - 1, f.section | 0))].h,
@@ -245,7 +307,10 @@ async function runImages(job, figs, { useAI, signal, append = false }) {
     fig.status = 'searching';
     emit(job, 'figures');
     try {
-      const cands = await findCandidates({ queries: fig.queries, arQuery: /[\u0600-\u06FF]/.test(fig.caption) ? fig.caption : '', sources, signal });
+      const cands = await retryTransient(
+        () => findCandidates({ queries: fig.queries, arQuery: /[\u0600-\u06FF]/.test(fig.caption) ? fig.caption : '', sources, signal }),
+        { signal, tries: 2, isTransient: (e) => e?.name !== 'AbortError' },
+      );
       const ok = await verifyLoadable(cands, { signal, need: 4 });
       working.set(fig.id, ok);
       if (!ok.length) { fig.status = 'none'; fig.note = 'لم نجد صورة سليمة مطابقة'; }
@@ -274,7 +339,7 @@ async function runImages(job, figs, { useAI, signal, append = false }) {
           mustShow: f.mustShow,
           cands: await Promise.all(working.get(f.id).slice(0, candsPerFig).map(async (c) => ({ b64: await toBase64Jpeg(c.thumbBlob) }))),
         })));
-        const res = await jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal });
+        const res = await retryTransient(() => jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal }), { signal, tries: 2, isTransient: isTransientError });
         for (const ch of res.choices || []) {
           const f = batch[ch.figure];
           if (!f) continue;
