@@ -18,6 +18,9 @@ function boot() {
   bootEl?.classList.add('gone');
   setTimeout(() => bootEl?.remove(), 500);
 
+  // خادم مدير التطبيق: النماذج والحد اليومي ورسالة المدير (وإلزام الكل بالخادم إن اختاره)
+  if (state.server?.url) import('./core/server.js').then((m) => m.fetchConfig()).catch(() => {});
+
   // محرّك المعادلات يُجهَّز في وقت الفراغ حتى تظهر المعادلات مرسومة من أول عرض
   const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
   idle(() => loadMath().catch(() => {}));

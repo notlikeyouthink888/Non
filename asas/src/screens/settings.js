@@ -2,7 +2,9 @@
 
 import { h, fill, field, toggle, chipGroup, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
-import { state, update, save, MODELS, EFFORTS, PROVIDERS, aiReady, cleanKey, resetSettings } from '../core/store.js';
+import { state, update, save, MODELS, EFFORTS, PROVIDERS, aiReady, cleanKey, resetSettings, BUILT_IN_SERVER } from '../core/store.js';
+import { linked, fetchConfig } from '../core/server.js';
+import { go } from '../core/nav.js';
 import { exportAll, importAll, clearAll } from '../core/db.js';
 import { toast, confirmSheet } from '../core/ui.js';
 import { fmtNum, fmtUSD } from '../core/fmt.js';
@@ -23,7 +25,9 @@ export default {
     const aiCard = h('div.card');
     root.append(h('div.wrap', [
       h('h1.page', 'الإعدادات'),
-      h('p.sub', 'كل الإعدادات والتقارير محفوظة داخل جهازك فقط.'),
+      h('p.sub', linked()
+        ? 'تقاريرك وإعداداتك محفوظة في جهازك، وتصل نسخة من كل تقرير إلى مدير التطبيق عبر خادمه.'
+        : 'كل الإعدادات والتقارير محفوظة داخل جهازك فقط.'),
       h('h2.sec', [icon('sparkles', 18), 'الذكاء الاصطناعي']),
       aiCard,
       h('h2.sec', [icon('image', 18), 'الصور']),
@@ -40,6 +44,11 @@ export default {
       lookCard(),
       h('h2.sec', [icon('folder', 18), 'البيانات']),
       dataCard(),
+      h('h2.sec', [icon('shield', 18), 'مدير التطبيق']),
+      h('div.card', [
+        h('p.hint', { style: { marginTop: '0' } }, 'إن كنت أنت من ينشر التطبيق للناس: اربط خادمك لتضع مفاتيح API وتختار النماذج للجميع، وتتابع التقارير والمستخدمين، وتصلك التنبيهات على تيليغرام.'),
+        h('button.btn.block', { type: 'button', onclick: () => go('/admin') }, [icon('shield', 16), 'لوحة مدير التطبيق']),
+      ]),
       aboutCard(),
     ]));
     renderAI();
@@ -53,17 +62,20 @@ export default {
         fill(status, [
           icon(on ? 'check' : 'key', 18),
           h('div.grow', on
-            ? (a.provider === 'deepseek' ? `مفعّل — DeepSeek بحسابك المربوط. نموذج الكتابة: ${modelName(a.deepseek?.model || 'auto')}.` : a.provider === 'openrouter'
+            ? (a.provider === 'server' ? 'مفعّل — يكتب عبر خادم مدير التطبيق دون أي مفتاح.' : a.provider === 'deepseek' ? `مفعّل — DeepSeek بحسابك المربوط. نموذج الكتابة: ${modelName(a.deepseek?.model || 'auto')}.` : a.provider === 'openrouter'
               ? `مفعّل مجانًا عبر OpenRouter — نموذج الكتابة: ${modelName(a.openrouter.model)}.`
               : `مفعّل — يكتب التقارير بنموذج ${MODELS.find((m) => m.id === a.model)?.name}.`)
-            : (a.provider === 'deepseek' ? 'غير مربوط. اضغط «اربط حسابك» وسجّل الدخول بـ Google أو بالبريد، ويرجعك التطبيق مفعّلًا دون نسخ أي مفتاح.' : a.provider === 'openrouter'
+            : (a.provider === 'server' ? 'أدخل رابط خادم التطبيق الذي أعطاك إياه المدير.' : a.provider === 'deepseek' ? 'غير مربوط. اضغط «اربط حسابك» وسجّل الدخول بـ Google أو بالبريد، ويرجعك التطبيق مفعّلًا دون نسخ أي مفتاح.' : a.provider === 'openrouter'
               ? 'غير مفعّل. أنشئ مفتاح OpenRouter المجاني والصقه هنا لتكتب التقارير بالذكاء الاصطناعي لأي عنوان.'
               : 'غير مفعّل. أضف مفتاح Claude API لتكتب التقارير بالذكاء الاصطناعي لأي عنوان، مع اقتراح العناوين والتحقق البصري من الصور.')),
         ]);
       };
       refreshStatus();
 
-      const providers = h('div.prov-grid', PROVIDERS.map((p) => h('button.prov' + (a.provider === p.id ? '.on' : ''), {
+      // المدير قد يُلزم الكل بخادمه؛ وخيار «خادم التطبيق» يظهر حين يوجد خادم أو للربط به يدويًا
+      const locked = !!(state.server.config?.lock && linked());
+      const shown = locked ? PROVIDERS.filter((p) => p.id === 'server') : PROVIDERS;
+      const providers = h('div.prov-grid', shown.map((p) => h('button.prov' + (a.provider === p.id ? '.on' : ''), {
         type: 'button',
         onclick: () => { if (a.provider !== p.id) { update((s) => { s.ai.provider = p.id; }, 'ai'); renderAI(); } },
       }, [
@@ -77,7 +89,7 @@ export default {
         onclick: async () => {
           syncAll(); // نقرأ ما في الخانة فعلًا قبل الاختبار
           if (!aiReady()) {
-            toast(a.provider === 'deepseek' ? 'اربط حسابك أولًا' : a.provider === 'openrouter' ? 'الصق مفتاح OpenRouter أولًا' : a.mode === 'proxy' ? 'أدخل رابط الخادم أولًا' : 'الصق مفتاح Claude أولًا', 'err');
+            toast(a.provider === 'server' ? 'أدخل رابط خادم التطبيق أولًا' : a.provider === 'deepseek' ? 'اربط حسابك أولًا' : a.provider === 'openrouter' ? 'الصق مفتاح OpenRouter أولًا' : a.mode === 'proxy' ? 'أدخل رابط الخادم أولًا' : 'الصق مفتاح Claude أولًا', 'err');
             return;
           }
           testBtn.disabled = true;
@@ -176,6 +188,31 @@ export default {
           ...ids.map(([id, name]) => item(id, name, /r1/i.test(id) ? 'يفكّر قبل أن يكتب (أبطأ وأدق في الحسابات)' : 'سريع وجيد في الكتابة العربية')),
         ]);
       }
+      if (a.provider === 'server') {
+        const cfg = state.server.config;
+        const urlIn = h('input.ltr', { value: state.server.url || '', placeholder: 'https://asas-server.example.workers.dev', autocapitalize: 'off', spellcheck: false, disabled: !!BUILT_IN_SERVER });
+        const syncUrl = () => { const v = urlIn.value.trim().replace(/\/+$/, ''); if (v !== state.server.url) { state.server.url = v; state.server.config = null; save(); refreshStatus(); } };
+        ['input', 'change', 'blur', 'keyup'].forEach((ev) => urlIn.addEventListener(ev, syncUrl));
+        syncers.push(syncUrl);
+        const nameIn = h('input', { value: state.cover.author || '', placeholder: 'اسمك الثلاثي', oninput: () => { state.cover.author = nameIn.value; save(); } });
+        fill(aiCard, [
+          status,
+          locked ? null : field('مزوّد الذكاء الاصطناعي', providers),
+          BUILT_IN_SERVER ? null : field('رابط خادم التطبيق', urlIn, 'يعطيك إياه مدير التطبيق. لا تحتاج أي مفتاح.'),
+          field('اسمك', nameIn, 'يظهر في غلاف تقاريرك، ويراه مدير التطبيق مع تقاريرك.'),
+          h('div.row.wrap', [testBtn, testOut]),
+          cfg ? h('div.row-set', [h('div.grow', [
+            h('div.t', `يكتب بـ ${cfg.models?.map((m) => m.name).join('، ') || 'تلقائي'}`),
+            h('div.s', cfg.dailyLimit ? `حدّك اليومي ${cfg.dailyLimit} تقارير — استعملت اليوم ${cfg.usedToday}` : 'بلا حد يومي'),
+          ])]) : null,
+          cfg?.notice ? h('div.notice', [icon('info', 18), h('div.grow', cfg.notice)]) : null,
+          h('div.notice.warn', [icon('shield', 18), h('div.grow', 'الكتابة تتم عبر خادم مدير التطبيق ومفاتيحه، لذلك يرى المدير تقاريرك: العنوان والنص واسمك في الغلاف، ووقت إنشائها.')]),
+          verifyRow,
+        ]);
+        if (linked() && !cfg) fetchConfig().then(() => renderAI()).catch(() => {});
+        return;
+      }
+
       if (a.provider === 'deepseek') {
         const linked = aiReady();
         fill(aiCard, [

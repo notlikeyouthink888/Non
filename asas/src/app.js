@@ -14,6 +14,7 @@ import create from './screens/create.js';
 import report from './screens/report.js';
 import library from './screens/library.js';
 import settings from './screens/settings.js';
+import admin from './screens/admin.js';
 
 const ROUTES = [
   { re: /^\/?$/, screen: home, tab: 'home' },
@@ -22,6 +23,7 @@ const ROUTES = [
   { re: /^\/report\/([\w-]+)$/, screen: report, tab: 'library', noNav: true },
   { re: /^\/library$/, screen: library, tab: 'library' },
   { re: /^\/settings$/, screen: settings, tab: 'settings' },
+  { re: /^\/admin$/, screen: admin, tab: 'settings', noNav: true },
 ];
 
 const TABS = [

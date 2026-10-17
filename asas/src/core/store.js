@@ -8,7 +8,12 @@ const listeners = new Set();
 let saveTimer = null;
 
 /** مزوّدو الذكاء الاصطناعي: OpenRouter بنماذجه المجانية، أو Claude المدفوع الأدق. */
+/** رابط خادم مدير التطبيق المضبوط عند البناء (نسخة عامة يتحكم بها المدير)، إن وُجد. */
+export const BUILT_IN_SERVER = String(import.meta.env?.VITE_ASAS_SERVER || '').trim().replace(/\/+$/, '');
+const BUILT_IN_TOKEN = String(import.meta.env?.VITE_ASAS_TOKEN || '').trim();
+
 export const PROVIDERS = [
+  { id: 'server', name: 'خادم التطبيق', badge: 'بلا مفتاح', note: 'يكتب عبر خادم مدير التطبيق — لا تحتاج أي مفتاح، والمدير يختار النموذج' },
   { id: 'openrouter', name: 'OpenRouter', badge: 'مجاني', note: 'نماذج مجانية بحد 50 طلبًا في اليوم — جيدة للتقارير، وأقل دقة من Claude في الحسابات' },
   { id: 'deepseek', name: 'DeepSeek', badge: 'ربط بالحساب', note: 'نماذج DeepSeek المجانية بربط حسابك بضغطة (Google أو بريد) — بلا نسخ مفاتيح' },
   { id: 'claude', name: 'Claude', badge: 'الأدق', note: 'مدفوع بالاستهلاك — أعلى دقة في العربية والحسابات والتحقق من الصور' },
@@ -29,7 +34,7 @@ export const EFFORTS = [
 export const defaults = {
   meta: { createdAt: Date.now(), version: 1, onboarded: false },
   ai: {
-    provider: 'openrouter',    // openrouter | deepseek | claude
+    provider: BUILT_IN_SERVER ? 'server' : 'openrouter', // server | openrouter | deepseek | claude
     mode: 'key',               // Claude: key | proxy
     apiKey: '',                // مفتاح Claude
     proxyUrl: '',
@@ -48,6 +53,14 @@ export const defaults = {
     verifyImages: true,        // تحقّق الذكاء الاصطناعي من مطابقة الصور للموضوع
     usage: { input: 0, output: 0, cost: 0, calls: 0, reports: 0 },
   },
+  server: {
+    url: BUILT_IN_SERVER,      // خادم مدير التطبيق (server/worker.js)
+    token: BUILT_IN_TOKEN,     // رمز التطبيق إن طلبه الخادم
+    device: '',                // معرّف عشوائي لهذا الجهاز (ليرى المدير الأجهزة)
+    config: null,              // آخر إعدادات من الخادم: المزوّد والنماذج والحد اليومي ورسالة المدير
+    at: 0,
+  },
+  admin: { url: '', password: '' }, // لوحة المدير (على جهاز المدير فقط)
   images: {
     enabled: true,
     sources: { commons: true, wikipedia: true, openverse: true },
@@ -94,8 +107,11 @@ function load() {
     // من حفظ مفتاح Claude قبل إضافة OpenRouter يبقى على Claude
     if (!saved.ai?.provider) {
       const hadClaude = cleanKey(saved.ai?.apiKey).length > 20 || /^https?:\/\//.test(String(saved.ai?.proxyUrl || '').trim());
-      st.ai.provider = hadClaude ? 'claude' : 'openrouter';
+      st.ai.provider = hadClaude ? 'claude' : BUILT_IN_SERVER ? 'server' : 'openrouter';
     }
+    // نسخة عامة: رابط الخادم المضبوط عند البناء لا يضيع إن حُفظت إعدادات قبله
+    if (BUILT_IN_SERVER && !String(st.server.url || '').trim()) st.server.url = BUILT_IN_SERVER;
+    if (st.server.config?.lock && st.server.url) st.ai.provider = 'server';
     return st;
   } catch (err) {
     console.warn('[store] تعذّرت القراءة، سنبدأ من الحالة الابتدائية', err);
@@ -155,6 +171,7 @@ export function cleanKey(k) {
 /** هل الذكاء الاصطناعي مهيّأ للعمل؟ */
 export function aiReady() {
   const a = state.ai;
+  if (a.provider === 'server') return /^https?:\/\//.test(String(state.server?.url || '').trim());
   if (a.provider === 'openrouter' || a.provider === 'deepseek') return cleanKey(a.openrouter.apiKey).length > 20;
   if (a.mode === 'proxy') return /^https?:\/\//.test(a.proxyUrl.trim());
   return cleanKey(a.apiKey).length > 20;

@@ -181,7 +181,7 @@ export default {
       aiCtrl = new AbortController();
       fill(box, h('div.row.mt', [h('div.spinner'), h('span.muted', 'يفكّر في عناوين مناسبة…')]));
       try {
-        const res = await jsonCall({ system: SYSTEM, prompt: titlesPrompt(q), schema: TITLES_SCHEMA, effort: 'low', signal: aiCtrl.signal });
+        const res = await jsonCall({ system: SYSTEM, prompt: titlesPrompt(q), schema: TITLES_SCHEMA, effort: 'low', signal: aiCtrl.signal, meta: { kind: 'titles', title: q } });
         const list = (res.titles || []).filter((t) => t.title);
         suggestionsCache.set(q, list);
         showSuggestions(list, box);

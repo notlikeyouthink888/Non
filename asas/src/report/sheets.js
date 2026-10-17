@@ -56,6 +56,7 @@ export function openSectionEditor(report, i, onSaved) {
         effort: state.ai.effort === 'high' ? 'medium' : state.ai.effort,
         maxTokens: 32000,
         signal: ctrl.signal,
+        meta: { kind: 'edit', report: report.id, title: report.title },
         onText: (snap) => { ta.value = cleanSection(snap, sec.h); renderPreview(); },
         onPhase: (p) => fill(status, [h('div.spinner'), h('span.muted', p === 'thinking' ? 'يفكّر…' : 'يكتب…')]),
       }), {

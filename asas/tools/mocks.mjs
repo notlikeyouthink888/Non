@@ -94,7 +94,7 @@ async function onOpenverse(route) {
 
 /* ── Claude ──────────────────────────────────────── */
 
-function reportMarkdown(prompt) {
+export function reportMarkdown(prompt) {
   const heads = [...prompt.matchAll(/^\d+\.\s+(.+?)\s+\(/gm)].map((m) => m[1]);
   return heads.map((h, i) => {
     let body = `هذه فقرة تجريبية للقسم «${h}» تشرح المحتوى بلغة عربية واضحة، مع مصطلح إنجليزي مثل قابلية التشغيل (Workability) ورقم مواصفة مثل ASTM C143.`;
@@ -106,7 +106,7 @@ function reportMarkdown(prompt) {
   }).join('\n\n');
 }
 
-function jsonFor(body, props = body.output_config?.format?.schema?.properties || {}) {
+export function jsonFor(body, props = body.output_config?.format?.schema?.properties || {}) {
   if (props.figures) {
     const n = Number((JSON.stringify(body.messages).match(/خطّط (\d+) صورة/) || [])[1] || 2);
     return { figures: Array.from({ length: n }, (_, i) => ({
@@ -243,7 +243,7 @@ function orValidate(req, body) {
   return problems;
 }
 
-function orSse(text, model) {
+export function orSse(text, model) {
   const chunks = text.match(/[\s\S]{1,50}/g) || [];
   const ev = (o) => `data: ${JSON.stringify({ id: 'gen-mock', object: 'chat.completion.chunk', created: 1, model, ...o })}\n\n`;
   return [

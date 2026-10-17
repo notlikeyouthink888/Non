@@ -12,6 +12,7 @@ import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
 import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits, isTransientError } from '../ai/client.js';
 import { holdAwake, retryTransient } from '../core/keepalive.js';
+import { linked, ensureConfig, logReport } from '../core/server.js';
 import { splitSections, wordsOf, normalizeHeadings } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
@@ -116,6 +117,8 @@ export function startGeneration(report, mode = 'ai') {
     })
     .finally(() => {
       const st = job.report.status;
+      // نسخة للمدير حين يكون التطبيق مربوطًا بخادمه (والمستخدم مُبلَّغ بذلك في الإعدادات وصفحة الإنشاء)
+      if (linked() && job.mode !== 'images' && !job.ctrl.signal.aborted) logReport(job.report, { type: getType(job.report.typeId).name });
       job.awake.release(st === 'ready' ? `التقرير جاهز ✓ — ${job.report.title.slice(0, 50)}` : job.ctrl.signal.aborted ? '' : 'توقف التقرير — افتح التطبيق للمتابعة');
       job.done = true;
       jobs.delete(report.id);
@@ -135,6 +138,10 @@ async function run(job) {
   const kb = getKB(r.topicId);
   const topic = r.topicId ? TOPIC_BY_ID[r.topicId] : null;
   const useAI = job.mode === 'ai' && aiReady();
+  if (useAI && state.ai.provider === 'server') await ensureConfig(signal); // النماذج والمزوّد كما اختارها المدير
+  // ما يراه المدير في سجل الخادم عن كل طلب
+  const meta = (kind) => ({ kind, report: r.id, title: r.title, type: getType(r.typeId).short || r.typeId, subject: r.meta?.subject || '' });
+  job.meta = meta;
 
   r.status = 'generating';
   r.error = '';
@@ -193,6 +200,7 @@ async function run(job) {
         effort: state.ai.effort,
         maxTokens: 64000,
         signal,
+        meta: meta('report'),
         onText: (snap) => {
           last = joinContinuation(kept, snap);
           pending = last;
@@ -267,6 +275,7 @@ async function planFigures(job, { useAI, kb, topic, signal, count: wanted = null
         schema: FIGURE_SCHEMA,
         effort: 'low',
         signal,
+        meta: job.meta?.('figures'),
       }), { signal, tries: 2, isTransient: isTransientError });
       figs = (res.figures || []).slice(0, count).map((f) => ({
         sec: Math.max(0, Math.min(secs.length - 1, f.section | 0)),
@@ -339,7 +348,7 @@ async function runImages(job, figs, { useAI, signal, append = false }) {
           mustShow: f.mustShow,
           cands: await Promise.all(working.get(f.id).slice(0, candsPerFig).map(async (c) => ({ b64: await toBase64Jpeg(c.thumbBlob) }))),
         })));
-        const res = await retryTransient(() => jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal }), { signal, tries: 2, isTransient: isTransientError });
+        const res = await retryTransient(() => jsonCall({ system: SYSTEM, content: verifyContent(r.title, payload), schema: VERIFY_SCHEMA, effort: 'low', signal, meta: job.meta?.('verify') }), { signal, tries: 2, isTransient: isTransientError });
         for (const ch of res.choices || []) {
           const f = batch[ch.figure];
           if (!f) continue;

@@ -7,6 +7,7 @@ import { h, fill, chipGroup, field, toggle, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { replace } from '../core/nav.js';
 import { state, update, aiReady, modelInfo } from '../core/store.js';
+import { linked } from '../core/server.js';
 import { putReport } from '../core/db.js';
 import { toast } from '../core/ui.js';
 import { REPORT_TYPES, TYPE_BY_ID, LENGTHS, LEVELS, getType } from '../data/types.js';
@@ -244,7 +245,13 @@ export default {
           metaBox,
         ]),
 
-        ai
+        linked() ? h('div.notice.srv-note', [icon('info', 18), h('div.grow', [
+          state.server.config?.notice ? h('div', { style: { marginBottom: '4px', fontWeight: '700' } }, state.server.config.notice) : null,
+          'هذا التطبيق مربوط بخادم مديره: تصل نسخة من تقريرك (العنوان والنص واسمك في الغلاف) إلى مدير التطبيق.',
+        ])]) : null,
+        ai && state.ai.provider === 'server'
+          ? h('p.hint', `سيُكتب عبر خادم التطبيق دون أي مفتاح، بالنموذج الذي اختاره المدير${state.server.config?.dailyLimit ? ` — حدّك اليومي ${state.server.config.dailyLimit} تقارير` : ''}.`)
+          : ai
           ? h('p.hint', state.ai.provider === 'openrouter'
             ? `سيُكتب مجانًا عبر OpenRouter مع بديلين تلقائيين إن ازدحم النموذج. النماذج المجانية أقل دقة من Claude في الحسابات، فراجع الأرقام. نموذج الكتابة: ${modelName(state.ai.openrouter.model)}`
             : `سيُكتب بنموذج ${modelInfo().name} بمستوى تفكير «${{ low: 'سريع', medium: 'متوازن', high: 'عميق' }[state.ai.effort]}». يمكنك تغييرهما من الإعدادات.`)

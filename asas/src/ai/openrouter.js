@@ -14,14 +14,19 @@
 
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { state, addUsage, cleanKey } from '../core/store.js';
+import { serverUrl, serverHeaders } from '../core/server.js';
 
 export const OR_BASE = 'https://openrouter.ai/api/v1';
 /** موجّه OpenRouter المجاني: يختار نموذجًا مجانيًا متاحًا يدعم متطلبات الطلب (صور، JSON…). */
 export const FREE_ROUTER = 'openrouter/free';
 
-const CACHE_KEY = 'asas.or.models.v1';
-const CACHE_TTL = 12 * 3600 * 1000;
 const isNative = Capacitor.isNativePlatform();
+/** «خادم التطبيق»: الطلبات تمر بخادم المدير بدل OpenRouter مباشرة، والخادم يضع المفتاح ويختار النماذج. */
+const viaServer = () => state.ai.provider === 'server' && !!serverUrl();
+const base = () => (viaServer() ? `${serverUrl()}/or/api/v1` : OR_BASE);
+// قائمة الخادم (نماذج اختارها المدير) منفصلة عن قائمة OpenRouter، وتُحدَّث أسرع
+const cacheKey = () => (viaServer() ? 'asas.srv.models.v1' : 'asas.or.models.v1');
+const cacheTtl = () => (viaServer() ? 10 * 60 * 1000 : 12 * 3600 * 1000);
 
 export class ORError extends Error {
   constructor(status, message, extra = {}) {
@@ -102,7 +107,7 @@ function usable(m) {
 
 function readCache() {
   try {
-    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    const c = JSON.parse(localStorage.getItem(cacheKey()) || 'null');
     return c?.list?.length ? c : null;
   } catch { return null; }
 }
@@ -118,14 +123,14 @@ export function cachedModels() {
  */
 export async function freeModels({ force = false, signal } = {}) {
   const c = readCache();
-  if (!force && c && Date.now() - c.at < CACHE_TTL) return c.list;
+  if (!force && c && Date.now() - c.at < cacheTtl()) return c.list;
   try {
     const res = await request('/models', { method: 'GET', auth: false, signal, timeout: 30000 });
     const list = (res.data || []).map(parseModel).filter(usable)
       .map((m) => ({ ...m, score: score(m) }))
       .sort((a, b) => b.score - a.score);
     if (list.length) {
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), list })); } catch { /* المساحة ممتلئة */ }
+      try { localStorage.setItem(cacheKey(), JSON.stringify({ at: Date.now(), list })); } catch { /* المساحة ممتلئة */ }
     }
     return list;
   } catch (err) {
@@ -143,6 +148,11 @@ export const DEEPSEEK_FALLBACK = ['deepseek/deepseek-chat-v3.1:free', 'deepseek/
 export const isDeepSeek = (id) => familyOf(id) === 'deepseek';
 
 export function chainFor(kind, list) {
+  // خادم التطبيق: النماذج يحددها المدير (والخادم يفرضها على كل حال)
+  if (viaServer()) {
+    const ids = list.filter((m) => kind !== 'vision' || m.vision).map((m) => m.id);
+    return [...new Set([...ids, FREE_ROUTER])].slice(0, 3);
+  }
   // فرع DeepSeek: الكتابة بنماذج DeepSeek فقط (والتحقق من الصور بنموذج يرى الصور لأن DeepSeek لا يراها)
   if (state.ai.provider === 'deepseek' && kind === 'text') {
     const pick = state.ai.deepseek?.model;
@@ -170,6 +180,17 @@ export function chainFor(kind, list) {
   return [...new Set(ids)].slice(0, 3);
 }
 
+/** كل نماذج OpenRouter الصالحة للكتابة (المجانية أولًا) — ليختار المدير نماذج خادمه. */
+export async function allModels(signal) {
+  const res = await fetch(`${OR_BASE}/models`, { signal });
+  if (!res.ok) throw new ORError(res.status, 'models');
+  const data = await res.json();
+  return (data.data || []).map(parseModel)
+    .filter((m) => m.chat && !NOT_CHAT.test(`${m.id} ${m.name}`))
+    .map((m) => ({ ...m, score: score(m) }))
+    .sort((x, y) => (y.free - x.free) || (y.score - x.score));
+}
+
 /** اسم مختصر للعرض. */
 export function modelName(id) {
   if (!id || id === 'auto') return 'تلقائي';
@@ -189,9 +210,10 @@ export async function exchangeCode(code, verifier) {
 
 /* ── الاتصال ─────────────────────────────────────── */
 
-function headers(auth, json) {
+function headers(auth, json, meta) {
   const h = {};
   if (json) h['Content-Type'] = 'application/json';
+  if (viaServer()) return Object.assign(h, serverHeaders(meta)); // لا مفتاح في الجهاز
   if (auth) h.Authorization = `Bearer ${cleanKey(state.ai.openrouter.apiKey)}`;
   return h;
 }
@@ -230,11 +252,11 @@ function errorFromBody(status, body, retryAfter) {
 }
 
 /** طلب عبر طبقة HTTP الأصلية في أندرويد (بلا بث) — يُستعمل إن منع المتصفح الطلب. */
-async function nativeRequest(path, { method, body, auth, timeout }) {
+async function nativeRequest(path, { method, body, auth, timeout, meta }) {
   const r = await CapacitorHttp.request({
-    url: OR_BASE + path,
+    url: base() + path,
     method,
-    headers: headers(auth, !!body),
+    headers: headers(auth, !!body, meta),
     data: body,
     responseType: 'json',
     connectTimeout: 20000,
@@ -251,16 +273,16 @@ let preferNative = false;
 /**
  * طلب واحد. stream=true يعيد كائن Response للبث، أو { native: data } إن اضطررنا للطبقة الأصلية.
  */
-async function request(path, { method = 'POST', body = null, auth = true, signal, stream = false, timeout = 120000 } = {}) {
+async function request(path, { method = 'POST', body = null, auth = true, signal, stream = false, timeout = 120000, meta } = {}) {
   if (preferNative && isNative) {
-    const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout });
+    const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout, meta });
     return stream ? { native: data } : data;
   }
   // البث: مهلة للاتصال الأول فقط، ثم يمددها كل جزء يصل (انظر sse)
   const link = linkSignal(signal, stream ? 90000 : timeout);
   let res;
   try {
-    res = await fetch(OR_BASE + path, { method, headers: headers(auth, !!body), body: body ? JSON.stringify(body) : undefined, signal: link.signal });
+    res = await fetch(base() + path, { method, headers: headers(auth, !!body, meta), body: body ? JSON.stringify(body) : undefined, signal: link.signal });
   } catch (err) {
     link.done();
     if (signal?.aborted) throw err;
@@ -268,7 +290,7 @@ async function request(path, { method = 'POST', body = null, auth = true, signal
     // في أندرويد قد يمنع WebView الطلب (CORS أو شبكة)؛ نجرّب الطبقة الأصلية مرة
     if (isNative && navigator.onLine !== false) {
       try {
-        const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout });
+        const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout, meta });
         preferNative = true;
         return stream ? { native: data } : data;
       } catch (nerr) {
@@ -350,7 +372,7 @@ async function modelsOrEmpty(signal) {
 /**
  * كتابة متدفقة. onText(snapshot) أثناء الكتابة، وonPhase('thinking'|'writing').
  */
-export async function streamText({ system, prompt, effort = 'high', maxTokens = 16000, signal, onText, onPhase }) {
+export async function streamText({ system, prompt, effort = 'high', maxTokens = 16000, signal, onText, onPhase, meta }) {
   const list = await modelsOrEmpty(signal);
   const models = chainFor('text', list);
   const primary = list.find((m) => m.id === models[0]);
@@ -366,7 +388,7 @@ export async function streamText({ system, prompt, effort = 'high', maxTokens = 
   if (reasoning) body.reasoning = reasoning;
 
   onPhase?.('thinking');
-  const res = await request('/chat/completions', { body, signal, stream: true });
+  const res = await request('/chat/completions', { body, signal, stream: true, meta });
 
   // الطبقة الأصلية: الرد كاملًا دفعة واحدة
   if (res.native) {
@@ -491,7 +513,7 @@ function schemaHint(schema) {
 }
 
 /** طلب JSON غير متدفق (اقتراح العناوين، تخطيط الصور، التحقق البصري، اختبار الاتصال). */
-export async function jsonCall({ system, prompt, content, schema, effort = 'low', maxTokens = 4000, signal }) {
+export async function jsonCall({ system, prompt, content, schema, effort = 'low', maxTokens = 4000, signal, meta }) {
   const list = await modelsOrEmpty(signal);
   const parts = toParts(content || prompt);
   const hasImages = Array.isArray(parts) && parts.some((p) => p.type === 'image_url');
@@ -513,7 +535,7 @@ export async function jsonCall({ system, prompt, content, schema, effort = 'low'
   if (reasoning) body.reasoning = { effort: 'low' };
 
   const call = async (b) => {
-    const data = await request('/chat/completions', { body: b, signal, timeout: hasImages ? 180000 : 120000 });
+    const data = await request('/chat/completions', { body: b, signal, timeout: hasImages ? 180000 : 120000, meta });
     if (data?.error) throw errorFromBody(502, data);
     addUsage(data.usage || null, data.model || models[0]);
     return data.choices?.[0]?.message?.content || '';
@@ -576,6 +598,9 @@ export function errorMessage(err) {
   if (err?.name === 'AbortError') return 'أُلغي الطلب.';
   if (!(err instanceof ORError)) return 'حدث خطأ غير متوقع: ' + short(err?.message);
   const msg = err.message || '';
+  // رسائل خادم المدير (الحد اليومي، الإيقاف، انتهاء الحصة) تُعرض كما هي
+  if (/^ASAS:\s*/.test(msg)) return msg.replace(/^ASAS:\s*/, '');
+  if (err.kind === 'network' && viaServer()) return 'تعذّر الاتصال بخادم التطبيق. تحقق من الإنترنت ثم أعد المحاولة.';
   if (err.kind === 'network') return 'تعذّر الاتصال بـ OpenRouter. تحقق من الإنترنت ثم أعد المحاولة.';
   if (err.kind === 'timeout' || err.status === 408) return 'تأخر النموذج المجاني في الرد. أعد المحاولة، أو اختر نموذجًا آخر من الإعدادات.';
   if (err.kind === 'empty') return 'وصل ردّ فارغ من النموذج المجاني. أعد المحاولة، أو اختر نموذجًا آخر من الإعدادات.';

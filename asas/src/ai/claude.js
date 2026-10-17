@@ -11,17 +11,26 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { state, modelInfo, addUsage, cleanKey } from '../core/store.js';
+import { serverUrl, serverHeaders } from '../core/server.js';
+
+const viaServer = () => state.ai.provider === 'server' && !!serverUrl();
+/** رؤوس سجل المدير لكل طلب عبر خادم التطبيق. */
+const reqOpts = (signal, meta) => (viaServer() ? { signal, headers: serverHeaders(meta) } : { signal });
 
 let cached = null;
 let cacheKey = '';
 
 export function getClient() {
   const a = state.ai;
-  const key = [a.mode, cleanKey(a.apiKey), a.proxyUrl.trim(), a.proxyToken.trim()].join('|');
+  const key = viaServer() ? `srv|${serverUrl()}` : [a.mode, cleanKey(a.apiKey), a.proxyUrl.trim(), a.proxyToken.trim()].join('|');
   if (cached && cacheKey === key) return cached;
 
   const opts = { dangerouslyAllowBrowser: true, maxRetries: 2, timeout: 15 * 60 * 1000 };
-  if (a.mode === 'proxy') {
+  if (viaServer()) {
+    // خادم المدير يضع المفتاح ويختار النموذج
+    opts.baseURL = `${serverUrl()}/anthropic`;
+    opts.apiKey = 'via-server';
+  } else if (a.mode === 'proxy') {
     opts.baseURL = a.proxyUrl.trim().replace(/\/+$/, '');
     opts.apiKey = 'via-proxy'; // الخادم الوسيط يستبدله بالمفتاح الحقيقي
     if (a.proxyToken.trim()) opts.defaultHeaders = { 'x-app-token': a.proxyToken.trim() };
@@ -38,7 +47,7 @@ export function getClient() {
  * system ثابت لكل الطلبات ومعلَّم للتخزين المؤقت (prompt caching).
  */
 export function buildParams({ system, messages, effort, maxTokens = 16000, schema = null }) {
-  const m = modelInfo();
+  const m = modelInfo(viaServer() ? state.server.config?.claudeModel || undefined : undefined);
   const params = {
     model: m.id,
     max_tokens: maxTokens,
@@ -70,11 +79,11 @@ export function textOf(message) {
 }
 
 /** طلب JSON منظَّم (structured outputs) غير متدفق. */
-export async function jsonCall({ system, prompt, content, schema, effort = 'low', maxTokens = 16000, signal }) {
+export async function jsonCall({ system, prompt, content, schema, effort = 'low', maxTokens = 16000, signal, meta }) {
   const client = getClient();
   const messages = [{ role: 'user', content: content || prompt }];
   const params = buildParams({ system, messages, effort, maxTokens, schema });
-  const msg = await client.beta.messages.create(params, { signal });
+  const msg = await client.beta.messages.create(params, reqOpts(signal, meta));
   addUsage(msg.usage, params.model);
   if (msg.stop_reason === 'refusal') throw new RefusalError(msg.stop_details);
   const text = textOf(msg).trim();
@@ -91,10 +100,10 @@ export async function jsonCall({ system, prompt, content, schema, effort = 'low'
  * طلب نصي متدفق: يستدعي onText(snapshot) أثناء الكتابة،
  * وonPhase('thinking'|'writing'|'fallback') لعرض الحالة.
  */
-export async function streamText({ system, prompt, effort = 'high', maxTokens = 64000, signal, onText, onPhase }) {
+export async function streamText({ system, prompt, effort = 'high', maxTokens = 64000, signal, onText, onPhase, meta }) {
   const client = getClient();
   const params = buildParams({ system, messages: [{ role: 'user', content: prompt }], effort, maxTokens });
-  const stream = client.beta.messages.stream(params, { signal });
+  const stream = client.beta.messages.stream(params, reqOpts(signal, meta));
   let started = false;
   let acc = '';
 
@@ -130,6 +139,9 @@ export function isTransient(err) {
 /** رسالة خطأ عربية مفهومة لكل حالة. */
 export function aiErrorMessage(err) {
   const short = (s) => String(s || '').replace(/\s+/g, ' ').slice(0, 160);
+  // رسائل خادم المدير (الحد اليومي، الإيقاف، انتهاء الحصة) تُعرض كما هي
+  const srv = String(err?.error?.error?.message || err?.message || '').match(/ASAS:\s*([^"}]+)/);
+  if (srv) return srv[1].trim();
   if (err instanceof Anthropic.APIUserAbortError || err?.name === 'AbortError') return 'أُلغي الطلب.';
   if (err?.code === 'REFUSAL') return 'اعتذر النموذج عن كتابة هذا المحتوى. جرّب صياغة مختلفة للعنوان أو التفاصيل.';
   if (err instanceof Anthropic.AuthenticationError) {

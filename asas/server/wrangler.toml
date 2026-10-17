@@ -1,0 +1,14 @@
+# نشر خادم «أساس» بسطر الأوامر (بديل لخطوات لوحة Cloudflare في أعلى worker.js):
+#   npx wrangler login
+#   npx wrangler d1 create asas-db          ← انسخ database_id الناتج إلى الأسفل
+#   npx wrangler deploy
+#   npx wrangler secret put ADMIN_PASSWORD  ← كلمة سر المدير
+# ثم في التطبيق: الإعدادات ← لوحة مدير التطبيق ← الصق الرابط وكلمة السر.
+name = "asas-server"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "asas-db"
+database_id = "ضع-هنا-معرّف-القاعدة"

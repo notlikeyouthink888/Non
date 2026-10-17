@@ -166,7 +166,8 @@ function listToProse(items, ordered, en, variant = 0) {
   if (ordered) {
     const words = en ? ORD_EN : ORD;
     const link = en ? ['Then', 'After that', 'Next'] : ['ثم', 'بعد ذلك', 'وبعدها'];
-    return items.map((t, k) => (k < words.length && (variant + k) % 3 !== 2
+    // الخطوة الأولى دائمًا «أولًا»، وبعدها تتنوع الروابط حسب الصيغة
+    return items.map((t, k) => (k === 0 || (k < words.length && (variant + k) % 3 !== 2)
       ? `${words[k]}${en ? ',' : '،'} ${endDot(t)}`
       : `${link[(variant + k) % link.length]}${en ? ',' : ''} ${endDot(t)}`)).join(' ');
   }

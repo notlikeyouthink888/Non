@@ -31,7 +31,7 @@ jobs:
       - name: تهيئة Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: asas/package-lock.json
 
@@ -62,7 +62,7 @@ jobs:
       - name: تهيئة Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: asas/package-lock.json
 
@@ -84,6 +84,10 @@ jobs:
         run: npm ci
 
       - name: بناء واجهة الويب
+        env:
+          # نسخة عامة مربوطة بخادم المدير: ضع رابطه في Settings ← Variables ← Actions باسم ASAS_SERVER_URL
+          VITE_ASAS_SERVER: ${{ vars.ASAS_SERVER_URL }}
+          VITE_ASAS_TOKEN: ${{ vars.ASAS_APP_TOKEN }}
         run: npm run build
 
       - name: مزامنة مشروع أندرويد
@@ -141,9 +145,9 @@ jobs:
           **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`Asas.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
 
-          **الجديد:** ١٧ نمط غلاف منها ٨ حديثة مستوحاة من Canva، ولون الغلاف تختاره (١٧ لونًا أو أي لون) مع لون ثانٍ،
-          وإخفاء أي حقل من الغلاف (اسم المادة، الوزارة، نوع التقرير…) وتغيير عناوين الحقول أو حذفها (مثل Student)،
-          والكتابة تستمر لو طلعت من التطبيق وتكمل تلقائيًا بعد انقطاع الاتصال بدل رسالة الخطأ.
+          **الجديد:** «خادم التطبيق» ولوحة مدير التطبيق: تضع مفاتيح API على خادمك (Cloudflare مجانًا) فيكتب الناس
+          دون أي مفتاح، ويتحوّل الخادم تلقائيًا للمفتاح التالي حين تنتهي حصة مفتاح، وتختار النماذج للجميع والحد اليومي،
+          وترى كل التقارير والمستخدمين وتوقف أي جهاز، وتصلك التقارير على تيليغرام. التطبيق يُعلم المستخدمين بذلك.
 
           **تفعيل الذكاء الاصطناعي مجانًا:** أنشئ مفتاحًا من openrouter.ai/keys، وفعّل النماذج المجانية من
           openrouter.ai/settings/privacy، ثم الصقه في الإعدادات ← الذكاء الاصطناعي ← OpenRouter.

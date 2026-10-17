@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
 import { installMocks, stats, ctl } from './mocks.mjs';
+import { startUpstream, startWorker } from './server-sim.mjs';
 
 const SHOTS = process.argv.includes('--shots');
 // إبطاء المعالج (مثلًا CHECK_CPU_SLOWDOWN=6) يحاكي أجهزة CI والهواتف البطيئة ويكشف أخطاء التوقيت
@@ -499,6 +500,103 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   assert(stats.orContinued === 1 && contHeads.length === 10 && new Set(contHeads).size === contHeads.length && await page.locator('.notice.err').count() === 0,
     `بعد الرجوع: أكمل التقرير من حيث انقطع دون تكرار ولا خطأ (${contHeads.length} قسمًا)`);
 
+  /* ── 11. خادم المدير: مفاتيح ونماذج للجميع، سجل التقارير، تيليغرام، إيقاف جهاز ── */
+  const up = await startUpstream(8790);
+  const srv = await startWorker(8788, 8790);
+  const SRV = 'http://127.0.0.1:8788';
+  const PW = 'admin-pass-123';
+  try {
+    await page.goto(BASE + '#/settings');
+    await page.getByRole('button', { name: 'لوحة مدير التطبيق' }).click();
+    await page.waitForSelector('input[name="admin-url"]');
+    await page.fill('input[name="admin-url"]', SRV);
+    await page.fill('input[name="admin-password"]', 'wrong-password');
+    await page.getByRole('button', { name: 'دخول' }).click();
+    await appear(page.getByText('كلمة سر المدير غير صحيحة'));
+    assert(await page.getByText('كلمة سر المدير غير صحيحة').count() === 1, 'لوحة المدير: كلمة سر خاطئة تُرفض');
+    await page.fill('input[name="admin-password"]', PW);
+    await page.getByRole('button', { name: 'دخول' }).click();
+    await page.waitForSelector('.admin .stats4', { timeout: 10000 });
+    for (const [label, key] of [['الأول', 'sk-or-v1-limit-0123456789abcdefghij'], ['الثاني', 'sk-or-v1-good-0123456789abcdefghij']]) {
+      const n = await page.locator('.key-row').count();
+      await page.fill('input[name="key-label"]', label);
+      await page.fill('input[name="key-secret"]', key);
+      await page.getByRole('button', { name: 'أضف المفتاح' }).click();
+      await until(page, (c) => document.querySelectorAll('.key-row').length === c, n + 1);
+    }
+    assert(await page.locator('.key-row').count() === 2, 'لوحة المدير: إضافة مفتاحين (يُستعملان بالترتيب)');
+    for (const name of ['Qwen3 235B', 'DeepSeek V3.1']) {
+      await page.getByRole('button', { name: 'أضف نموذج كتابة' }).click();
+      await page.locator('.sheet .item', { hasText: name }).first().click();
+      await page.waitForSelector('.sheet', { state: 'detached' });
+      await appear(page.locator('.admin .item.static', { hasText: name }));
+    }
+    assert(await page.locator('.admin .item.static', { hasText: '1. Qwen3 235B' }).count() === 1 && await page.locator('.admin .item.static', { hasText: '2. DeepSeek V3.1' }).count() === 1, 'لوحة المدير: اختيار نماذج الكتابة للجميع من قائمة OpenRouter الحيّة');
+    await page.locator('.admin .chip', { hasText: '5 تقارير' }).click();
+    await page.waitForSelector('.toast:has-text("حُفظ")', { timeout: 10000 });
+    await page.fill('input[name="tg-token"]', '777:telegram-token');
+    await page.fill('input[name="tg-chat"]', '424242');
+    await page.locator('.admin button', { hasText: /^حفظ$/ }).last().click();
+    await page.waitForSelector('.toast:has-text("حُفظ تيليغرام")', { timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector('input[name="tg-chat"]')?.value === '424242', null, { timeout: 10000 });
+    await page.getByRole('button', { name: 'رسالة تجربة' }).click();
+    await appear(page.locator('.toast', { hasText: 'وصلت رسالة التجربة' }));
+    assert(up.log.tg.some((m) => m.path === '/tg/bot777:telegram-token/sendMessage' && m.body.includes('424242')), 'تيليغرام: رسالة تجربة وصلت إلى بوت المدير');
+    await shot(page, '15-admin');
+
+    // المستخدم: «خادم التطبيق» دون أي مفتاح
+    await page.goto(BASE + '#/settings');
+    await page.locator('.prov', { has: page.locator('strong', { hasText: 'خادم التطبيق' }) }).click();
+    await page.waitForSelector('input[placeholder="https://asas-server.example.workers.dev"]');
+    await page.fill('input[placeholder="https://asas-server.example.workers.dev"]', SRV);
+    await page.locator('.card input[placeholder="اسمك الثلاثي"]').fill('سجاد علي');
+    await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
+    await appear(page.getByText(/متصل بخادم/));
+    assert((await page.getByText(/متصل بخادم/).innerText()).includes('Qwen3 235B'), 'المستخدم: متصل بخادم التطبيق بلا مفتاح، ويرى النموذج الذي اختاره المدير');
+    assert(await page.getByText('يرى المدير تقاريرك').count() >= 1, 'المستخدم يُبلَّغ بوضوح أن المدير يرى تقاريره');
+    await page.goto(BASE + '#/create?topic=compression_test');
+    await page.waitForSelector('.type-card.on');
+    assert(await page.locator('.srv-note').count() === 1, 'صفحة الإنشاء تذكر أن نسخة من التقرير تصل إلى المدير');
+    await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+    await page.waitForURL(/#\/report\//);
+    await waitDone(page, 40000);
+    assert(await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0, `تقرير كامل عبر خادم التطبيق (${await page.locator('.rsec').count()} أقسام)`);
+    const streams = up.log.or.filter((x) => x.stream);
+    // الطلبات الأولى (الكتابة وتخطيط الصور معًا) تصطدم بحصة المفتاح الأول، ثم كل ما بعدها بالثاني
+    const orKeys = up.log.or.map((x) => (/limit/.test(x.key) ? 1 : 2));
+    const firstGood = orKeys.indexOf(2);
+    assert(orKeys[0] === 1 && firstGood > 0 && orKeys.slice(firstGood).every((k) => k === 2) && streams.length >= 1, `الخادم: حين انتهت حصة المفتاح الأول انتقل تلقائيًا إلى الثاني (${orKeys.join('←')})`);
+    assert(streams.every((x) => x.models.join() === 'qwen/qwen3-235b-a22b:free,deepseek/deepseek-chat-v3.1:free,openrouter/free'), 'الخادم يفرض النماذج التي اختارها المدير');
+    const admin = (path, o = {}) => fetch(SRV + '/admin' + path, { ...o, headers: { authorization: `Bearer ${PW}`, 'content-type': 'application/json' } }).then((r) => r.json());
+    let logged = [];
+    for (let i = 0; i < 40 && !logged.length; i++) { logged = (await admin('/reports')).reports; if (!logged.length) await sleep(250); }
+    assert(logged.length === 1 && logged[0].name === 'سجاد علي' && logged[0].title.includes('الانضغاط') && logged[0].words > 50, `سجل المدير: التقرير بعنوانه واسم صاحبه (${logged[0]?.title} — ${logged[0]?.name})`);
+    await srv.settle();
+    assert(up.log.tg.some((m) => m.body.includes('انتهت حصته اليومية')) && up.log.tg.some((m) => m.path.endsWith('/sendDocument') && m.body.includes('الانضغاط')), 'تيليغرام: تنبيه انتهاء حصة المفتاح، وملف التقرير الجديد كاملًا');
+
+    // المدير يرى التقرير ويوقف الجهاز
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin .reports .item', { timeout: 10000 });
+    await page.locator('.admin .reports .item').first().click();
+    await page.waitForSelector('.sheet .admin-paper h2, .sheet .admin-paper h3');
+    assert(await page.locator('.sheet .admin-paper').innerText().then((t) => t.length > 200), 'لوحة المدير: نص التقرير كاملًا');
+    await page.locator('.sheet .scrim, .scrim').first().click({ force: true }).catch(() => {});
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
+    assert((await page.locator('.admin [data-device]').first().innerText()).includes('سجاد علي'), 'لوحة المدير: قائمة المستخدمين بأسمائهم وعدد تقاريرهم');
+    await page.locator('.admin [data-device] .switch').first().click();
+    await appear(page.locator('.toast', { hasText: 'أُوقف' }));
+    await page.goto(BASE + '#/create?topic=curing');
+    await page.waitForSelector('.type-card.on');
+    await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+    await page.waitForURL(/#\/report\//);
+    await page.waitForSelector('.notice.err', { timeout: 15000 });
+    assert((await page.locator('.notice.err').innerText()).includes('أوقف مدير التطبيق هذا الجهاز'), 'جهاز أوقفه المدير: رسالة واضحة بدل الكتابة');
+  } finally {
+    up.server.close();
+    srv.server.close();
+  }
+
   /* ── 10. صحة طلبات Claude ────────────────────── */
   const bad = stats.claude.filter((c) => c.problems.length);
   assert(stats.claude.length >= 5, `طلبات Claude المرسلة: ${stats.claude.length} (${[...new Set(stats.claude.map((c) => c.kind))].join('، ')})`);
@@ -605,6 +703,7 @@ async function main() {
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('response', (r) => {
       const expected = /Broken_file/.test(r.url()) || (r.status() === 401 && /api\.anthropic\.com/.test(r.url()))
+        || ([401, 403, 429].includes(r.status()) && /127\.0\.0\.1:8788/.test(r.url()))
         || ([401, 404, 429].includes(r.status()) && /openrouter\.ai\/api/.test(r.url()));
       if (r.status() >= 400 && !expected) errors.push(`HTTP ${r.status()}: ${r.url()}`);
     });
