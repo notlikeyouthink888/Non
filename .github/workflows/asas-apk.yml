@@ -85,8 +85,8 @@ jobs:
 
       - name: بناء واجهة الويب
         env:
-          # نسخة عامة مربوطة بخادم المدير: ضع رابطه في Settings ← Variables ← Actions باسم ASAS_SERVER_URL
-          VITE_ASAS_SERVER: ${{ vars.ASAS_SERVER_URL }}
+          # نسخة عامة مربوطة بخادم المدير (يُغيَّر من Settings ← Variables ← Actions باسم ASAS_SERVER_URL)
+          VITE_ASAS_SERVER: ${{ vars.ASAS_SERVER_URL || 'https://asas-app.notreallybad872.workers.dev' }}
           VITE_ASAS_TOKEN: ${{ vars.ASAS_APP_TOKEN }}
         run: npm run build
 
