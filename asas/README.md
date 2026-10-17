@@ -127,7 +127,15 @@
 | السجل | كل تقرير (العنوان، النوع، المادة، الاسم، الجامعة، النص كاملًا) وكل المستخدمين بعدد تقاريرهم، وإيقاف أي جهاز |
 | تيليغرام | رسالة بكل تقرير جديد مع ملف نصه، وتنبيه حين تنتهي حصة مفتاح، وحين يدخل مستخدم جديد |
 
-**الإعداد (مرة واحدة، من التلفون أيضًا):**
+**أسهل إعداد — زر واحد:**
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/notlikeyouthink888/Non/tree/ccr-ba3f6671-bl9elf/asas/server)
+
+اضغطه ← سجّل الدخول إلى Cloudflare واربط GitHub ← اكتب `ADMIN_PASSWORD` إن طُلب ← **Create and deploy**.
+ينشئ قاعدة البيانات ويربطها تلقائيًا، ويعطيك رابطًا مثل `https://asas-app.اسمك.workers.dev`. إن لم يُطلب منك `ADMIN_PASSWORD`
+فأضفه من إعدادات الـ Worker ← Variables and Secrets ← Secret.
+
+**أو يدويًا من لوحة Cloudflare (مرة واحدة):**
 1. سجّل مجانًا في [dash.cloudflare.com](https://dash.cloudflare.com).
 2. **Storage & Databases ← D1 ← Create** باسم `asas-db`.
 3. **Workers & Pages ← Create ← Worker** باسم `asas-server` ← Deploy ← **Edit code** ← الصق كود الخادم
