@@ -16,6 +16,7 @@ import { KB } from '../data/kb/index.js';
 import { searchTopics, searchTypes, searchSubjects, detectType, isWeak, featured } from '../search/index.js';
 import { UNIVERSITIES, UNI_BY_ID } from '../data/universities.js';
 import { jsonCall, aiErrorMessage } from '../ai/client.js';
+import { typeAllowed } from '../core/server.js';
 import { SYSTEM, titlesPrompt, TITLES_SCHEMA } from '../ai/prompts.js';
 import { brandMark, aiPill, topicItem, reportItem, sectionTitle } from './common.js';
 import { bidi } from '../core/arabic.js';
@@ -91,9 +92,13 @@ export default {
         h('button.btn.primary.sm.mt', { type: 'button', onclick: () => go('/settings') }, [icon('key', 16), 'تفعيل الذكاء الاصطناعي']),
       ]) : null;
 
-      const types = h('div.grid-types', REPORT_TYPES.map((t) => h('button.type-card', {
-        type: 'button', onclick: () => go(`/create?type=${t.id}`), title: t.desc,
-      }, [h('span.em', t.icon), h('span.nm', bidi(t.name))])));
+      const types = h('div.grid-types', REPORT_TYPES.map((t) => {
+        const locked = !typeAllowed(t.id);
+        return h('button.type-card' + (locked ? '.locked' : ''), {
+          type: 'button', title: locked ? 'هذا النوع متاح لمدير التطبيق فقط' : t.desc,
+          onclick: () => (locked ? toast('هذا النوع متاح لمدير التطبيق فقط. المتاح لك: تقرير نظري (بحث).', 'err') : go(`/create?type=${t.id}`)),
+        }, [locked ? h('span.lock', icon('key', 13)) : null, h('span.em', t.icon), h('span.nm', bidi(t.name))]);
+      }));
 
       const cats = h('div.cats', CATEGORIES.map((c) => {
         const all = topicsOf(c.id);

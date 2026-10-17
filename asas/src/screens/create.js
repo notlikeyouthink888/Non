@@ -7,7 +7,7 @@ import { h, fill, chipGroup, field, toggle, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { replace } from '../core/nav.js';
 import { state, update, aiReady, modelInfo } from '../core/store.js';
-import { linked } from '../core/server.js';
+import { linked, typeAllowed } from '../core/server.js';
 import { putReport } from '../core/db.js';
 import { toast } from '../core/ui.js';
 import { REPORT_TYPES, TYPE_BY_ID, LENGTHS, LEVELS, getType } from '../data/types.js';
@@ -63,6 +63,10 @@ export default {
       cover: state.cover.enabled !== false,
       saveCover: false,
     };
+    // المستخدم العادي في نسخة الخادم لا يرى إلا الأنواع التي أتاحها المدير؛ غيرها يُبدَّل بأول نوع مسموح
+    if (!typeAllowed(st.typeId)) {
+      st.typeId = (REPORT_TYPES.find((t) => typeAllowed(t.id)) || TYPE_BY_ID.theory).id;
+    }
     st.images = getType(st.typeId).figures;
 
     const titleIn = h('textarea', { rows: 2, value: st.title, placeholder: 'مثال: فحص الشد للحديد (Tension Test)', oninput: () => { st.title = titleIn.value; } });
@@ -86,7 +90,7 @@ export default {
     }
 
     function renderTypes() {
-      const ordered = [...REPORT_TYPES].sort((a, b) => (suggested.has(b.id) ? 1 : 0) - (suggested.has(a.id) ? 1 : 0));
+      const ordered = REPORT_TYPES.filter((t) => typeAllowed(t.id)).sort((a, b) => (suggested.has(b.id) ? 1 : 0) - (suggested.has(a.id) ? 1 : 0));
       fill(typesGrid, ordered.map((t) => h('button.type-card' + (t.id === st.typeId ? '.on' : ''), {
         type: 'button',
         onclick: () => {
@@ -245,10 +249,8 @@ export default {
           metaBox,
         ]),
 
-        linked() ? h('div.notice.srv-note', [icon('info', 18), h('div.grow', [
-          state.server.config?.notice ? h('div', { style: { marginBottom: '4px', fontWeight: '700' } }, state.server.config.notice) : null,
-          'هذا التطبيق مربوط بخادم مديره: تصل نسخة من تقريرك (العنوان والنص واسمك في الغلاف) إلى مدير التطبيق.',
-        ])]) : null,
+        linked() && state.server.config?.notice ? h('div.notice.srv-note', [icon('info', 18), h('div.grow', state.server.config.notice)]) : null,
+        linked() ? h('p.hint', 'تقاريرك تُحفظ لدى مدير التطبيق.') : null,
         ai && state.ai.provider === 'server'
           ? h('p.hint', `سيُكتب عبر خادم التطبيق دون أي مفتاح، بالنموذج الذي اختاره المدير${state.server.config?.dailyLimit ? ` — حدّك اليومي ${state.server.config.dailyLimit} تقارير` : ''}.`)
           : ai

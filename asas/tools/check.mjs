@@ -505,6 +505,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   const srv = await startWorker(8788, 8790);
   const SRV = 'http://127.0.0.1:8788';
   const PW = 'admin-pass-123';
+  const admin = (path, o = {}) => fetch(SRV + '/admin' + path, { ...o, headers: { authorization: `Bearer ${PW}`, 'content-type': 'application/json' } }).then((r) => r.json());
   try {
     await page.goto(BASE + '#/settings');
     await page.getByRole('button', { name: 'لوحة مدير التطبيق' }).click();
@@ -532,6 +533,21 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
       await appear(page.locator('.admin .item.static', { hasText: name }));
     }
     assert(await page.locator('.admin .item.static', { hasText: '1. Qwen3 235B' }).count() === 1 && await page.locator('.admin .item.static', { hasText: '2. DeepSeek V3.1' }).count() === 1, 'لوحة المدير: اختيار نماذج الكتابة للجميع من قائمة OpenRouter الحيّة');
+
+    // الأنواع المتاحة للمستخدمين: الافتراضي النظري فقط، والمدير يضيف نوعًا ثم يزيله
+    assert(await page.locator('.admin .chips-wrap .chip.on', { hasText: 'تقرير نظري' }).count() === 1, 'لوحة المدير: النوع النظري متاح للمستخدمين افتراضيًا');
+    await page.locator('.admin .chips-wrap .chip', { hasText: 'مسائل محلولة' }).click();
+    await until(page, () => true); await sleep(200);
+    let pub = (await admin('/state')).config.publicTypes;
+    assert(pub.includes('theory') && pub.includes('solved'), `لوحة المدير: إتاحة نوع إضافي للمستخدمين (${pub.join('،')})`);
+    await page.locator('.admin .chips-wrap .chip.on', { hasText: 'مسائل محلولة' }).click();
+    await sleep(200);
+    pub = (await admin('/state')).config.publicTypes;
+    assert(pub.includes('theory') && !pub.includes('solved'), 'لوحة المدير: إزالة نوع من المتاح للمستخدمين');
+    // إلزام الكل بالخادم: يخفي عن المستخدمين مزوّدات الذكاء وإدخال المفاتيح
+    await page.locator('.admin .row-set', { hasText: 'إلزام الكل بخادمك' }).locator('.switch').click();
+    await sleep(200);
+    assert((await admin('/state')).config.lock === true, 'لوحة المدير: إلزام الكل بخادمك');
     await page.locator('.admin .chip', { hasText: '5 تقارير' }).click();
     await page.waitForSelector('.toast:has-text("حُفظ")', { timeout: 10000 });
     await page.fill('input[name="tg-token"]', '777:telegram-token');
@@ -549,14 +565,20 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.locator('.prov', { has: page.locator('strong', { hasText: 'خادم التطبيق' }) }).click();
     await page.waitForSelector('input[placeholder="https://asas-server.example.workers.dev"]');
     await page.fill('input[placeholder="https://asas-server.example.workers.dev"]', SRV);
-    await page.locator('.card input[placeholder="اسمك الثلاثي"]').fill('سجاد علي');
+    await page.locator('.card input[placeholder="اكتب اسمك"]').fill('سجاد علي');
     await page.getByRole('button', { name: 'اختبار الاتصال' }).click();
     await appear(page.getByText(/متصل بخادم/));
     assert((await page.getByText(/متصل بخادم/).innerText()).includes('Qwen3 235B'), 'المستخدم: متصل بخادم التطبيق بلا مفتاح، ويرى النموذج الذي اختاره المدير');
-    assert(await page.getByText('يرى المدير تقاريرك').count() >= 1, 'المستخدم يُبلَّغ بوضوح أن المدير يرى تقاريره');
+    assert(await page.locator('p.hint', { hasText: 'تُحفظ لدى مدير التطبيق' }).count() >= 1, 'المستخدم يُبلَّغ بسطر مختصر أن تقاريره تُحفظ لدى المدير');
+    // بعد ضبط الخادم على «إلزام الكل»: لا مزوّدات ولا إدخال مفاتيح للمستخدم (نعيد فتح الإعدادات لإعادة الرسم)
+    await page.goto(BASE + '#/');
+    await page.goto(BASE + '#/settings');
+    await appear(page.locator('input[placeholder="اكتب اسمك"]'));
+    assert(await page.locator('.prov-grid').count() === 0, 'المستخدم لا يرى مزوّدات الذكاء (OpenRouter/Claude) حين يُلزم المدير بالخادم');
+    assert(await page.locator('input[placeholder="sk-or-v1-…"]').count() === 0 && await page.locator('input[placeholder="sk-ant-api03-…"]').count() === 0, 'المستخدم لا يرى إدخال مفاتيح — المفاتيح في لوحة المدير فقط');
     await page.goto(BASE + '#/create?topic=compression_test');
     await page.waitForSelector('.type-card.on');
-    assert(await page.locator('.srv-note').count() === 1, 'صفحة الإنشاء تذكر أن نسخة من التقرير تصل إلى المدير');
+    assert(await page.locator('p.hint', { hasText: 'تُحفظ لدى مدير التطبيق' }).count() === 1, 'صفحة الإنشاء تذكر بسطر مختصر أن التقرير يُحفظ لدى المدير');
     await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
     await page.waitForURL(/#\/report\//);
     await waitDone(page, 40000);
@@ -567,7 +589,6 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     const firstGood = orKeys.indexOf(2);
     assert(orKeys[0] === 1 && firstGood > 0 && orKeys.slice(firstGood).every((k) => k === 2) && streams.length >= 1, `الخادم: حين انتهت حصة المفتاح الأول انتقل تلقائيًا إلى الثاني (${orKeys.join('←')})`);
     assert(streams.every((x) => x.models.join() === 'qwen/qwen3-235b-a22b:free,deepseek/deepseek-chat-v3.1:free,openrouter/free'), 'الخادم يفرض النماذج التي اختارها المدير');
-    const admin = (path, o = {}) => fetch(SRV + '/admin' + path, { ...o, headers: { authorization: `Bearer ${PW}`, 'content-type': 'application/json' } }).then((r) => r.json());
     let logged = [];
     for (let i = 0; i < 40 && !logged.length; i++) { logged = (await admin('/reports')).reports; if (!logged.length) await sleep(250); }
     assert(logged.length === 1 && logged[0].name === 'سجاد علي' && logged[0].title.includes('الانضغاط') && logged[0].words > 50, `سجل المدير: التقرير بعنوانه واسم صاحبه (${logged[0]?.title} — ${logged[0]?.name})`);
@@ -584,6 +605,15 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.goto(BASE + '#/admin');
     await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
     assert((await page.locator('.admin [data-device]').first().innerText()).includes('سجاد علي'), 'لوحة المدير: قائمة المستخدمين بأسمائهم وعدد تقاريرهم');
+    // المدير يعدّل اسم المستخدم دون أخطاء
+    await page.locator('.admin [data-device] .icon-btn').first().click();
+    await page.waitForSelector('.sheet input');
+    await page.fill('.sheet input', 'سجاد — شعبة أ');
+    await page.locator('.sheet .btn.primary', { hasText: 'حفظ' }).click();
+    await appear(page.locator('.toast', { hasText: 'تغيّر الاسم' }));
+    await sleep(300);
+    assert(((await admin('/devices')).devices[0].name) === 'سجاد — شعبة أ', 'لوحة المدير: تعديل اسم المستخدم يُحفظ في الخادم دون أخطاء');
+
     await page.locator('.admin [data-device] .switch').first().click();
     await appear(page.locator('.toast', { hasText: 'أُوقف' }));
     await page.goto(BASE + '#/create?topic=curing');
@@ -592,6 +622,24 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.waitForURL(/#\/report\//);
     await page.waitForSelector('.notice.err', { timeout: 15000 });
     assert((await page.locator('.notice.err').innerText()).includes('أوقف مدير التطبيق هذا الجهاز'), 'جهاز أوقفه المدير: رسالة واضحة بدل الكتابة');
+
+    // ── 11ب. حجب الأنواع عن المستخدم العادي (غير المدير) عدا النظري ──
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin .stats4', { timeout: 10000 });
+    await page.getByRole('button', { name: /^خروج$/ }).click(); // جهاز لم يعد مديرًا
+    await page.waitForSelector('input[name="admin-url"]', { timeout: 10000 });
+    await page.goto(BASE + '#/');
+    await page.waitForSelector('.grid-types .type-card');
+    const lockedLab = page.locator('.type-card.locked', { hasText: 'مختبر' });
+    const openTheory = page.locator('.type-card', { hasText: 'نظري' });
+    assert(await lockedLab.count() === 1 && !(await openTheory.first().getAttribute('class')).includes('locked'), 'الرئيسية: الأنواع محجوبة للمستخدم العادي عدا «تقرير نظري (بحث)»');
+    await lockedLab.first().click();
+    await appear(page.locator('.toast', { hasText: 'لمدير التطبيق فقط' }));
+    assert(!/#\/create/.test(page.url()), 'النوع المحجوب لا يفتح صفحة الإنشاء، بل ينبّه أنه للمدير');
+    await openTheory.first().click();
+    await page.waitForURL(/#\/create/);
+    await page.waitForSelector('.type-card.on');
+    assert(await page.locator('#app .grid-types .type-card').count() === 1, 'المستخدم العادي في صفحة الإنشاء لا يرى إلا النوع المتاح (نظري)');
   } finally {
     up.server.close();
     srv.server.close();

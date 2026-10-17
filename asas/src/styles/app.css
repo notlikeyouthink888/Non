@@ -195,6 +195,9 @@ h2.sec .more { margin-inline-start: auto; font-size: 13px; color: var(--accent);
 .type-card .nm { font-weight: 600; font-size: 13px; line-height: 1.45; }
 .type-card.on { border-color: var(--accent); background: var(--accent-soft); }
 .type-card .tag { font-size: 10.5px; color: var(--accent); font-weight: 700; }
+.type-card.locked { position: relative; opacity: .5; }
+.type-card.locked .lock { position: absolute; top: 8px; inset-inline-end: 8px; color: var(--fg-3); }
+.admin .chips-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* الأقسام */
 .cats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }

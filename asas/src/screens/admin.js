@@ -7,6 +7,7 @@
 import { h, fill, field, toggle, chipGroup, settingRow } from '../core/dom.js';
 import { icon } from '../core/icons.js';
 import { state, update, MODELS } from '../core/store.js';
+import { REPORT_TYPES } from '../data/types.js';
 import { toast, confirmSheet, sheet } from '../core/ui.js';
 import { ago, fmtNum } from '../core/fmt.js';
 import { bidi } from '../core/arabic.js';
@@ -29,6 +30,24 @@ async function copy(text) {
   const ok = document.execCommand?.('copy');
   ta.remove();
   return !!ok;
+}
+
+/** ورقة إدخال نص بسيطة؛ تعيد القيمة أو null عند الإلغاء. */
+function promptSheet(title, hint, value = '') {
+  return new Promise((resolve) => {
+    let done = false;
+    const inp = h('input', { value });
+    const sh = sheet(title, ({ close }) => h('div', [
+      hint ? h('p.hint', hint) : null,
+      inp,
+      h('div.grid2.mt', [
+        h('button.btn.ghost', { type: 'button', onclick: () => close() }, 'إلغاء'),
+        h('button.btn.primary', { type: 'button', onclick: () => { done = true; resolve(inp.value); close(); } }, 'حفظ'),
+      ]),
+    ]), { onClose: () => { if (!done) resolve(null); } });
+    setTimeout(() => inp.focus(), 50);
+    return sh;
+  });
 }
 
 export default {
@@ -247,7 +266,16 @@ export default {
       const cfg = st.config;
       const nameIn = h('input', { value: cfg.appName || '', placeholder: 'أساس' });
       const noticeIn = h('textarea', { rows: 2, value: cfg.notice || '', placeholder: 'مثلًا: الخدمة مجانية لطلبة المرحلة الثانية — للتواصل: …' });
+      // أنواع التقارير المتاحة للمستخدمين العاديين (الباقي للمدير وحده)
+      const sel = new Set(Array.isArray(cfg.publicTypes) ? cfg.publicTypes : ['theory']);
+      const typesBox = h('div.chips-wrap');
+      const drawTypes = () => fill(typesBox, REPORT_TYPES.map((t) => h('button.chip' + (sel.has(t.id) ? '.on' : ''), {
+        type: 'button',
+        onclick: () => { if (sel.has(t.id)) sel.delete(t.id); else sel.add(t.id); drawTypes(); save({ publicTypes: [...sel] }); },
+      }, `${t.icon} ${t.name}`)));
+      drawTypes();
       return h('div.card', [
+        field('أنواع التقارير المتاحة للمستخدمين', typesBox, 'ما لا تختاره يبقى لك وحدك (جهاز المدير). الافتراضي: تقرير نظري (بحث) فقط.'),
         field('الحد اليومي لكل مستخدم', chipGroup([3, 5, 10, 20, 50, 0].map((n) => ({ value: n, label: n ? `${n} تقارير` : 'بلا حد' })), cfg.dailyLimit, (v) => save({ dailyLimit: v })), 'يحمي مفاتيحك من الاستهلاك الزائد. تعديل قسم أو صور التقرير لا يُحسب تقريرًا جديدًا.'),
         settingRow('قبول مستخدمين جدد', 'أطفئه لتغلق التسجيل على من استعمل التطبيق سابقًا فقط', toggle(cfg.open, (v) => save({ open: v }))),
         settingRow('إلزام الكل بخادمك', 'يخفي خيارات المفاتيح الأخرى عند المستخدمين', toggle(cfg.lock, (v) => save({ lock: v }))),
@@ -341,16 +369,25 @@ export default {
       const card = h('div.card');
       fill(card, h('div.row', [h('div.spinner'), h('span.muted', 'يحمّل…')]));
       adminApi('/devices').then(({ devices }) => {
-        fill(card, devices.length ? h('div.list', devices.map((d) => h('div.item.static', { dataset: { device: d.id } }, [
-          h('div.grow', [
-            h('div.t', d.name || 'بلا اسم'),
-            h('div.s', [h('span', `${fmtNum(d.reports)} تقرير`), h('span', `اليوم ${d.today}`), h('span', `آخر استعمال ${ago(d.last_seen)}`), d.platform ? h('span.badge', d.platform) : null, d.blocked ? h('span.badge', 'موقوف') : null]),
-          ]),
-          h('button.btn.sm.ghost', { type: 'button', onclick: () => sheet(`تقارير ${d.name || 'المستخدم'}`, [reportsCard(d.id)], { full: true }) }, 'تقاريره'),
-          h('label.row', { style: { gap: '6px', fontSize: '12px' } }, ['إيقاف', toggle(d.blocked, async (v) => {
-            try { await adminApi(`/devices/${encodeURIComponent(d.id)}`, { method: 'PATCH', body: { blocked: v } }); toast(v ? 'أُوقف هذا المستخدم' : 'أُعيد تفعيله', 'ok'); } catch (e) { toast(e.message, 'err'); }
-          })]),
-        ]))) : h('p.hint', 'لا يوجد مستخدمون بعد.'));
+        const row = (d) => {
+          const nameEl = h('div.t', d.name || 'بلا اسم');
+          const rename = async () => {
+            const v = await promptSheet('اسم المستخدم', 'غيّر الاسم الذي يظهر لك لهذا المستخدم', d.name || '');
+            if (v == null || v.trim() === (d.name || '')) return;
+            try { await adminApi(`/devices/${encodeURIComponent(d.id)}`, { method: 'PATCH', body: { name: v.trim() } }); d.name = v.trim(); nameEl.textContent = d.name || 'بلا اسم'; toast('تغيّر الاسم ✓', 'ok'); } catch (e) { toast(e.message, 'err'); }
+          };
+          return h('div.item.static', { dataset: { device: d.id } }, [
+            h('div.grow', [
+              h('div.row', { style: { gap: '6px' } }, [nameEl, h('button.icon-btn.sm', { type: 'button', 'aria-label': 'تعديل الاسم', onclick: rename }, icon('edit', 15))]),
+              h('div.s', [h('span', `${fmtNum(d.reports)} تقرير`), h('span', `اليوم ${d.today}`), h('span', `آخر استعمال ${ago(d.last_seen)}`), d.platform ? h('span.badge', d.platform) : null, d.blocked ? h('span.badge', 'موقوف') : null]),
+            ]),
+            h('button.btn.sm.ghost', { type: 'button', onclick: () => sheet(`تقارير ${d.name || 'المستخدم'}`, [reportsCard(d.id)], { full: true }) }, 'تقاريره'),
+            h('label.row', { style: { gap: '6px', fontSize: '12px' } }, ['إيقاف', toggle(d.blocked, async (v) => {
+              try { await adminApi(`/devices/${encodeURIComponent(d.id)}`, { method: 'PATCH', body: { blocked: v } }); toast(v ? 'أُوقف هذا المستخدم' : 'أُعيد تفعيله', 'ok'); } catch (e) { toast(e.message, 'err'); }
+            })]),
+          ]);
+        };
+        fill(card, devices.length ? h('div.list', devices.map(row)) : h('p.hint', 'لا يوجد مستخدمون بعد.'));
       }).catch((e) => fill(card, h('p.hint', e.message)));
       return card;
     }

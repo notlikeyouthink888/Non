@@ -19,6 +19,16 @@ export const onServer = () => state.ai.provider === 'server' && !!serverUrl();
 export const linked = () => !!serverUrl();
 export const serverProvider = () => state.server?.config?.provider || 'openrouter';
 
+/** هل هذا الجهاز هو جهاز المدير (دخل لوحة الإدارة بكلمة سره)؟ */
+export const isAdmin = () => !!(adminUrl() && String(state.admin?.password || ''));
+/** أنواع التقارير المتاحة للمستخدمين العاديين (يحددها المدير؛ الافتراضي: النظري فقط). */
+export function publicTypes() {
+  const p = state.server?.config?.publicTypes;
+  return Array.isArray(p) && p.length ? p : ['theory'];
+}
+/** هل يُسمح لهذا المستخدم بإنشاء تقرير من هذا النوع؟ (كل الأنواع متاحة بلا خادم أو للمدير). */
+export const typeAllowed = (id) => !linked() || isAdmin() || publicTypes().includes(id);
+
 export function deviceId() {
   if (!/^[\w-]{8,64}$/.test(state.server.device || '')) {
     state.server.device = `${uid('d_')}${Math.random().toString(36).slice(2, 10)}`;

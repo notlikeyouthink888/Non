@@ -55,6 +55,8 @@ export default {
 
     function renderAI() {
       const a = state.ai;
+      // النسخة العامة (مبنية على خادم مدير): المستخدم يكتب عبر الخادم فقط، ولا يرى مزوّدات أو مفاتيح
+      if (BUILT_IN_SERVER && a.provider !== 'server') { update((s) => { s.ai.provider = 'server'; }, 'ai'); }
       const status = h('div.notice');
       const refreshStatus = () => {
         const on = aiReady();
@@ -194,19 +196,21 @@ export default {
         const syncUrl = () => { const v = urlIn.value.trim().replace(/\/+$/, ''); if (v !== state.server.url) { state.server.url = v; state.server.config = null; save(); refreshStatus(); } };
         ['input', 'change', 'blur', 'keyup'].forEach((ev) => urlIn.addEventListener(ev, syncUrl));
         syncers.push(syncUrl);
-        const nameIn = h('input', { value: state.cover.author || '', placeholder: 'اسمك الثلاثي', oninput: () => { state.cover.author = nameIn.value; save(); } });
+        const nameIn = h('input', { value: state.cover.author || '', placeholder: 'اكتب اسمك', oninput: () => { state.cover.author = nameIn.value; save(); } });
+        // النماذج والمفاتيح يختارها المدير وحده؛ المستخدم في النسخة العامة لا يرى خيارات المزوّد ولا المفاتيح
+        const hideProviders = BUILT_IN_SERVER || locked;
         fill(aiCard, [
           status,
-          locked ? null : field('مزوّد الذكاء الاصطناعي', providers),
+          hideProviders ? null : field('مزوّد الذكاء الاصطناعي', providers),
           BUILT_IN_SERVER ? null : field('رابط خادم التطبيق', urlIn, 'يعطيك إياه مدير التطبيق. لا تحتاج أي مفتاح.'),
-          field('اسمك', nameIn, 'يظهر في غلاف تقاريرك، ويراه مدير التطبيق مع تقاريرك.'),
+          field('اسم المستخدم', nameIn, 'اكتب اسمك — يظهر في غلاف تقاريرك.'),
           h('div.row.wrap', [testBtn, testOut]),
           cfg ? h('div.row-set', [h('div.grow', [
             h('div.t', `يكتب بـ ${cfg.models?.map((m) => m.name).join('، ') || 'تلقائي'}`),
             h('div.s', cfg.dailyLimit ? `حدّك اليومي ${cfg.dailyLimit} تقارير — استعملت اليوم ${cfg.usedToday}` : 'بلا حد يومي'),
           ])]) : null,
           cfg?.notice ? h('div.notice', [icon('info', 18), h('div.grow', cfg.notice)]) : null,
-          h('div.notice.warn', [icon('shield', 18), h('div.grow', 'الكتابة تتم عبر خادم مدير التطبيق ومفاتيحه، لذلك يرى المدير تقاريرك: العنوان والنص واسمك في الغلاف، ووقت إنشائها.')]),
+          h('p.hint', 'تقاريرك تُحفظ لدى مدير التطبيق.'),
           verifyRow,
         ]);
         if (linked() && !cfg) fetchConfig().then(() => renderAI()).catch(() => {});
