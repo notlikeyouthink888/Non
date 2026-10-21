@@ -10,9 +10,11 @@
 
 ## التنزيل
 
-ملف التثبيت ينبني تلقائيًا على GitHub وينحط بإصدار ثابت:
-**[releases/tag/mashari-apk-latest](https://github.com/notlikeyouthink888/Non/releases/tag/mashari-apk-latest)**
-← نزّل `DirasatMashari.apk` من متصفّح التلفون ← افتحه ← اسمح بالتثبيت من مصادر غير معروفة ← ثبّت.
+ملف التثبيت ينبني تلقائيًا على GitHub، وكل بناء إله إصدار جديد باسم «دراسة مشاريع — بناء N»
+(السابقة تتعلّم «(قديمة)»):
+**[كل نسخ التطبيق](https://github.com/notlikeyouthink888/Non/releases?q=mashari)**
+← افتح أحدث بناء ← نزّل `DirasatMashari.apk` من متصفّح التلفون ← افتحه ← اسمح بالتثبيت من مصادر غير معروفة ← ثبّت.
+النسخ الجديدة تنصب فوق القديمة، ودراستك تبقى.
 
 ## شنو بيه
 
@@ -69,6 +71,7 @@ mashari/
     mindmap/           بيانات الخريطة، الرسم بـ SVG، ومحرّر اللمس
     core/              التخزين، أدوات DOM، الأوراق والصفحات وزر الرجوع، جسر أندرويد
   android/             مشروع Capacitor (com.mashari.app) + FilesPlugin.java للحفظ والمشاركة
+  android/keystore/    مفتاح توقيع ثابت (للتثبيت الشخصي) حتى كل نسخة تنصب فوق اللي قبلها
   tools/               الفحص الآلي وتوليد الأيقونات
 ```
 

@@ -84,19 +84,32 @@ jobs:
           path: mashari/out/DirasatMashari.apk
           if-no-files-found: error
 
+      # الإصدارات بهذا المستودع ثابتة (immutable): الوسم اللي انستعمل ما ينحذف ولا ينعاد (خطأ 422)،
+      # فكل بناء ياخذ وسم جديد، ولا نحذف أي إصدار.
+      # --latest=false حتى ما ياخذ مكان «آخر إصدار» من تطبيقات المستودع الثانية.
       - name: نشره في إصدار للتنزيل المباشر
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: mashari-b${{ github.run_number }}-${{ github.run_attempt }}
         run: |
-          gh release delete mashari-apk-latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create mashari-apk-latest out/DirasatMashari.apk \
+          # الإصدارات السابقة تتعلّم «(قديمة)» حتى تنزّل الأحدث دائمًا
+          gh release list --limit 100 --json tagName,name \
+            --jq '.[] | select(.tagName | startswith("mashari-")) | [.tagName, .name] | @tsv' |
+          while IFS=$'\t' read -r old name; do
+            case "$name" in *"(قديمة)") continue ;; esac
+            gh release edit "$old" --title "$name (قديمة)" || echo "::warning::تعذّر تحديث $old"
+          done
+
+          gh release create "$TAG" out/DirasatMashari.apk \
             --target "$GITHUB_SHA" \
-            --title "دراسة مشاريع — أحدث نسخة" \
+            --latest=false \
+            --title "دراسة مشاريع — بناء ${{ github.run_number }}" \
             --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — تطبيق «دراسة مشاريع» للسوق العراقي.
           مبني من: \`$GITHUB_SHA\`
+          كل نسخ التطبيق: https://github.com/${{ github.repository }}/releases?q=mashari — السابقة معلَّمة «(قديمة)»
 
           **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`DirasatMashari.apk\` ←
           افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
 
-          ينصب كتطبيق مستقل جنب «Your World» وما يمسحه.
+          ينصب كتطبيق مستقل جنب تطبيقاتك الثانية وما يمسحها، والنسخ الجديدة تنصب فوق القديمة وتبقى دراستك.
           نسخة تجريبية (debug) موقّعة بمفتاح التطوير — تشتغل كاملة، لكنها مو للنشر على المتجر."

@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+// رقم البناء من GitHub Actions حتى كل نسخة تطلع أحدث من اللي قبلها
+def buildNumber = Integer.parseInt(System.getenv('GITHUB_RUN_NUMBER') ?: '1')
+
 android {
     namespace "com.mashari.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +10,8 @@ android {
         applicationId "com.mashari.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +19,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // مفتاح توقيع ثابت داخل المستودع حتى كل نسخة جديدة تنصب فوق القديمة
+    // بدون حذف (وتبقى الدراسة). مخصّص للتثبيت الشخصي؛ للنشر على المتجر استعمل مفتاحًا خاصًا.
+    signingConfigs {
+        shared {
+            storeFile file('../keystore/mashari.keystore')
+            storeType 'pkcs12'
+            storePassword 'mashari'
+            keyAlias 'mashari'
+            keyPassword 'mashari'
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.shared
+        }
+        debug {
+            signingConfig signingConfigs.shared
         }
     }
 }
