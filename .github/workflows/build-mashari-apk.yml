@@ -1,0 +1,102 @@
+name: بناء APK — دراسة مشاريع
+
+# تطبيق مستقل في مجلد mashari/ — له ملف تثبيت وإصدار خاص بيه،
+# وما يأثّر على بناء «Your World» (build-apk.yml).
+
+on:
+  push:
+    branches:
+      - main
+      - ccr-e07a6568-npc5ca
+    paths:
+      - 'mashari/**'
+      - '.github/workflows/build-mashari-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mashari-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: بناء ملف التثبيت
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mashari
+
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تهيئة Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mashari/package-lock.json
+
+      - name: تهيئة Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: تهيئة Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: قبول التراخيص مسبقًا
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      - name: بناء واجهة الويب
+        run: npm run build
+
+      - name: مزامنة مشروع أندرويد
+        run: npx cap sync android
+
+      - name: بناء APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          # </dev/null يمنع التعليق إن طلب Gradle إدخالًا تفاعليًا
+          ./gradlew assembleDebug --no-daemon --stacktrace --console=plain </dev/null
+
+      - name: تسمية الملف
+        id: name
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/DirasatMashari.apk
+          echo "size=$(du -h out/DirasatMashari.apk | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: رفع الملف كمُخرَج
+        uses: actions/upload-artifact@v4
+        with:
+          name: DirasatMashari-APK
+          path: mashari/out/DirasatMashari.apk
+          if-no-files-found: error
+
+      - name: نشره في إصدار للتنزيل المباشر
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete mashari-apk-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create mashari-apk-latest out/DirasatMashari.apk \
+            --target "$GITHUB_SHA" \
+            --title "دراسة مشاريع — أحدث نسخة" \
+            --notes "ملف التثبيت (${{ steps.name.outputs.size }}) — تطبيق «دراسة مشاريع» للسوق العراقي.
+          مبني من: \`$GITHUB_SHA\`
+
+          **طريقة التثبيت:** افتح الرابط من متصفّح التلفون ← نزّل \`DirasatMashari.apk\` ←
+          افتح الملف ← اسمح بـ«التثبيت من مصادر غير معروفة» إن طلبها ← ثبّت.
+
+          ينصب كتطبيق مستقل جنب «Your World» وما يمسحه.
+          نسخة تجريبية (debug) موقّعة بمفتاح التطوير — تشتغل كاملة، لكنها مو للنشر على المتجر."

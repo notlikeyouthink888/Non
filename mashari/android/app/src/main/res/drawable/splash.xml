@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- شاشة البداية (قبل أندرويد 12): خلفية داكنة وأيقونة التطبيق بالنص. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/m_bg" />
+    <item android:gravity="center">
+        <bitmap android:gravity="center" android:src="@mipmap/ic_launcher" />
+    </item>
+</layer-list>

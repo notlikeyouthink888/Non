@@ -1,0 +1,22 @@
+{
+  "name": "mashari",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "دراسة مشاريع — قاعدة أفكار مشاريع للسوق العراقي تدرسها بنفسك: ينجح أو يفشل، إيجابيات وسلبيات، ملاحظات، حسبة، وخريطة ذهنية.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5174",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4174",
+    "check": "node tools/check.mjs",
+    "android:sync": "npm run build && npx cap sync android"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
+    "playwright-core": "^1.56.0",
+    "vite": "^7.1.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "appId": "com.mashari.app",
+  "appName": "دراسة مشاريع",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "backgroundColor": "#0D1117"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
