@@ -67,7 +67,8 @@ html, body {
 body { overflow: hidden; }
 
 button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-button { cursor: pointer; border: none; background: none; padding: 0; text-align: inherit; }
+button { cursor: pointer; border: none; background: none; padding: 0; text-align: inherit; -webkit-user-select: none; user-select: none; }
+.nav, .tabs, .chips, .page-head, .mm-bar { -webkit-user-select: none; user-select: none; }
 button:disabled { opacity: .4; cursor: default; }
 input, textarea, select {
   width: 100%; background: var(--surface-2); border: 1px solid var(--line);

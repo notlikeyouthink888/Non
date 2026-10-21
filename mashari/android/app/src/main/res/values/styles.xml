@@ -8,6 +8,7 @@
         <item name="android:windowBackground">@color/m_bg</item>
         <item name="android:statusBarColor">@color/m_bg</item>
         <item name="android:navigationBarColor">@color/m_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
@@ -17,6 +18,7 @@
         <item name="android:windowBackground">@color/m_bg</item>
         <item name="android:statusBarColor">@color/m_bg</item>
         <item name="android:navigationBarColor">@color/m_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">

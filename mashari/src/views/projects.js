@@ -150,5 +150,12 @@ export function mountProjects(screen) {
     h('button.fab', { type: 'button', 'aria-label': 'أضف مشروع', onclick: addNew }, [h('span', '＋'), h('span.fab-l', 'مشروع')]),
   ]);
   renderList();
-  requestAnimationFrame(() => catChips.querySelector('.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+  // نوسّط رقاقة القسم المختار أفقيًا فقط (scrollIntoView كان يحرّك القائمة لفوق)
+  requestAnimationFrame(() => {
+    const on = catChips.querySelector('.on');
+    if (!on) return;
+    const box = catChips.getBoundingClientRect();
+    const chip = on.getBoundingClientRect();
+    catChips.scrollLeft += (chip.left + chip.width / 2) - (box.left + box.width / 2);
+  });
 }
