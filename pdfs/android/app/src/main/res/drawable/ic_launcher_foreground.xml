@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- شعار pdfs: ورقة بيضاء بزاوية مطويّة وصورة بداخلها -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M37,28 L62,28 L73,39 L73,80 Q73,82 71,82 L39,82 Q37,82 37,80 Z" />
+    <path android:fillColor="#FFC9CB" android:pathData="M62,28 L62,37 Q62,39 64,39 L73,39 Z" />
+    <path android:fillColor="#E5484D" android:pathData="M44,50 L66,50 Q68,50 68,52 L68,70 Q68,72 66,72 L44,72 Q42,72 42,70 L42,52 Q42,50 44,50 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M45,69 L51.5,60.5 L56,65.5 L59.5,62 L65,69 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M61,55.5 m-2.6,0 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0" />
+</vector>

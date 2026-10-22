@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pdfs_accent">#FFE5484D</color>
+    <color name="pdfs_bg">#FFF6F6F8</color>
+    <color name="colorPrimary">#FFE5484D</color>
+    <color name="colorPrimaryDark">#FFC93C41</color>
+    <color name="colorAccent">#FFE5484D</color>
+</resources>
