@@ -1,0 +1,105 @@
+using UnityEngine;
+using UnityEditor;
+using UnityEngine.Events;
+using NarrativeSim.Core;
+
+// هذا السكربت يشتغل داخل محرر Unity فقط لتهيئة المشهد
+public static class SceneBootstrap
+{
+    [MenuItem("Tools/NarrativeSim/Setup Scene")]
+    public static void SetupScene()
+    {
+        // 1. تجهيز اللاعب (Player)
+        GameObject player = GameObject.Find("Player");
+        if (player == null)
+        {
+            player = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            player.name = "Player";
+            player.transform.position = new Vector3(0, 1, 0);
+        }
+
+        Animator playerAnim = player.GetComponent<Animator>();
+        if (playerAnim == null) playerAnim = player.AddComponent<Animator>();
+
+        InteractionManager im = player.GetComponent<InteractionManager>();
+        if (im == null) im = player.AddComponent<InteractionManager>();
+
+        AnimationSync animSync = player.GetComponent<AnimationSync>();
+        if (animSync == null) animSync = player.AddComponent<AnimationSync>();
+
+        ProgressionSystem progSys = player.GetComponent<ProgressionSystem>();
+        if (progSys == null) progSys = player.AddComponent<ProgressionSystem>();
+
+        DialogueAIManager dialogueAI = player.GetComponent<DialogueAIManager>();
+        if (dialogueAI == null) dialogueAI = player.AddComponent<DialogueAIManager>();
+
+        DialogueBridge bridge = player.GetComponent<DialogueBridge>();
+        if (bridge == null) bridge = player.AddComponent<DialogueBridge>();
+
+        // 2. تجهيز الـ NPC
+        GameObject npc = GameObject.Find("NPC_Girl");
+        if (npc == null)
+        {
+            npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            npc.name = "NPC_Girl";
+            npc.transform.position = new Vector3(2, 1, 0);
+        }
+
+        Animator npcAnim = npc.GetComponent<Animator>();
+        if (npcAnim == null) npcAnim = npc.AddComponent<Animator>();
+
+        NPCController npcCon = npc.GetComponent<NPCController>();
+        if (npcCon == null) npcCon = npc.AddComponent<NPCController>();
+
+        // 3. تجهيز الكاميرا
+        Camera cam = Camera.main;
+        if (cam == null)
+        {
+            GameObject camObj = new GameObject("Main Camera");
+            cam = camObj.AddComponent<Camera>();
+            camObj.tag = "MainCamera";
+        }
+        SceneDirector sd = cam.GetComponent<SceneDirector>();
+        if (sd == null) sd = cam.gameObject.AddComponent<SceneDirector>();
+
+        // 4. الربط البرمجي (Wiring)
+        sd.player = player.transform;
+        animSync.playerAnimator = playerAnim;
+        animSync.npcAnimator = npcAnim;
+        progSys.animationSync = animSync;
+        dialogueAI.progressionSystem = progSys;
+        bridge.manager = dialogueAI;
+
+        // 5. ربط الأحداث (Events)
+        // ربط InteractionManager بـ SceneDirector
+        UnityEventTools.RemovePersistentListener(im.onInteracted, 0);
+        UnityEventTools.AddPersistentListener(im.onInteracted, sd.FocusOn);
+
+        // ربط NPCController بـ DialogueBridge لتشغيل الحوار تلقائياً
+        UnityEventTools.RemovePersistentListener(npcCon.onStateChanged, 0);
+        UnityEventTools.AddPersistentListener<NPCState, NPCState>(npcCon.onStateChanged, bridge.OnNPCStateChanged);
+
+        Debug.Log("NarrativeSim Scene Setup Complete! You can press Play now.");
+    }
+}
+
+// سكربت مساعد يشتغل وقت اللعب لتمرير الحدث للـ AI
+public class DialogueBridge : MonoBehaviour
+{
+    public DialogueAIManager manager;
+    public string playerName = "Mike";
+    public string npcName = "NPC_Girl";
+    public string actionDescription = "Mike starts interacting with her.";
+
+    public void OnNPCStateChanged(NPCState oldState, NPCState newState)
+    {
+        // لما الشخصية تبدأ التفاعل، نطلب الحوار من الـ AI
+        if (newState == NPCState.Interacting)
+        {
+            if (manager != null)
+            {
+                manager.RequestDialogue(playerName, npcName, actionDescription);
+            }
+        }
+    }
+}
