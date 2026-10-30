@@ -21,6 +21,7 @@ import { calcView } from './calc.js';
 import { openProjectForm } from './projectForm.js';
 import { studyText, refTitle, pointLabels } from './share.js';
 import { projectRow } from './parts.js';
+import { aiTab, openAiHub } from './ai.js';
 
 /** معلومات العرض حسب نوع الدراسة. */
 function describe(ref) {
@@ -109,6 +110,7 @@ export function openStudy(ref, { tab: startTab = 'study', onClose } = {}) {
         { id: 'study', label: '📝 الدراسة' },
         { id: 'map', label: `🧠 الخريطة${mapCount(study) ? ` (${mapCount(study)})` : ''}` },
         ref.kind === 'project' ? { id: 'calc', label: '🧮 الحسبة' } : null,
+        ref.kind === 'project' ? { id: 'ai', label: '🤖 تحليل' } : null,
         ref.kind === 'sector' ? { id: 'list', label: '📋 المشاريع' } : null,
       ].filter(Boolean);
       return h('div.tabs', items.map((t) => h('button' + (t.id === tab ? '.on' : ''), {
@@ -272,6 +274,10 @@ export function openStudy(ref, { tab: startTab = 'study', onClose } = {}) {
       const openProject = (id) => openStudy({ kind: 'project', id }, { onClose: () => render() });
       const rows = items.map((p) => projectRow(p, (pp) => openProject(pp.id)));
       return h('div', [
+        h('div.grid2.ai-row', [
+          h('button.btn', { type: 'button', onclick: () => openAiHub({ tab: 'scores', cat: ref.id, onClose: render }) }, '🎲 قيّم الاحتمالات'),
+          h('button.btn', { type: 'button', onclick: () => openAiHub({ tab: 'ideas', cat: ref.id, onClose: render }) }, '💡 اقترح أفكار'),
+        ]),
         h('div.list', rows),
         h('button.btn.block.mt', {
           type: 'button',
@@ -289,6 +295,7 @@ export function openStudy(ref, { tab: startTab = 'study', onClose } = {}) {
       let content;
       if (tab === 'map') content = mapTab(info);
       else if (tab === 'calc' && ref.kind === 'project') content = calcView(study);
+      else if (tab === 'ai' && ref.kind === 'project') content = aiTab(info.project, study, render);
       else if (tab === 'list' && ref.kind === 'sector') content = listTab();
       else {
         content = h('div', [

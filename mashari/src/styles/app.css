@@ -232,3 +232,91 @@
 
 /* ── الإعدادات ───────────────────────────────────── */
 .settings h2.sec:first-child { margin-top: 0; }
+
+/* ── الذكاء الاصطناعي ────────────────────────────── */
+.head-acts { gap: 2px; }
+.sp.ai { color: #9b8cff; background: color-mix(in srgb, #8b7bff 16%, transparent); }
+.sp.ai.hi { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.sp.ai.lo { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+[data-theme='light'] .sp.ai { color: #5b47e8; }
+
+.spinner {
+  width: 28px; height: 28px; border-radius: 50%; flex: none;
+  border: 3px solid var(--surface-3); border-top-color: var(--accent); animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ai-loading { display: flex; align-items: center; gap: 12px; }
+.ai-error { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.ai-error .card-s { margin-top: 4px; line-height: 1.7; }
+
+.ai-badge {
+  width: 64px; height: 64px; margin: 4px auto 10px; border-radius: 50%; display: grid; place-items: center; font-size: 32px;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 45%, var(--surface)), var(--surface-2));
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.ai-setup, .ai-intro { padding: 20px 16px 16px; }
+.ai-intro p, .ai-setup p { line-height: 1.75; }
+
+.ai-hero { display: flex; align-items: center; gap: 16px; }
+.ai-ring .ring-fg { stroke: #8b7bff; }
+.ai-ring .ring-t { font-size: 19px; }
+.ai-hero .vb { margin-top: 4px; }
+.ai-sum { margin: 8px 0 0; font-size: 13.5px; color: var(--fg-2); line-height: 1.75; }
+
+.scen-bar { display: flex; height: 14px; border-radius: 99px; overflow: hidden; gap: 2px; margin: 10px 0 10px; background: var(--surface-3); }
+.scen-bar i { display: block; height: 100%; }
+.s-strong { background: var(--ok); }
+.s-avg { background: var(--warn); }
+.s-loss { background: var(--danger); }
+.scen-legend { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.scen-legend span { display: flex; align-items: center; gap: 8px; }
+.scen-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+.factors { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.factor b { font-size: 13.5px; }
+.f-score { font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
+.f-bar { height: 7px; border-radius: 99px; background: var(--surface-3); overflow: hidden; margin: 5px 0 4px; }
+.f-bar i { display: block; height: 100%; border-radius: 99px; }
+.f-bar i.good { background: var(--ok); }
+.f-bar i.mid { background: var(--warn); }
+.f-bar i.bad { background: var(--danger); }
+
+.ai-money { margin-bottom: 12px; }
+.ai-points .ai-pt { display: flex; align-items: flex-start; gap: 8px; padding: 8px 2px; border-bottom: 1px dashed var(--line); font-size: 14px; line-height: 1.7; }
+.ai-points .ai-pt:last-child { border-bottom: none; }
+.ai-points.pros { border-top: 3px solid color-mix(in srgb, var(--ok) 55%, transparent); }
+.ai-points.cons { border-top: 3px solid color-mix(in srgb, var(--danger) 55%, transparent); }
+.adopt {
+  flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--accent); font-weight: 800;
+}
+.adopt.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
+.ai-list { margin: 8px 0 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.7; }
+.ai-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 2px 6px; }
+.ai-note { margin: 6px 8px 0; line-height: 1.7; }
+.ai-row { margin-bottom: 12px; }
+
+.idea .pic {
+  width: 42px; height: 42px; border-radius: 12px; background: var(--surface-2);
+  display: grid; place-items: center; font-size: 21px; flex: none;
+}
+.idea-d { margin: 10px 0 0; font-size: 13.5px; color: var(--fg-2); line-height: 1.7; }
+.idea-why { margin: 6px 0 12px; font-size: 13px; color: var(--fg-3); line-height: 1.7; }
+.idea .added { color: var(--ok); font-weight: 700; font-size: 13px; }
+
+.score-row {
+  display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+}
+.score-row .pic { width: 38px; height: 38px; border-radius: 11px; background: var(--surface-2); display: grid; place-items: center; font-size: 19px; flex: none; }
+.score-row .pt { display: block; font-weight: 700; font-size: 14px; }
+.score-row .ps { display: block; color: var(--fg-3); font-size: 12px; line-height: 1.6; }
+.score-row .sp { font-size: 13px; padding: 3px 9px; }
+
+.ai-settings .steps { margin: 0 0 14px; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.7; color: var(--fg-2); }
+.ai-settings a { color: var(--accent); font-weight: 700; }
+.key-in { font-family: ui-monospace, monospace; font-size: 13px; }
+.model-sel { cursor: pointer; }
+.ai-status { margin-top: 10px; font-size: 13px; color: var(--fg-2); line-height: 1.7; min-height: 1em; }
+.ai-status.ok { color: var(--ok); }
+.ai-status.err { color: var(--danger); }

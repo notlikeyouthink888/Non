@@ -32,6 +32,11 @@ export const defaults = {
   edits: {},             // تعديلات على مشاريع القاعدة: id -> { name, desc, icon, cat, type, cap }
   hidden: [],            // مشاريع من القاعدة أخفاها المستخدم
   customCats: [],        // أقسام جديدة { id, icon, name }
+  ai: {
+    model: 'auto',       // النموذج المختار من OpenRouter (المفتاح ينحفظ لحاله، مو هنا)
+    analyses: {},        // projectId -> { at, model, cur, data } تحليل كامل
+    quick: {},           // projectId -> { at, chance, reason } تقييم سريع
+  },
   ui: {
     tab: 'projects',
     filter: { q: '', verdict: 'all', cat: 'all', type: 'all', cap: 0, sort: 'default' },
@@ -107,7 +112,9 @@ export function importAll(text) {
 /** يمسح كل الدراسة ويرجع التطبيق لحالته الأولى. */
 export function resetAll() {
   const keepSettings = state.settings;
+  const keepModel = state.ai?.model;
   Object.keys(state).forEach((k) => delete state[k]);
   Object.assign(state, structuredClone(defaults), { settings: keepSettings });
+  if (keepModel) state.ai.model = keepModel;
   save(true);
 }

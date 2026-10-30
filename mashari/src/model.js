@@ -112,6 +112,8 @@ export function removeProject(id) {
   } else {
     state.custom = state.custom.filter((p) => p.id !== id);
     delete state.studies[id];
+    delete state.ai.analyses[id];
+    delete state.ai.quick[id];
   }
   save();
 }
@@ -212,6 +214,9 @@ export function filterProjects(f) {
     list.sort((a, b) => (hasContent(st(b)) ? st(b).updatedAt : 0) - (hasContent(st(a)) ? st(a).updatedAt : 0));
   } else if (f.sort === 'chance') {
     list.sort((a, b) => (st(b)?.chance ?? -1) - (st(a)?.chance ?? -1));
+  } else if (f.sort === 'ai') {
+    const ai = (p) => state.ai.analyses[p.id]?.data.chance ?? state.ai.quick[p.id]?.chance ?? -1;
+    list.sort((a, b) => ai(b) - ai(a));
   } else if (f.sort === 'name') {
     list.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   }

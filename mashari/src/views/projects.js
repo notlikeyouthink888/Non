@@ -7,6 +7,8 @@ import { openStudy } from './study.js';
 import { openProjectForm } from './projectForm.js';
 import { openSettings } from './settings.js';
 import { projectRow, head } from './parts.js';
+import { openAiHub } from './ai.js';
+import { menuSheet } from '../core/ui.js';
 
 let panelOpen = false;
 
@@ -24,6 +26,7 @@ const SORTS = [
   { value: 'default', label: 'حسب القسم' },
   { value: 'recent', label: 'آخر ما درست' },
   { value: 'chance', label: 'نسبة النجاح' },
+  { value: 'ai', label: '🤖 احتمال الذكاء' },
   { value: 'name', label: 'الاسم' },
 ];
 
@@ -126,10 +129,22 @@ export function mountProjects(screen) {
     });
   }
 
+  function addMenu() {
+    menuSheet('مشروع جديد', [
+      { icon: '✍️', label: 'أضيفه بنفسي', sub: 'تكتب الاسم والقسم والوصف', onClick: addNew },
+      {
+        icon: '🤖', label: 'اقترح عليّ أفكار بالذكاء الاصطناعي', sub: 'أفكار موجودة بالعراق ومو موجودة بقائمتك',
+        onClick: () => openAiHub({ tab: 'ideas', cat: f.cat !== 'all' ? f.cat : undefined }),
+      },
+    ]);
+  }
+
   renderPanel();
   fill(screen, [
-    head('دراسة مشاريع', `${state.market.title} · إنت اللي تقرر ينجح لو يفشل`,
-      h('button.btn.icon.ghost', { type: 'button', 'aria-label': 'الإعدادات', onclick: openSettings }, '⚙')),
+    head('دراسة مشاريع', `${state.market.title} · إنت اللي تقرر ينجح لو يفشل`, h('div.row.head-acts', [
+      h('button.btn.icon.ghost', { type: 'button', 'aria-label': 'الذكاء الاصطناعي', onclick: () => openAiHub() }, '🤖'),
+      h('button.btn.icon.ghost', { type: 'button', 'aria-label': 'الإعدادات', onclick: openSettings }, '⚙'),
+    ])),
     h('div.searchbar', [search]),
     h('div.chips.scroll.vrow', [
       filterBtn,
@@ -147,7 +162,7 @@ export function mountProjects(screen) {
     catChips,
     countEl,
     listEl,
-    h('button.fab', { type: 'button', 'aria-label': 'أضف مشروع', onclick: addNew }, [h('span', '＋'), h('span.fab-l', 'مشروع')]),
+    h('button.fab', { type: 'button', 'aria-label': 'أضف مشروع', onclick: addMenu }, [h('span', '＋'), h('span.fab-l', 'مشروع')]),
   ]);
   renderList();
   // نوسّط رقاقة القسم المختار أفقيًا فقط (scrollIntoView كان يحرّك القائمة لفوق)

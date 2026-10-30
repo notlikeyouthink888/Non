@@ -8,6 +8,8 @@ import { Files, isNative } from '../core/native.js';
 import { today } from '../core/text.js';
 import { hiddenProjects, restoreProject, studiedProjects, countProjects } from '../model.js';
 import { PROJECTS } from '../data/projects.js';
+import { hasKey, modelName } from '../ai/openrouter.js';
+import { openAiSettings } from './ai.js';
 
 const backupName = () => `dirasat-mashari-${today()}.json`;
 
@@ -31,6 +33,11 @@ export function openSettings() {
         { value: 'IQD', label: 'دينار عراقي (د.ع)' },
         { value: 'USD', label: 'دولار ($)' },
       ], s.currency, (v) => { s.currency = v; save(); emit('changed'); }),
+
+      h('h2.sec', '🤖 الذكاء الاصطناعي'),
+      settingRow(hasKey() ? 'OpenRouter مربوط ✓' : 'مو مربوط',
+        hasKey() ? `النموذج: ${modelName(state.ai.model)}` : 'حط مفتاح مجاني حتى يحلل الاحتمالات ويقترح مشاريع',
+        h('button.btn.sm', { type: 'button', onclick: () => openAiSettings({ onDone: render }) }, hasKey() ? 'تعديل' : 'ربط')),
 
       h('h2.sec', 'اللمس'),
       settingRow('اهتزاز خفيف عند الضغط', null, toggle(s.haptics, (on) => { s.haptics = on; save(); })),

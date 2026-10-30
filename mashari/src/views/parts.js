@@ -3,6 +3,7 @@
 import { h, svg } from '../core/dom.js';
 import { state } from '../core/store.js';
 import { verdictOf, typeOf, capOf, mapCount, calcHasData } from '../model.js';
+import { aiChance } from '../ai/tasks.js';
 
 /** حلقة نسبة دائرية. */
 export function ring(pct, { size = 56, stroke = 6, label = null, cls = '' } = {}) {
@@ -28,9 +29,10 @@ export function verdictPill(s, { big = false } = {}) {
 }
 
 /** مؤشرات صغيرة لشنو كتبت بالدراسة: +3 −2 📝 🧠5 🧮 */
-export function studyPills(s) {
-  if (!s) return null;
+export function studyPills(s, ai = null) {
   const out = [];
+  if (ai !== null) out.push(h('span.sp.ai' + (ai >= 65 ? '.hi' : ai < 40 ? '.lo' : ''), { title: 'احتمال النجاح حسب الذكاء' }, `🤖 ${ai}%`));
+  if (!s) return out.length ? h('span.pills', out) : null;
   if (s.pros.length) out.push(h('span.sp.pro', { dir: 'ltr' }, `+${s.pros.length}`));
   if (s.cons.length) out.push(h('span.sp.con', { dir: 'ltr' }, `−${s.cons.length}`));
   if (s.notes.trim()) out.push(h('span.sp', '📝'));
@@ -54,8 +56,8 @@ export function projectRow(p, onOpen) {
         p.name,
         s?.star ? h('span.star', { title: 'مفضّل' }, ' ★') : null,
       ]),
-      h('span.ps', [`${t.icon} ${t.name}`, cap ? ` · رأس مال ${cap.name}` : '', p.custom ? ' · ' : '', p.custom ? h('span.mine', 'إضافتي') : null]),
-      studyPills(s),
+      h('span.ps', [`${t.icon} ${t.name}`, cap ? ` · رأس مال ${cap.name}` : '', p.custom ? ' · ' : '', p.custom ? h('span.mine', p.ai ? '🤖 اقتراح الذكاء' : 'إضافتي') : null]),
+      studyPills(s, aiChance(p.id)),
     ]),
     v ? h('span.vb.' + v.cls, [h('b', v.icon), ' ', v.label]) : h('span.chev', '‹'),
   ]);

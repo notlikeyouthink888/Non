@@ -54,6 +54,12 @@ export function studyText(ref) {
   if (s.notes.trim()) lines.push('', '📝 ملاحظات:', s.notes.trim());
   if (calcHasData(s.calc)) lines.push('', ...calcLines(s.calc));
   if (mapCount(s)) lines.push('', '🧠 الخريطة الذهنية:', outline(s.map, title));
+  const ai = ref.kind === 'project' ? state.ai.analyses[ref.id]?.data : null;
+  if (ai) {
+    lines.push('', `🤖 رأي الذكاء الاصطناعي: احتمال النجاح ${ai.chance}%`);
+    lines.push(`بعد سنة: ربح قوي ${ai.scenarios.strong}% · يغطي نفسه ${ai.scenarios.average}% · خسارة ${ai.scenarios.loss}%`);
+    if (ai.summary) lines.push(ai.summary);
+  }
   lines.push('', '— من تطبيق «دراسة مشاريع»');
   return lines.join('\n');
 }
