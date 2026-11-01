@@ -630,12 +630,17 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.waitForSelector('input[name="admin-url"]', { timeout: 10000 });
     await page.goto(BASE + '#/');
     await page.waitForSelector('.grid-types .type-card');
-    const lockedLab = page.locator('.type-card.locked', { hasText: 'مختبر' });
+    const homeTypes = page.locator('#app .grid-types .type-card');
     const openTheory = page.locator('.type-card', { hasText: 'نظري' });
-    assert(await lockedLab.count() === 1 && !(await openTheory.first().getAttribute('class')).includes('locked'), 'الرئيسية: الأنواع محجوبة للمستخدم العادي عدا «تقرير نظري (بحث)»');
-    await lockedLab.first().click();
-    await appear(page.locator('.toast', { hasText: 'لمدير التطبيق فقط' }));
-    assert(!/#\/create/.test(page.url()), 'النوع المحجوب لا يفتح صفحة الإنشاء، بل ينبّه أنه للمدير');
+    assert(await homeTypes.count() === 1 && await openTheory.count() === 1 && await page.locator('.type-card', { hasText: 'مختبر' }).count() === 0,
+      'الرئيسية: الأنواع المحجوبة مخفية تمامًا عن المستخدم العادي ولا يظهر إلا «تقرير نظري (بحث)»');
+    assert(await page.locator('.type-card .lock, .type-card.locked').count() === 0, 'لا أقفال فوق الأنواع: المحجوب لا يظهر أصلًا');
+    await page.locator('input[type=search], .search input').first().fill('مختبر').catch(() => {});
+    await page.waitForTimeout(400);
+    assert(await page.locator('#app .type-card', { hasText: 'مختبر' }).count() === 0, 'البحث لا يُظهر الأنواع المحجوبة');
+    await page.goto(BASE + '#/browse');
+    await page.goto(BASE + '#/');
+    await page.waitForSelector('.grid-types .type-card');
     await openTheory.first().click();
     await page.waitForURL(/#\/create/);
     await page.waitForSelector('.type-card.on');

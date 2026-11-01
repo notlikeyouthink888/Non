@@ -62,7 +62,7 @@ export default {
     const wrap = h('div.wrap', [
       h('div.hero', [
         h('div.row.between', [
-          h('div.brand', [brandMark(30), h('div', [h('div.brand-name', 'أساس'), h('div.brand-sub', 'تقارير المرحلة الثانية — الهندسة المدنية')])]),
+          h('div.brand', [brandMark(30), h('div', [h('div.brand-name', 'sadiqabbas'), h('div.brand-sub', 'تقارير المرحلة الثانية — الهندسة المدنية')])]),
           aiPill(),
         ]),
       ]),
@@ -92,13 +92,11 @@ export default {
         h('button.btn.primary.sm.mt', { type: 'button', onclick: () => go('/settings') }, [icon('key', 16), 'تفعيل الذكاء الاصطناعي']),
       ]) : null;
 
-      const types = h('div.grid-types', REPORT_TYPES.map((t) => {
-        const locked = !typeAllowed(t.id);
-        return h('button.type-card' + (locked ? '.locked' : ''), {
-          type: 'button', title: locked ? 'هذا النوع متاح لمدير التطبيق فقط' : t.desc,
-          onclick: () => (locked ? toast('هذا النوع متاح لمدير التطبيق فقط. المتاح لك: تقرير نظري (بحث).', 'err') : go(`/create?type=${t.id}`)),
-        }, [locked ? h('span.lock', icon('key', 13)) : null, h('span.em', t.icon), h('span.nm', bidi(t.name))]);
-      }));
+      // الأنواع المحجوبة عن المستخدم لا تظهر أصلًا؛ المدير يختار ما يظهر من لوحته.
+      const shownTypes = REPORT_TYPES.filter((t) => typeAllowed(t.id));
+      const types = h('div.grid-types', shownTypes.map((t) => h('button.type-card', {
+        type: 'button', title: t.desc, onclick: () => go(`/create?type=${t.id}`),
+      }, [h('span.em', t.icon), h('span.nm', bidi(t.name))])));
 
       const cats = h('div.cats', CATEGORIES.map((c) => {
         const all = topicsOf(c.id);
@@ -116,7 +114,7 @@ export default {
         intro,
         sectionTitle(`مواد المرحلة الثانية — ${TOPICS.length} عنوانًا`, { label: 'تصفّح', onClick: () => go('/browse') }),
         cats,
-        sectionTitle(`أنواع التقارير (${REPORT_TYPES.length})`),
+        sectionTitle(shownTypes.length > 1 ? `أنواع التقارير (${shownTypes.length})` : 'نوع التقرير'),
         types,
         sectionTitle('آخر تقاريرك', { label: 'الكل', onClick: () => go('/library') }),
         recentReports,
@@ -132,7 +130,7 @@ export default {
     /* ── نتائج البحث ──────────────────────────── */
     function renderResults(q) {
       const results = searchTopics(q, { limit: 30 });
-      const types = searchTypes(q);
+      const types = searchTypes(q).filter((t) => typeAllowed(t.id));
       const subjects = searchSubjects(q);
       const typeHint = detectType(q);
       const weak = isWeak(results);

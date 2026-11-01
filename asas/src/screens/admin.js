@@ -264,7 +264,7 @@ export default {
     /* ── القواعد ── */
     function rulesCard() {
       const cfg = st.config;
-      const nameIn = h('input', { value: cfg.appName || '', placeholder: 'أساس' });
+      const nameIn = h('input', { value: cfg.appName || '', placeholder: 'sadiqabbas' });
       const noticeIn = h('textarea', { rows: 2, value: cfg.notice || '', placeholder: 'مثلًا: الخدمة مجانية لطلبة المرحلة الثانية — للتواصل: …' });
       // أنواع التقارير المتاحة للمستخدمين العاديين (الباقي للمدير وحده)
       const sel = new Set(Array.isArray(cfg.publicTypes) ? cfg.publicTypes : ['theory']);

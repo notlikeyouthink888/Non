@@ -102,7 +102,7 @@ public class KeepAliveService extends Service {
         channels(c);
         return new NotificationCompat.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_asas)
-                .setContentTitle("أساس")
+                .setContentTitle("sadiqabbas")
                 .setContentText(text)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -121,7 +121,7 @@ public class KeepAliveService extends Service {
         if (nm == null) return;
         Notification n = new NotificationCompat.Builder(c, CHANNEL_DONE)
                 .setSmallIcon(R.drawable.ic_stat_asas)
-                .setContentTitle("أساس")
+                .setContentTitle("sadiqabbas")
                 .setContentText(text)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
