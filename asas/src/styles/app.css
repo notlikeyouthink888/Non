@@ -612,7 +612,7 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
 ::-webkit-scrollbar { width: 0; height: 0; }
 
 /* ── الطباعة / PDF ─────────────────────────────── */
-@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+@page { size: A4; margin: 18mm 16mm 18mm 16mm; background: #fff; }
 @media print {
   /* «only light» يمنع الوضع الداكن الإجباري في أندرويد (مثل وضع شاومي الداكن للتطبيقات) من قلب
      الغلاف الأبيض إلى أسود عند الطباعة/PDF */
@@ -622,6 +622,9 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
     --accent: #9a4a00; --accent-soft: #fbf1e3; --fg-3: #555; --fg-2: #333; --ph-bg: #fff3c4; --ph-fg: #000;
   }
   html, body { background: #fff !important; color: #000; height: auto; overflow: visible; }
+  /* خلفية الصفحة تُطبع بيضاء دائمًا (الهواتف لا تطبع الخلفيات افتراضيًا فيظهر لون التطبيق الداكن في الهوامش) */
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { -webkit-print-color-adjust: economy; print-color-adjust: economy; }
   #app { position: static; }
   .screen { overflow: visible !important; padding: 0 !important; }
   .nav, .topbar, .dock, .rsec .tools, .fig-tools, .fig-pending, .no-print, #toast-root, #sheet-root, .notice, .gen-panel { display: none !important; }

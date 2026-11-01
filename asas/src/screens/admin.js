@@ -169,6 +169,7 @@ export default {
         return h('div.key-row', { dataset: { id: k.id } }, [
           h('div.grow', [
             h('div.t', [k.label, ' ', h('span.badge', k.provider === 'anthropic' ? 'Claude' : 'OpenRouter'), ' ', h('span.ltr.muted', k.hint)]),
+            k.owners?.length ? h('div.s', `خاص بـ: ${k.owners.join('، ')}`) : null,
             h('div.s', [h('span.kst' + (k.status === 'ok' ? '.ok' : '.bad'), status + when), ` • اليوم ${fmtNum(k.today)} • الكل ${fmtNum(k.uses)}`]),
             k.note ? h('div.s.muted.note', k.note.slice(0, 140)) : null,
           ]),
@@ -188,7 +189,7 @@ export default {
       const keyIn = h('input.ltr', { placeholder: 'sk-or-v1-… أو sk-ant-api03-…', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'key-secret' });
       fill(card, [
         st.keys.length ? h('div.keys', st.keys.map(keyRow)) : h('p.hint', 'لا توجد مفاتيح بعد.'),
-        h('div.hint', 'يستعمل الخادم المفاتيح بالترتيب: حين تنتهي حصة مفتاح أو رصيده ينتقل تلقائيًا إلى التالي ويرسل لك تنبيهًا، ويرجع للمفتاح بعد تجدد حصته.'),
+        h('div.hint', 'يستعمل الخادم المفاتيح بالترتيب: حين تنتهي حصة مفتاح أو رصيده ينتقل تلقائيًا إلى التالي ويرسل لك تنبيهًا، ويرجع للمفتاح بعد تجدد حصته. ولتعيين مفتاح لمستخدم معيّن: «المستخدمون» ← «المفتاح».'),
         h('div.add-key', [
           field('مفتاح جديد', chipGroup([{ value: 'openrouter', label: 'OpenRouter' }, { value: 'anthropic', label: 'Claude' }], prov, (v) => { prov = v; })),
           labelIn,
@@ -364,6 +365,40 @@ export default {
       ], { full: true });
     }
 
+    /* ── مفتاح مستخدم معيّن: يختاره المدير من المفاتيح أو يضيف له مفتاحًا جديدًا ── */
+    function userKeySheet(d, keyEl) {
+      const who = d.name || 'هذا المستخدم';
+      let pick = d.key_id || 0;
+      let prov = st.config.provider === 'anthropic' ? 'anthropic' : 'openrouter';
+      const keyIn = h('input.ltr', { placeholder: 'sk-or-v1-… أو sk-ant-api03-…', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'user-key-secret' });
+      const done = (keyId, label) => {
+        d.key_id = keyId; d.key_label = label;
+        keyEl.textContent = keyId ? `مفتاحه: ${label}` : 'المفاتيح المشتركة';
+      };
+      const save = async (sh, body) => {
+        try {
+          const r = await adminApi(`/devices/${encodeURIComponent(d.id)}`, { method: 'PATCH', body });
+          await load();
+          const k = st.keys.find((x) => x.id === r.keyId);
+          done(r.keyId || 0, k?.label || '');
+          toast(r.keyId ? `صار ${who} يكتب بمفتاح «${k?.label}» ✓` : `رجع ${who} إلى المفاتيح المشتركة ✓`, 'ok');
+          sh.close();
+        } catch (e) { toast(e.message, 'err'); }
+      };
+      const options = [{ value: 0, label: 'المفاتيح المشتركة' }, ...st.keys.map((k) => ({ value: k.id, label: `${k.label} ${k.hint}` }))];
+      const sh = sheet(`مفتاح ${who}`, ({ close }) => h('div.user-key', [
+        h('p.hint', 'المفتاح الخاص يكتب به هذا المستخدم وحده، ولا يستعمله غيره. إذا انتهت حصته يكمل تلقائيًا بالمفاتيح المشتركة.'),
+        field('اختر مفتاحه', chipGroup(options, pick, (v) => { pick = v; })),
+        h('button.btn.primary.block', { type: 'button', onclick: () => save(sh, { keyId: pick }) }, 'حفظ'),
+        h('div.add-key', [
+          field('أو أضف له مفتاحًا جديدًا', chipGroup([{ value: 'openrouter', label: 'OpenRouter' }, { value: 'anthropic', label: 'Claude' }], prov, (v) => { prov = v; })),
+          keyIn,
+          h('button.btn.block', { type: 'button', onclick: () => save(sh, { newKey: { provider: prov, secret: keyIn.value } }) }, [icon('plus', 16), 'أضف المفتاح وخصّصه له']),
+        ]),
+        h('button.btn.ghost.block.mt', { type: 'button', onclick: () => close() }, 'إلغاء'),
+      ]));
+    }
+
     /* ── المستخدمون ── */
     function devicesCard() {
       const card = h('div.card');
@@ -376,9 +411,11 @@ export default {
             if (v == null || v.trim() === (d.name || '')) return;
             try { await adminApi(`/devices/${encodeURIComponent(d.id)}`, { method: 'PATCH', body: { name: v.trim() } }); d.name = v.trim(); nameEl.textContent = d.name || 'بلا اسم'; toast('تغيّر الاسم ✓', 'ok'); } catch (e) { toast(e.message, 'err'); }
           };
+          const keyEl = h('span.badge.dev-key', d.key_id ? `مفتاحه: ${d.key_label}` : 'المفاتيح المشتركة');
           return h('div.item.static', { dataset: { device: d.id } }, [
             h('div.grow', [
               h('div.row', { style: { gap: '6px' } }, [nameEl, h('button.icon-btn.sm', { type: 'button', 'aria-label': 'تعديل الاسم', onclick: rename }, icon('edit', 15))]),
+              h('div.s', [h('button.btn.sm.ghost', { type: 'button', 'aria-label': 'مفتاح المستخدم', onclick: () => userKeySheet(d, keyEl) }, [icon('key', 14), 'المفتاح']), keyEl]),
               h('div.s', [h('span', `${fmtNum(d.reports)} تقرير`), h('span', `اليوم ${d.today}`), h('span', `آخر استعمال ${ago(d.last_seen)}`), d.platform ? h('span.badge', d.platform) : null, d.blocked ? h('span.badge', 'موقوف') : null]),
             ]),
             h('button.btn.sm.ghost', { type: 'button', onclick: () => sheet(`تقارير ${d.name || 'المستخدم'}`, [reportsCard(d.id)], { full: true }) }, 'تقاريره'),

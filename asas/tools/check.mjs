@@ -619,6 +619,30 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await appear(page.locator('.toast', { hasText: 'تغيّر الاسم' }));
     await sleep(300);
     assert(((await admin('/devices')).devices[0].name) === 'سجاد — شعبة أ', 'لوحة المدير: تعديل اسم المستخدم يُحفظ في الخادم دون أخطاء');
+    // المدير يعيّن لهذا المستخدم مفتاحًا خاصًا به (يضيفه من صفّه في «المستخدمون»)
+    await page.locator('.admin [data-device] button', { hasText: 'المفتاح' }).first().click();
+    await page.waitForSelector('.sheet .user-key input');
+    await page.fill('.sheet .user-key input[name="user-key-secret"]', 'sk-or-v1-userown-good-0123456789abcdef');
+    await page.locator('.sheet .user-key button', { hasText: 'أضف المفتاح وخصّصه له' }).click();
+    await appear(page.locator('.toast', { hasText: 'يكتب بمفتاح' }));
+    const owner = (await admin('/devices')).devices[0];
+    const ownKey = (await admin('/state')).keys.find((k) => k.id === owner.key_id);
+    assert(owner.key_id > 0 && ownKey?.owners.includes('سجاد — شعبة أ') && await page.locator('.admin [data-device] .dev-key', { hasText: 'مفتاحه' }).count() === 1,
+      `لوحة المدير: مفتاح خاص لمستخدم معيّن (${ownKey?.label})`);
+    const orCall = (dev, name) => fetch(SRV + '/or/api/v1/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json', 'x-asas-device': dev, 'x-asas-name': encodeURIComponent(name), 'x-asas-kind': 'other' }, body: JSON.stringify({ messages: [{ role: 'system', content: '"ok"' }, { role: 'user', content: 'x' }] }) });
+    let r1 = await orCall(owner.id, 'سجاد علي');
+    const usedOwn = up.log.or.at(-1).key;
+    let r2 = await orCall('other-device-0001', 'مستخدم آخر');
+    const usedOther = up.log.or.at(-1).key;
+    assert(r1.ok && r2.ok && usedOwn.includes('userown') && !usedOther.includes('userown'), 'الخادم: المستخدم يكتب بمفتاحه الخاص، وغيره لا يستعمل ذلك المفتاح');
+    assert(((await admin('/devices')).devices.find((d) => d.id === owner.id).name) === 'سجاد — شعبة أ', 'الاسم الذي عدّله المدير يبقى ولا يكتبه التطبيق فوقه');
+    // إرجاعه إلى المفاتيح المشتركة
+    await admin(`/devices/${encodeURIComponent(owner.id)}`, { method: 'PATCH', body: JSON.stringify({ keyId: 0 }) });
+    await orCall(owner.id, 'سجاد علي');
+    assert(!up.log.or.at(-1).key.includes('userown') && (await admin('/devices')).devices.find((d) => d.id === owner.id).key_id === 0, 'لوحة المدير: إرجاع المستخدم إلى المفاتيح المشتركة');
+    await page.goto(BASE + '#/');
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
 
     await page.locator('.admin [data-device] .switch').first().click();
     await appear(page.locator('.toast', { hasText: 'أُوقف' }));
