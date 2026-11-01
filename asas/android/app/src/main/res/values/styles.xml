@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- السمة الأساسية: خلفية داكنة مطابقة للتطبيق حتى خلف أشرطة النظام -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="colorPrimary">@color/asas_bg</item>
         <item name="colorPrimaryDark">@color/asas_bg</item>
         <item name="colorAccent">@color/asas_accent</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
         <item name="android:windowBackground">@color/asas_bg</item>
         <item name="android:statusBarColor">@color/asas_bg</item>
         <item name="android:navigationBarColor">@color/asas_bg</item>
@@ -14,6 +15,7 @@
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
         <item name="android:background">@null</item>
         <item name="android:windowBackground">@color/asas_bg</item>
         <item name="android:statusBarColor">@color/asas_bg</item>

@@ -328,7 +328,7 @@ ol.steps-mini a { color: var(--accent-2); }
 .cover {
   container-type: inline-size; position: relative; aspect-ratio: 210 / 297; width: 100%; max-width: 560px; margin: 0 auto 18px;
   background: #fff; color: #111827; border-radius: 6px; box-shadow: 0 6px 24px rgba(0, 0, 0, .28); overflow: hidden;
-  font-family: var(--font-doc); -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  font-family: var(--font-doc); -webkit-print-color-adjust: exact; print-color-adjust: exact; color-scheme: only light;
 }
 .cover .cv { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 9cqw 8cqw; text-align: center; line-height: 1.6; }
 .cover .cv-top, .cover .cv-mid, .cover .cv-bot { display: flex; flex-direction: column; align-items: center; gap: .8cqw; }
@@ -614,8 +614,10 @@ figure.fig .fig-tools button { width: 36px; height: 36px; border-radius: 50%; di
 /* ── الطباعة / PDF ─────────────────────────────── */
 @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
 @media print {
+  /* «only light» يمنع الوضع الداكن الإجباري في أندرويد (مثل وضع شاومي الداكن للتطبيقات) من قلب
+     الغلاف الأبيض إلى أسود عند الطباعة/PDF */
   :root, :root[data-theme] {
-    color-scheme: light;
+    color-scheme: only light;
     --bg: #fff; --fg: #000; --paper: #fff; --paper-fg: #000; --paper-line: #999; --surface-2: #f1f1f1;
     --accent: #9a4a00; --accent-soft: #fbf1e3; --fg-3: #555; --fg-2: #333; --ph-bg: #fff3c4; --ph-fg: #000;
   }

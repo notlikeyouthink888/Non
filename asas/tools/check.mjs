@@ -114,6 +114,12 @@ async function flows(page) {
   assert(await page.locator('.rsec h3', { hasText: 'أسئلة المناقشة' }).count() === 1, 'المناقشة: أسئلة المناقشة مع أجوبتها');
   const cover = await page.locator('.paper > .cover').innerText();
   assert(cover.includes('جمهورية العراق') && cover.includes('جامعة بغداد') && cover.includes('التجربة رقم (3)') && cover.includes('مقاومة المواد'), 'الغلاف بصيغة الجامعة: الوزارة والجامعة والمادة ورقم التجربة');
+  // الطباعة/PDF: الصفحة والغلاف «only light» حتى لا يقلب الوضع الداكن الإجباري في الهاتف الغلاف أسود
+  await page.emulateMedia({ media: 'print' });
+  const printScheme = await page.evaluate(() => [getComputedStyle(document.documentElement).colorScheme, getComputedStyle(document.querySelector('.paper > .cover')).colorScheme, getComputedStyle(document.querySelector('.paper > .cover')).backgroundColor]);
+  await page.emulateMedia({ media: 'screen' });
+  const onlyLight = (v) => /\bonly\b/.test(v) && /\blight\b/.test(v) && !/dark/.test(v);
+  assert(onlyLight(printScheme[0]) && onlyLight(printScheme[1]) && printScheme[2] === 'rgb(255, 255, 255)', `الغلاف يُطبع أبيض حتى مع الوضع الداكن الإجباري للهاتف (${printScheme.join(' | ')})`);
   // الصور تُحمَّل كسولًا (loading=lazy)، فننزل إلى أول صورة كما يفعل المستخدم
   await page.locator('figure.fig').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(() => [...document.querySelectorAll('figure.fig img')].some((i) => i.complete && i.naturalWidth > 0), null, { timeout: 15000 });
