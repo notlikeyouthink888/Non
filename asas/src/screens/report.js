@@ -14,7 +14,7 @@ import { shareFile, saveFile, printPage, isNative } from '../core/native.js';
 import { loadMath } from '../core/math.js';
 import { getType } from '../data/types.js';
 import { bidi } from '../core/arabic.js';
-import { jobOf, subscribeJob, startGeneration, cancelJob, settleFigures, PHASES } from '../report/pipeline.js';
+import { jobOf, subscribeJob, startGeneration, cancelJob, settleFigures, canResume, resumeGeneration, PHASES } from '../report/pipeline.js';
 import { renderCover, renderToc, renderSection } from '../report/render.js';
 import { figureNumbers, figuresOf } from '../report/model.js';
 import { openSectionEditor, openImagePicker, openCoverEditor, openAddFigure, removeFigure, openFormatSheet } from '../report/sheets.js';
@@ -70,7 +70,11 @@ export default {
         dock.remove();
         return;
       }
-      if (!job && report.status === 'generating') {
+      if (!job && canResume(report)) {
+        // توقف أثناء الكتابة (أُغلق التطبيق): يكمل تلقائيًا — من الخادم إن كان يكتبه، أو مما حُفظ
+        job = await resumeGeneration(report);
+        report = job.report;
+      } else if (!job && report.status === 'generating') {
         report.status = 'partial';
         report.error = 'توقف إنشاء التقرير قبل اكتماله (ربما أُغلق التطبيق). يمكنك إعادة إنشائه من القائمة.';
         settleFigures(report);

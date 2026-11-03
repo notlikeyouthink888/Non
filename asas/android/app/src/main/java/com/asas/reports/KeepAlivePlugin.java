@@ -5,7 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -25,6 +28,7 @@ public class KeepAlivePlugin extends Plugin {
     public void start(PluginCall call) {
         String text = call.getString("text", "يكتب التقرير…");
         askNotificationsOnce();
+        askBatteryOnce();
         KeepAliveService running = KeepAliveService.instance;
         if (running != null) {
             running.update(text);
@@ -55,6 +59,29 @@ public class KeepAlivePlugin extends Plugin {
         String done = call.getString("done", "");
         if (done != null && !done.isEmpty()) KeepAliveService.notifyDone(ctx, done);
         call.resolve();
+    }
+
+    /**
+     * يطلب مرة واحدة استثناء التطبيق من «تحسين البطارية»، فلا يقطع النظام (أو سامسونج وشاومي) شبكته
+     * في الخلفية أثناء كتابة التقرير. نافذة النظام نفسها؛ إن رفض المستخدم يبقى كل شيء كما هو.
+     */
+    private void askBatteryOnce() {
+        if (Build.VERSION.SDK_INT < 23 || getActivity() == null) return;
+        Context ctx = getContext();
+        PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        if (pm == null || pm.isIgnoringBatteryOptimizations(ctx.getPackageName())) return;
+        SharedPreferences prefs = ctx.getSharedPreferences("asas", Context.MODE_PRIVATE);
+        if (prefs.getBoolean("askedBattery", false)) return;
+        prefs.edit().putBoolean("askedBattery", true).apply();
+        getActivity().runOnUiThread(() -> {
+            try {
+                Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                i.setData(Uri.parse("package:" + ctx.getPackageName()));
+                getActivity().startActivity(i);
+            } catch (Exception ignored) {
+                // بعض الأجهزة لا توفّر هذه النافذة
+            }
+        });
     }
 
     /** أندرويد 13+: يطلب إذن الإشعارات مرة واحدة فقط (الخدمة تعمل حتى لو رُفض). */

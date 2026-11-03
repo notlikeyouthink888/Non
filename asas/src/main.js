@@ -21,6 +21,9 @@ function boot() {
   // خادم مدير التطبيق: النماذج والحد اليومي ورسالة المدير (وإلزام الكل بالخادم إن اختاره)
   if (state.server?.url) import('./core/server.js').then((m) => m.fetchConfig()).catch(() => {});
 
+  // تقارير توقفت أثناء كتابتها (أُغلق التطبيق): تكمل تلقائيًا في الخلفية — من الخادم إن كان يكتبها
+  setTimeout(() => import('./report/pipeline.js').then((m) => m.resumeUnfinished()).catch(() => {}), 800);
+
   // محرّك المعادلات يُجهَّز في وقت الفراغ حتى تظهر المعادلات مرسومة من أول عرض
   const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
   idle(() => loadMath().catch(() => {}));

@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -27,6 +28,7 @@ public class KeepAliveService extends Service {
 
     static volatile KeepAliveService instance;
     private PowerManager.WakeLock wake;
+    private WifiManager.WifiLock wifi;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -43,21 +45,46 @@ public class KeepAliveService extends Service {
         } else {
             startForeground(ID, n);
         }
+        holdLocks();
+        return START_NOT_STICKY;
+    }
+
+    /**
+     * المعالج يبقى مستيقظًا والواي فاي لا يدخل وضع توفير الطاقة ما دام التقرير يُكتب، حتى والشاشة مطفأة.
+     * القفل يتجدد مع كل تحديث للإشعار، وله حدّ احتياطي إن نُسي إيقافه.
+     */
+    private void holdLocks() {
         if (wake == null) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
                 wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "asas:generate");
                 wake.setReferenceCounted(false);
-                wake.acquire(30 * 60 * 1000L); // حدّ أقصى نصف ساعة احتياطًا
             }
         }
-        return START_NOT_STICKY;
+        if (wake != null) wake.acquire(30 * 60 * 1000L);
+        if (wifi == null) {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                try {
+                    wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "asas:generate");
+                    wifi.setReferenceCounted(false);
+                } catch (Exception ignored) {
+                    wifi = null;
+                }
+            }
+        }
+        try {
+            if (wifi != null && !wifi.isHeld()) wifi.acquire();
+        } catch (Exception ignored) {
+            // بعض الأجهزة تمنعه: لا يضر
+        }
     }
 
-    /** يحدّث نص الإشعار الجاري. */
+    /** يحدّث نص الإشعار الجاري ويجدد الأقفال. */
     void update(String text) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(ID, build(this, text));
+        holdLocks();
     }
 
     @Override
@@ -71,6 +98,12 @@ public class KeepAliveService extends Service {
         instance = null;
         if (wake != null && wake.isHeld()) wake.release();
         wake = null;
+        try {
+            if (wifi != null && wifi.isHeld()) wifi.release();
+        } catch (Exception ignored) {
+            // مُحرَّر
+        }
+        wifi = null;
         super.onDestroy();
     }
 

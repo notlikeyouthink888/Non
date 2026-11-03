@@ -5,15 +5,16 @@
  */
 
 import { state, aiReady, uid, save } from '../core/store.js';
-import { putReport } from '../core/db.js';
+import { putReport, getReport, listReports, imageIdsOf, deleteImages } from '../core/db.js';
 import { getKB } from '../data/kb/index.js';
 import { TOPIC_BY_ID } from '../data/topics.js';
 import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
 import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits, isTransientError } from '../ai/client.js';
 import { holdAwake, retryTransient } from '../core/keepalive.js';
-import { linked, ensureConfig, logReport } from '../core/server.js';
-import { splitSections, wordsOf, normalizeHeadings } from './md.js';
+import { linked, onServer, ensureConfig, logReport } from '../core/server.js';
+import { newJobId } from '../ai/jobfetch.js';
+import { splitSections, wordsOf, normalizeHeadings, joinSections } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
 import { missingSections } from './model.js';
 import { planSections, humanize, isRefsHeading, applyContent } from './style.js';
@@ -84,13 +85,15 @@ ${kept.slice(-3500)}
 
 /**
  * يبدأ توليد تقرير جديد أو إعادة توليده.
- * mode: 'ai' | 'offline'
+ * mode: 'ai' | 'offline' | 'images'. resume: استئناف تقرير توقف (أُغلق التطبيق أثناء كتابته).
  */
-export function startGeneration(report, mode = 'ai') {
+export function startGeneration(report, mode = 'ai', { resume = false } = {}) {
+  if (jobs.has(report.id)) return jobs.get(report.id);
   const job = {
     id: report.id,
     report,
     mode,
+    resume,
     phases: Object.fromEntries(PHASES.map((p) => [p.id, { status: 'wait', detail: '' }])),
     listeners: new Set(),
     ctrl: new AbortController(),
@@ -131,6 +134,34 @@ export function cancelJob(id) {
   jobs.get(id)?.ctrl.abort();
 }
 
+/** هل يُستأنف تقرير توقف أثناء كتابته (أُغلق التطبيق)؟ */
+export function canResume(r) {
+  return !!r && r.status === 'generating' && !jobs.has(r.id) && r.source === 'ai' && aiReady() && (r.resumes || 0) < 3;
+}
+
+/** يستأنف تقريرًا توقف أثناء كتابته: يعود لمهمته في الخادم أو يكمل مما حُفظ. */
+export async function resumeGeneration(r) {
+  if (jobs.has(r.id)) return jobs.get(r.id);
+  r.resumes = (r.resumes || 0) + 1;
+  // الصور تُجلب من جديد بعد اكتمال النص
+  const old = imageIdsOf(r);
+  r.figures = [];
+  await deleteImages(old).catch(() => {});
+  return startGeneration(r, 'ai', { resume: true });
+}
+
+/** عند فتح التطبيق: يكمل التقارير التي توقفت أثناء كتابتها (في الخلفية دون انتظار المستخدم). */
+export async function resumeUnfinished() {
+  if (!aiReady()) return [];
+  const list = (await listReports().catch(() => [])).filter((x) => x.status === 'generating' && !jobs.has(x.id)).slice(0, 3);
+  const started = [];
+  for (const x of list) {
+    const r = await getReport(x.id).catch(() => null);
+    if (canResume(r)) started.push(await resumeGeneration(r));
+  }
+  return started;
+}
+
 async function run(job) {
   if (job.mode === 'images') return runImagesOnly(job);
   const r = job.report;
@@ -158,7 +189,10 @@ async function run(job) {
     md = applyContent(md, r.options);
     return { ...s, md };
   });
-  r.model = useAI ? activeModelId() : null;
+  // استئناف تقرير اكتمل نصه قبل إغلاق التطبيق: تُستكمل الصور فقط ولا يُطلب نص جديد
+  const textReady = !!(job.resume && r.textDone && r.sections?.length);
+  if (!textReady) r.textDone = false;
+  if (!textReady) r.model = useAI ? activeModelId() : null;
   await putReport(r);
 
   let lastSave = 0;
@@ -175,8 +209,10 @@ async function run(job) {
   imagesFlow.catch(() => {}); // يُعالَج لاحقًا؛ هذا يمنع «وعد مرفوض» إن فشلت الكتابة أولًا
 
   // ── الكتابة ──
-  setPhase(job, 'write', 'run', useAI ? 'يتصل بالذكاء الاصطناعي…' : 'يبني التقرير من قاعدة المعرفة…');
-  if (useAI) {
+  if (textReady) {
+    setPhase(job, 'write', 'done', `${r.words || wordsOf(r.sections)} كلمة — محفوظ`);
+  } else if (useAI) {
+    setPhase(job, 'write', 'run', 'يتصل بالذكاء الاصطناعي…');
     const titles = (planSections(r.typeId, r.catId, r.options) || []).map((s) => s.h);
     let pending = null;
     let raf = 0;
@@ -190,10 +226,21 @@ async function run(job) {
       saveSoon();
     };
     const basePrompt = reportPrompt({ title: r.title, typeId: r.typeId, cat: r.catId, options: r.options, details: r.options.details, readings: r.options.readings || '', kb, meta: r.meta });
-    // إن انقطع الاتصال (خروج من التطبيق أو شبكة ضعيفة) نحتفظ بما كُتب ونكمل منه تلقائيًا بعد عودة الاتصال
+    // عبر خادم التطبيق تجري الكتابة في الخادم نفسه: انقطاع الهاتف لا يوقفها، والتطبيق يعيد الاتصال
+    // ويكمل القراءة من حيث وصل. وإن تعذّر ذلك نحتفظ بما كُتب ونطلب تكملته منه تلقائيًا.
     let kept = '';
-    let last = '';
+    let reuse = null;
+    if (job.resume) {
+      // بعد إغلاق التطبيق: نعود لمهمة الكتابة نفسها في الخادم (اكتملت غالبًا)، أو نكمل مما حُفظ في الجهاز
+      if (r.writeJob?.id && onServer()) { reuse = r.writeJob.id; kept = r.writeJob.kept || ''; }
+      else { const k = keepWritten(joinSections(r.sections || [])); kept = k.length >= 400 ? k : ''; }
+    }
+    let last = kept;
     const res = await retryTransient(async () => {
+      const id = reuse || newJobId();
+      reuse = null;
+      r.writeJob = { id, kept };
+      await putReport(r).catch(() => {});
       const out = await streamText({
         system: SYSTEM,
         prompt: kept ? continuePrompt(basePrompt, kept, r.options.lang === 'en') : basePrompt,
@@ -201,6 +248,12 @@ async function run(job) {
         maxTokens: 64000,
         signal,
         meta: meta('report'),
+        job: {
+          id,
+          onReconnect: (n) => setPhase(job, 'write', 'run', n
+            ? 'الشبكة ضعيفة — الكتابة مستمرة في الخادم، ويكمل الوصول تلقائيًا…'
+            : 'يكتب التقرير…'),
+        },
         onText: (snap) => {
           last = joinContinuation(kept, snap);
           pending = last;
@@ -211,17 +264,16 @@ async function run(job) {
       return { ...out, text: joinContinuation(kept, out.text) };
     }, {
       signal,
-      tries: 4,
+      tries: 8,
       isTransient: isTransientError,
-      onRetry: ({ background }) => {
+      onRetry: () => {
         const k = keepWritten(last.length > kept.length ? last : kept);
         kept = k.length >= 400 ? k : '';
         r.retries = (r.retries || 0) + 1;
-        setPhase(job, 'write', 'run', background
-          ? 'انقطع الاتصال أثناء خروجك من التطبيق — سيكمل تلقائيًا من حيث توقف'
-          : 'انقطع الاتصال — يعيد المحاولة ويكمل من حيث توقف…');
+        setPhase(job, 'write', 'run', 'الشبكة ضعيفة — يكمل تلقائيًا من حيث توقف…');
       },
     });
+    r.writeJob = null;
     clearTimeout(raf);
     r.sections = splitSections(normalizeHeadings(res.text, titles));
     r.sections = finish(r.sections);
@@ -235,6 +287,7 @@ async function run(job) {
     emit(job, 'text');
     setPhase(job, 'write', 'done', `${r.words} كلمة`);
   } else {
+    setPhase(job, 'write', 'run', 'يبني التقرير من قاعدة المعرفة…');
     const { sections, coverage } = composeOffline({ title: r.title, typeId: r.typeId, cat: r.catId, kb, meta: r.meta, variant: r.options.variant || 0 });
     r.sections = finish(sections);
     r.notes.push(...offNotes);
@@ -243,6 +296,7 @@ async function run(job) {
     emit(job, 'text');
     setPhase(job, 'write', 'done', kb ? 'من قاعدة المعرفة' : 'قالب منظّم');
   }
+  r.textDone = true;
   await putReport(r);
 
   // ── انتظار الصور ثم الحفظ ──

@@ -2,8 +2,8 @@
  * إبقاء التوليد حيًّا حين يخرج المستخدم من التطبيق:
  *  - في أندرويد خدمة أمامية (KeepAlivePlugin) بإشعار «أساس يكتب التقرير…» تمنع النظام من تجميد
  *    التطبيق وقطع شبكته ما دام التوليد جاريًا، وتُعلم المستخدم حين يجهز التقرير وهو خارجه.
- *  - في كل مكان: تتبّع الخروج والرجوع، فإن انقطع طلب بسبب الخروج أو ضعف الشبكة يُعاد تلقائيًا
- *    بعد الرجوع وعودة الاتصال بدل إظهار خطأ.
+ *  - في كل مكان: إن انقطع طلب بسبب ضعف الشبكة يُعاد تلقائيًا فور عودة الاتصال — حتى والتطبيق
+ *    في الخلفية (الخدمة الأمامية تبقيه يعمل)، فلا ينتظر رجوع المستخدم ولا يظهر خطأ.
  */
 
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -94,8 +94,8 @@ export function holdAwake(text) {
 }
 
 /**
- * ينفّذ fn(attempt) ويعيد المحاولة إن فشل بخطأ شبكة عابر: ينتظر رجوع المستخدم للتطبيق وعودة
- * الاتصال ثم يعيد، حتى tries محاولات. onRetry({ attempt, background, err }) لعرض الحالة.
+ * ينفّذ fn(attempt) ويعيد المحاولة إن فشل بخطأ شبكة عابر: ينتظر عودة الاتصال (ولو والتطبيق في
+ * الخلفية) ثم يعيد بمهلة متزايدة، حتى tries محاولات. onRetry({ attempt, background, err }) لعرض الحالة.
  */
 export async function retryTransient(fn, { signal, tries = 3, isTransient, onRetry } = {}) {
   for (let i = 0; ; i++) {
@@ -104,11 +104,9 @@ export async function retryTransient(fn, { signal, tries = 3, isTransient, onRet
       return await fn(i);
     } catch (err) {
       if (signal?.aborted || i >= tries - 1 || !isTransient?.(err)) throw err;
-      const background = leftSince(t0);
-      onRetry?.({ attempt: i + 1, background, err });
-      await whenVisible(signal);
+      onRetry?.({ attempt: i + 1, background: leftSince(t0), err });
       await whenOnline(signal);
-      await sleep(background ? 700 : 1500 * (i + 1), signal);
+      await sleep(Math.min(1500 * 2 ** i, 15000), signal);
     }
   }
 }

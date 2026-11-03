@@ -7,6 +7,7 @@ import { aiReady, state, uid } from '../core/store.js';
 import { putReport, deleteImages } from '../core/db.js';
 import { SYSTEM, EDIT_ACTIONS, editPrompt } from '../ai/prompts.js';
 import { streamText, aiErrorMessage, isTransientError } from '../ai/client.js';
+import { newJobId } from '../ai/jobfetch.js';
 import { holdAwake, retryTransient } from '../core/keepalive.js';
 import { parseBlocks, wordsOf } from './md.js';
 import { blocksToNodes } from './render.js';
@@ -57,13 +58,15 @@ export function openSectionEditor(report, i, onSaved) {
         maxTokens: 32000,
         signal: ctrl.signal,
         meta: { kind: 'edit', report: report.id, title: report.title },
+        // عبر الخادم يُكتب القسم في الخادم نفسه ويُستأنف وصوله إن ضعفت الشبكة
+        job: { id: newJobId(), onReconnect: (n) => fill(status, [h('div.spinner'), h('span.muted', n ? 'الشبكة ضعيفة — يكمل الوصول تلقائيًا…' : 'يكتب…')]) },
         onText: (snap) => { ta.value = cleanSection(snap, sec.h); renderPreview(); },
         onPhase: (p) => fill(status, [h('div.spinner'), h('span.muted', p === 'thinking' ? 'يفكّر…' : 'يكتب…')]),
       }), {
         signal: ctrl.signal,
         tries: 3,
         isTransient: isTransientError,
-        onRetry: () => fill(status, [h('div.spinner'), h('span.muted', 'انقطع الاتصال — يعيد المحاولة تلقائيًا…')]),
+        onRetry: () => fill(status, [h('div.spinner'), h('span.muted', 'الشبكة ضعيفة — يعيد المحاولة تلقائيًا…')]),
       });
       ta.value = cleanSection(res.text, sec.h);
       renderPreview();

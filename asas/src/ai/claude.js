@@ -12,6 +12,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { state, modelInfo, addUsage, cleanKey } from '../core/store.js';
 import { serverUrl, serverHeaders } from '../core/server.js';
+import { resumableFetch } from './jobfetch.js';
 
 const viaServer = () => state.ai.provider === 'server' && !!serverUrl();
 /** رؤوس سجل المدير لكل طلب عبر خادم التطبيق. */
@@ -19,6 +20,16 @@ const reqOpts = (signal, meta) => (viaServer() ? { signal, headers: serverHeader
 
 let cached = null;
 let cacheKey = '';
+
+/** معالجات إعادة الاتصال لكل مهمة بث جارية (jobId → onReconnect). */
+const reconnects = new Map();
+
+/** fetch العميل عبر خادم التطبيق: طلب البث الذي يحمل x-asas-job يُستأنف تلقائيًا إن انقطع الاتصال. */
+function serverFetch(url, init = {}) {
+  const jobId = new Headers(init.headers).get('x-asas-job');
+  if (!jobId) return fetch(url, init);
+  return resumableFetch(url, init, { jobId, signal: init.signal, onReconnect: reconnects.get(jobId) });
+}
 
 export function getClient() {
   const a = state.ai;
@@ -30,6 +41,7 @@ export function getClient() {
     // خادم المدير يضع المفتاح ويختار النموذج
     opts.baseURL = `${serverUrl()}/anthropic`;
     opts.apiKey = 'via-server';
+    opts.fetch = serverFetch;
   } else if (a.mode === 'proxy') {
     opts.baseURL = a.proxyUrl.trim().replace(/\/+$/, '');
     opts.apiKey = 'via-proxy'; // الخادم الوسيط يستبدله بالمفتاح الحقيقي
@@ -100,10 +112,21 @@ export async function jsonCall({ system, prompt, content, schema, effort = 'low'
  * طلب نصي متدفق: يستدعي onText(snapshot) أثناء الكتابة،
  * وonPhase('thinking'|'writing'|'fallback') لعرض الحالة.
  */
-export async function streamText({ system, prompt, effort = 'high', maxTokens = 64000, signal, onText, onPhase, meta }) {
+export async function streamText({ system, prompt, effort = 'high', maxTokens = 64000, signal, onText, onPhase, meta, job }) {
   const client = getClient();
   const params = buildParams({ system, messages: [{ role: 'user', content: prompt }], effort, maxTokens });
-  const stream = client.beta.messages.stream(params, reqOpts(signal, meta));
+  // عبر الخادم: الكتابة تجري في الخادم نفسه والبث يُستأنف بعد أي انقطاع (انظر jobfetch.js)
+  const withJob = job && viaServer();
+  if (withJob) reconnects.set(job.id, job.onReconnect);
+  try {
+    return await streamOnce(client, params, reqOpts(signal, withJob ? { ...meta, job: job.id } : meta), { onText, onPhase });
+  } finally {
+    if (withJob) reconnects.delete(job.id);
+  }
+}
+
+async function streamOnce(client, params, opts, { onText, onPhase }) {
+  const stream = client.beta.messages.stream(params, opts);
   let started = false;
   let acc = '';
 

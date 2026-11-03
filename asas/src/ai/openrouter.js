@@ -15,6 +15,7 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { state, addUsage, cleanKey } from '../core/store.js';
 import { serverUrl, serverHeaders } from '../core/server.js';
+import { resumableFetch } from './jobfetch.js';
 
 export const OR_BASE = 'https://openrouter.ai/api/v1';
 /** موجّه OpenRouter المجاني: يختار نموذجًا مجانيًا متاحًا يدعم متطلبات الطلب (صور، JSON…). */
@@ -273,8 +274,25 @@ let preferNative = false;
 /**
  * طلب واحد. stream=true يعيد كائن Response للبث، أو { native: data } إن اضطررنا للطبقة الأصلية.
  */
-async function request(path, { method = 'POST', body = null, auth = true, signal, stream = false, timeout = 120000, meta } = {}) {
-  if (preferNative && isNative) {
+async function request(path, { method = 'POST', body = null, auth = true, signal, stream = false, timeout = 120000, meta, job } = {}) {
+  // البث عبر خادم التطبيق: يُكتب في الخادم نفسه ويُستأنف من آخر بايت إن انقطع الاتصال (انظر jobfetch.js)
+  if (stream && job && viaServer()) {
+    const link = linkSignal(signal, 0);
+    let res;
+    try {
+      res = await resumableFetch(base() + path, { method, headers: headers(auth, !!body, meta), body: body ? JSON.stringify(body) : undefined }, { jobId: job.id, signal: link.signal, onReconnect: job.onReconnect });
+    } catch (err) {
+      link.done();
+      if (signal?.aborted) throw err;
+      throw new ORError(0, String(err?.message || err), { kind: 'network' });
+    }
+    if (!res.ok) { link.done(); throw await errorFromResponse(res); }
+    // مع المهمة لا مهلة توقف هنا: الاستئناف ينتظر عودة الشبكة مهما طالت (خادم قديم بلا مهام: المهلة المعتادة)
+    link.resumable = !!res.headers.get('x-asas-job');
+    return Object.assign(res, { _link: link });
+  }
+  // الطبقة الأصلية لتجاوز قيود WebView مع OpenRouter مباشرة؛ خادم التطبيق يسمح بالمتصفح دائمًا
+  if (preferNative && isNative && !viaServer()) {
     const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout, meta });
     return stream ? { native: data } : data;
   }
@@ -288,7 +306,7 @@ async function request(path, { method = 'POST', body = null, auth = true, signal
     if (signal?.aborted) throw err;
     if (link.timedOut()) throw new ORError(408, 'timeout', { kind: 'timeout' });
     // في أندرويد قد يمنع WebView الطلب (CORS أو شبكة)؛ نجرّب الطبقة الأصلية مرة
-    if (isNative && navigator.onLine !== false) {
+    if (isNative && !viaServer() && navigator.onLine !== false) {
       try {
         const data = await nativeRequest(path, { method, body: body && stream ? { ...body, stream: false } : body, auth, timeout: stream ? 600000 : timeout, meta });
         preferNative = true;
@@ -315,7 +333,7 @@ async function* sse(res, link) {
   let data = [];
   try {
     for (;;) {
-      link.bump(120000); // لا بيانات ولا تعليقات لدقيقتين = الاتصال متوقف
+      if (!link.resumable) link.bump(120000); // لا بيانات ولا تعليقات لدقيقتين = الاتصال متوقف
       const { value, done } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
@@ -372,7 +390,7 @@ async function modelsOrEmpty(signal) {
 /**
  * كتابة متدفقة. onText(snapshot) أثناء الكتابة، وonPhase('thinking'|'writing').
  */
-export async function streamText({ system, prompt, effort = 'high', maxTokens = 16000, signal, onText, onPhase, meta }) {
+export async function streamText({ system, prompt, effort = 'high', maxTokens = 16000, signal, onText, onPhase, meta, job }) {
   const list = await modelsOrEmpty(signal);
   const models = chainFor('text', list);
   const primary = list.find((m) => m.id === models[0]);
@@ -388,7 +406,7 @@ export async function streamText({ system, prompt, effort = 'high', maxTokens = 
   if (reasoning) body.reasoning = reasoning;
 
   onPhase?.('thinking');
-  const res = await request('/chat/completions', { body, signal, stream: true, meta });
+  const res = await request('/chat/completions', { body, signal, stream: true, meta, job });
 
   // الطبقة الأصلية: الرد كاملًا دفعة واحدة
   if (res.native) {

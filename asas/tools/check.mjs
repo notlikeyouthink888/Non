@@ -485,7 +485,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   const dsCalls = stats.openrouter.slice(dsFrom).filter((c) => c.kind === 'stream');
   assert(dsCalls.length >= 1 && dsCalls.every((c) => c.models.every((m) => m.startsWith('deepseek/')) && !c.problems.length), `DeepSeek: التقرير كُتب بنماذج DeepSeek فقط (${dsCalls.map((c) => c.models.join('+')).join('، ')})`);
 
-  /* ── 9د. الخروج من التطبيق أثناء الكتابة: يكمل تلقائيًا بلا خطأ ── */
+  /* ── 9د. انقطاع الشبكة والتطبيق في الخلفية: يكمل فورًا في الخلفية بلا خطأ ولا انتظار رجوعك ── */
   const setVisible = (v) => page.evaluate((vis) => {
     Object.defineProperty(document, 'visibilityState', { value: vis ? 'visible' : 'hidden', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -496,15 +496,11 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await setVisible(false); // المستخدم يخرج من التطبيق بعد بدء الكتابة
   await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
   await page.waitForURL(/#\/report\//);
-  await page.waitForFunction(() => /سيكمل تلقائيًا/.test(document.querySelector('.gen-panel')?.innerText || ''), null, { timeout: 15000 });
-  assert(await page.locator('.notice.err').count() === 0, 'انقطاع الاتصال أثناء الخروج من التطبيق: «سيكمل تلقائيًا من حيث توقف» بدل الخطأ');
-  await sleep(800);
-  assert(stats.orContinued === 0, 'لا يعيد الطلب وهو خارج التطبيق: ينتظر رجوعك');
-  await setVisible(true);
-  await waitDone(page, 40000);
+  await waitDone(page, 40000); // يكتمل والتطبيق ما زال في الخلفية
   const contHeads = await page.locator('.rsec h2').allInnerTexts();
   assert(stats.orContinued === 1 && contHeads.length === 10 && new Set(contHeads).size === contHeads.length && await page.locator('.notice.err').count() === 0,
-    `بعد الرجوع: أكمل التقرير من حيث انقطع دون تكرار ولا خطأ (${contHeads.length} قسمًا)`);
+    `انقطع الاتصال والتطبيق في الخلفية: أكمل فورًا من حيث انقطع دون انتظار رجوعك، بلا تكرار ولا خطأ (${contHeads.length} قسمًا)`);
+  await setVisible(true);
 
   /* ── 11. خادم المدير: مفاتيح ونماذج للجميع، سجل التقارير، تيليغرام، إيقاف جهاز ── */
   const up = await startUpstream(8790);
@@ -607,7 +603,8 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.locator('.admin .reports .item').first().click();
     await page.waitForSelector('.sheet .admin-paper h2, .sheet .admin-paper h3');
     assert(await page.locator('.sheet .admin-paper').innerText().then((t) => t.length > 200), 'لوحة المدير: نص التقرير كاملًا');
-    await page.locator('.sheet .scrim, .scrim').first().click({ force: true }).catch(() => {});
+    await page.locator('.sheet .sheet-x').last().click();
+    await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 }).catch(() => {});
     await page.goto(BASE + '#/admin');
     await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
     assert((await page.locator('.admin [data-device]').first().innerText()).includes('سجاد علي'), 'لوحة المدير: قائمة المستخدمين بأسمائهم وعدد تقاريرهم');
@@ -700,6 +697,41 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.goto(BASE + '#/');
     await page.goto(BASE + '#/admin');
     await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
+    // ── الكتابة في الخادم نفسه: انقطاع اتصال الهاتف أثناء الكتابة لا يوقفها ولا يعيدها ──
+    const streamsNow = () => up.log.or.filter((x) => x.stream).length;
+    up.ctl.slow = 25;
+    srv.ctl.cutAfter = 2500;
+    let s0 = streamsNow();
+    let j0 = srv.ctl.jobs;
+    await page.goto(BASE + '#/create?topic=compression_test');
+    await page.waitForSelector('.type-card.on');
+    await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+    await page.waitForURL(/#\/report\//);
+    await waitDone(page, 40000);
+    assert(srv.ctl.cuts === 1 && srv.ctl.jobs - j0 >= 2, `انقطع اتصال الهاتف أثناء الكتابة وأعاد الاتصال تلقائيًا (${srv.ctl.jobs - j0} اتصال)`);
+    assert(streamsNow() - s0 === 1 && await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
+      `بعد الانقطاع: أكمل من حيث وصل دون إعادة الكتابة ودون خطأ (${await page.locator('.rsec').count()} أقسام، ${streamsNow() - s0} طلب كتابة)`);
+    const cutText = await page.locator('.paper .secs').innerText();
+    const cutHeads = await page.locator('.rsec h2').allInnerTexts();
+    assert(!/انقطع الاتصال/.test(cutText) && new Set(cutHeads).size === cutHeads.length, `النص بعد الاستئناف متصل بلا تكرار ولا رسالة انقطاع (${cutHeads.length} عنوانًا)`);
+    // إغلاق التطبيق أثناء الكتابة (إعادة تحميل الصفحة تمحو المهمة من الذاكرة): يكمل من الخادم عند فتحه
+    up.ctl.slow = 60;
+    s0 = streamsNow();
+    await page.goto(BASE + '#/create?topic=tension_test');
+    await page.waitForSelector('.type-card.on');
+    await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+    await page.waitForURL(/#\/report\//);
+    await page.waitForFunction(() => document.querySelectorAll('.rsec').length >= 1, null, { timeout: 20000 });
+    const partWords = await page.locator('.rsec').count();
+    await page.reload();
+    await waitDone(page, 40000);
+    assert(streamsNow() - s0 === 1 && await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
+      `أُغلق التطبيق أثناء الكتابة (${partWords} قسم وصل): عند فتحه استلم التقرير كاملًا من الخادم دون إعادة كتابته`);
+    up.ctl.slow = 0;
+    await page.goto(BASE + '#/');
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
+
     await page.locator('.admin [data-device] .switch').first().click();
     await appear(page.locator('.toast', { hasText: 'أُوقف' }));
     await page.goto(BASE + '#/create?topic=curing');
