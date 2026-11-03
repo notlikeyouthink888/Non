@@ -95,6 +95,13 @@ details[open] summary::before{content:"▾ "}
 .field output{color:var(--ink);font-variant-numeric:tabular-nums}
 .field input[type=password],.field input[type=text]{flex:1 1 200px;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px;direction:ltr;text-align:left}
 .note{margin:0;font-size:12.5px;line-height:1.6;color:var(--dim)}
+.api-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center}
+.api-grid > label{color:var(--dim)}
+.api-grid input,.api-grid select,#aiRules{min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px}
+.api-grid input{direction:ltr;text-align:left}
+.api-grid .row select{flex:1 1 180px}
+#aiRules{direction:ltr;text-align:left;resize:vertical;font-size:12px;line-height:1.5;width:100%;box-sizing:border-box}
+optgroup{background:#101525;color:var(--dim)}
 .note a{color:var(--ai)}
 .note code{direction:ltr;unicode-bidi:embed;color:var(--ink)}
 input[type=range]{width:100%;accent-color:var(--signal)}
@@ -114,6 +121,7 @@ input[type=checkbox]{accent-color:var(--signal)}
   .top > .col{width:100%}
   .ask textarea{flex-basis:100%}
   .ai-live img{width:60px;height:60px}
+  .api-grid{grid-template-columns:1fr}
 }
 </style>
 
@@ -159,14 +167,22 @@ input[type=checkbox]{accent-color:var(--signal)}
         <div class="field wide">
           <span>الذكاء الاصطناعي</span>
           <p class="note" id="aiNote"></p>
-          <div class="row" id="orKeyRow">
-            <input id="orKey" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false" aria-label="مفتاح OpenRouter">
-            <button class="btn ghost" type="button" id="orSave">احفظ المفتاح</button>
+          <div class="api-grid" id="apiRows">
+            <label for="aiProv">المزوّد</label>
+            <select id="aiProv"></select>
+            <label for="aiBase">رابط الـ API</label>
+            <input id="aiBase" type="url" spellcheck="false" autocomplete="off" placeholder="https://…/v1">
+            <label for="aiKey">المفتاح</label>
+            <div class="row"><input id="aiKey" type="password" autocomplete="off" spellcheck="false"><button class="btn ghost" type="button" id="aiSave">احفظ</button></div>
+            <label for="aiModelSel">النموذج</label>
+            <div class="row"><select id="aiModelSel"></select><button class="btn ghost" type="button" id="aiRefresh">حدّث القائمة</button></div>
+            <label for="aiCustom">أو اكتب اسمه</label>
+            <input id="aiCustom" type="text" spellcheck="false" autocomplete="off">
           </div>
-          <div class="row" id="orModelRow">
-            <label for="orModel">النموذج المجاني</label>
-            <select id="orModel"></select>
-          </div>
+          <p class="note" id="aiKeyNote"></p>
+          <label for="aiRules">التعليمات اللي تروح للنموذج قبل طلبك (البرومبت). تگدر تعدلها، بس خلي شرط إن الرد يكون SVG أو JSON حتى السرب يفهمه.</label>
+          <textarea id="aiRules" rows="7" spellcheck="false"></textarea>
+          <div class="row"><button class="btn ghost" type="button" id="aiRulesReset">رجّع التعليمات الأصلية</button></div>
         </div>
         <div class="field">
           <label for="size">حجم السرب</label>
@@ -1098,8 +1114,9 @@ const ui = {
   prompt:document.getElementById('prompt'), mode:document.getElementById('mode'), askForm:document.getElementById('askForm'),
   drawBtn:document.getElementById('drawBtn'), wordBtn:document.getElementById('wordBtn'), stopBtn:document.getElementById('stopBtn'), aiStatus:document.getElementById('aiStatus'),
   aiLive:document.getElementById('aiLive'), aiPreview:document.getElementById('aiPreview'), aiModel:document.getElementById('aiModel'), aiChars:document.getElementById('aiChars'),
-  aiNote:document.getElementById('aiNote'), orKeyRow:document.getElementById('orKeyRow'), orKey:document.getElementById('orKey'), orSave:document.getElementById('orSave'),
-  orModelRow:document.getElementById('orModelRow'), orModel:document.getElementById('orModel'),
+  aiNote:document.getElementById('aiNote'), apiRows:document.getElementById('apiRows'), aiProv:document.getElementById('aiProv'), aiBase:document.getElementById('aiBase'),
+  aiKey:document.getElementById('aiKey'), aiSave:document.getElementById('aiSave'), aiModelSel:document.getElementById('aiModelSel'), aiRefresh:document.getElementById('aiRefresh'),
+  aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
 };
 const RANK_ICON = [
   '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>',
@@ -1236,9 +1253,10 @@ FORMAT B, SCULPTURE: only when the user asks for a 3D model, statue, مجسم or
 - 15 to 90 parts, overlaps allowed, real colours.
 
 No explanations, no comments, no markdown, no code fences.`;
+function rules(){ const r = store.get('rules'); return typeof r === 'string' && r.trim() ? r : DRAW_RULES; }
 function drawPrompt(prompt, mode){
   const force = mode === 'svg' ? '\nUse FORMAT A (an SVG picture).' : mode === '3d' ? '\nUse FORMAT B (the 3D JSON).' : '';
-  return `${DRAW_RULES}\n\nRequest: ${prompt}${force}`;
+  return `${rules()}\n\nRequest: ${prompt}${force}`;
 }
 // يطلّع الرسمة من رد الذكاء: SVG أو JSON
 function extractDrawing(text){
@@ -1254,6 +1272,30 @@ function extractDrawing(text){
 }
 
 const OR = 'https://openrouter.ai/api/v1';
+// مزوّدات متوافقة مع OpenAI وتقبل الاتصال من المتصفح (CORS مفحوص لكل واحد)
+const PROVIDERS = [
+  { id:'openrouter', name:'OpenRouter', tag:'مئات النماذج، منها مجانية', base:OR, keys:'https://openrouter.ai/keys', def:'auto' },
+  { id:'gemini', name:'Google Gemini', tag:'مجاني بحدود يومية', base:'https://generativelanguage.googleapis.com/v1beta/openai', keys:'https://aistudio.google.com/apikey', def:'gemini-2.5-flash' },
+  { id:'groq', name:'Groq', tag:'مجاني بحدود، سريع جدًا', base:'https://api.groq.com/openai/v1', keys:'https://console.groq.com/keys', def:'openai/gpt-oss-120b' },
+  { id:'cerebras', name:'Cerebras', tag:'مجاني بحدود', base:'https://api.cerebras.ai/v1', keys:'https://cloud.cerebras.ai', def:'gpt-oss-120b' },
+  { id:'mistral', name:'Mistral', tag:'خطة تجربة مجانية', base:'https://api.mistral.ai/v1', keys:'https://console.mistral.ai/api-keys', def:'mistral-large-latest' },
+  { id:'huggingface', name:'Hugging Face', tag:'رصيد مجاني شهري صغير', base:'https://router.huggingface.co/v1', keys:'https://huggingface.co/settings/tokens', def:'openai/gpt-oss-120b' },
+  { id:'deepseek', name:'DeepSeek', tag:'مدفوع ورخيص', base:'https://api.deepseek.com', keys:'https://platform.deepseek.com/api_keys', def:'deepseek-chat' },
+  { id:'together', name:'Together AI', tag:'مدفوع', base:'https://api.together.xyz/v1', keys:'https://api.together.ai/settings/api-keys', def:'meta-llama/Llama-3.3-70B-Instruct-Turbo' },
+  { id:'openai', name:'OpenAI', tag:'مدفوع', base:'https://api.openai.com/v1', keys:'https://platform.openai.com/api-keys', def:'gpt-4.1-mini' },
+  { id:'xai', name:'xAI Grok', tag:'مدفوع', base:'https://api.x.ai/v1', keys:'https://console.x.ai', def:'grok-3-mini' },
+  { id:'custom', name:'رابط خاص', tag:'أي API متوافق مع OpenAI', base:'', keys:'', def:'' },
+];
+const provMap = Object.fromEntries(PROVIDERS.map(p => [p.id, p]));
+function provAll(){ const a = store.get('prov', {}); return a && typeof a === 'object' && !Array.isArray(a) ? a : {}; }
+function cfg(id){ const p = provMap[id], s = provAll()[id] || {}; return { base:s.base || p.base, key:s.key || '', model:s.model || p.def, custom:s.custom || '' }; }
+function saveCfg(id, patch){ const a = provAll(); a[id] = { ...(a[id] || {}), ...patch }; store.set('prov', a); }
+function currentProv(){ const id = store.get('provider', 'openrouter'); return provMap[id] ? id : 'openrouter'; }
+{ // إعدادات النسخة السابقة (مفتاح OpenRouter ونموذجه)
+  const k = store.get('orKey');
+  if (k){ if (!provAll().openrouter?.key) saveCfg('openrouter', { key:k, model:store.get('orModel', 'auto') }); store.set('orKey', null); store.set('orModel', null); }
+}
+
 const FREE_FALLBACK = [
   ['qwen/qwen3-coder:free', 'Qwen3 Coder'], ['deepseek/deepseek-chat-v3.1:free', 'DeepSeek V3.1'], ['moonshotai/kimi-k2:free', 'Kimi K2'],
   ['z-ai/glm-4.5-air:free', 'GLM 4.5 Air'], ['openai/gpt-oss-120b:free', 'GPT-OSS 120B'], ['meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 70B'],
@@ -1261,7 +1303,12 @@ const FREE_FALLBACK = [
 ].map(([id, name]) => ({ id, name, maxOut:null }));
 const FAMILIES = [[/^qwen\/qwen[\w.-]*coder/, 90], [/^deepseek\/deepseek-(v\d|chat)/, 88], [/^moonshotai\/kimi-k\d/, 87], [/^z-ai\/glm-\d/, 86],
   [/^google\/gemini/, 85], [/^openai\/gpt-oss/, 82], [/^meta-llama\/llama-(3\.3|4)/, 78], [/^qwen\/qwen/, 77], [/^mistralai\//, 74], [/^google\/gemma/, 70], [/^deepseek\/deepseek-r\d/, 64]];
+const PAID_FAMILIES = [[/^anthropic\/claude-[\w.-]*opus/, 100], [/^anthropic\/claude-[\w.-]*sonnet/, 97], [/^openai\/gpt-5/, 95], [/^google\/gemini-[\d.]+-pro/, 93],
+  [/^x-ai\/grok-\d/, 88], [/^qwen\/qwen[\w.-]*coder/, 87], [/^moonshotai\/kimi/, 86], [/^z-ai\/glm/, 85], [/^deepseek\//, 84], [/^google\/gemini/, 82],
+  [/^anthropic\//, 80], [/^openai\//, 78], [/^mistralai\//, 74], [/^qwen\//, 72], [/^meta-llama\//, 70]];
 const BAD_MODEL = /(image|audio|tts|embed|guard|safety|vision-preview|nano|deep-research|transcribe)/i;
+const nfp = new Intl.NumberFormat('ar-IQ', { maximumFractionDigits:2 });
+const price = v => nfp.format(v);
 function rankFree(list){
   const now = Date.now() / 1000, out = [];
   for (const m of list || []){
@@ -1275,20 +1322,48 @@ function rankFree(list){
   }
   return out.sort((a, b) => b.score - a.score);
 }
-function freeModels(){ const c = store.get('freeModels'); return c?.list?.length ? c.list : FREE_FALLBACK; }
-async function refreshFreeModels(force){
-  const c = store.get('freeModels');
-  if (!force && c?.at && Date.now() - c.at < 12 * 3600e3) return;
-  try { const res = await fetch(OR + '/models'); if (!res.ok) return; const list = rankFree((await res.json()).data);
-    if (list.length){ store.set('freeModels', { at:Date.now(), list }); fillModelSelect(); } } catch {}
+// المدفوعة: تقريبًا كل نماذج النص، مرتبة بالقوة والحداثة
+function rankPaid(list){
+  const now = Date.now() / 1000, out = [];
+  for (const m of list || []){
+    const id = String(m.id || '');
+    if (id.endsWith(':free') || id.startsWith('openrouter/') || BAD_MODEL.test(id)) continue;
+    if (!(m.architecture?.output_modalities || ['text']).includes('text')) continue;
+    const pin = Number(m.pricing?.prompt) * 1e6, pout = Number(m.pricing?.completion) * 1e6;
+    if (!(pin >= 0) || !(pout > 0)) continue;
+    const fam = PAID_FAMILIES.find(([re]) => re.test(id));
+    out.push({ id, name:(m.name || id).replace(/^[^:]+:\s*/, ''), out:pout, maxOut:m.top_provider?.max_completion_tokens || null,
+      score:(fam ? fam[1] : 50) + Math.max(0, 14 - (m.created ? (now - m.created) / 86400 : 365) / 30) });
+  }
+  return out.sort((a, b) => b.score - a.score);
 }
+function orCatalog(){ const c = store.get('orCatalog'); return { free:c?.free?.length ? c.free : FREE_FALLBACK, paid:Array.isArray(c?.paid) ? c.paid : [] }; }
+async function refreshOpenRouter(force){
+  const c = store.get('orCatalog');
+  if (!force && c?.at && Date.now() - c.at < 12 * 3600e3) return;
+  const res = await fetch(OR + '/models'); if (!res.ok) throw new Error(`تعذر جلب قائمة النماذج (${res.status})`);
+  const data = (await res.json()).data, cat = { at:Date.now(), free:rankFree(data), paid:rankPaid(data) };
+  if (cat.free.length || cat.paid.length) store.set('orCatalog', cat);
+}
+const SKIP_MODEL = /(embed|tts|whisper|dall-e|image|audio|realtime|moderation|transcri|search|guard|rerank|babbage|davinci|ocr)/i;
+async function refreshProviderModels(id){
+  const c = cfg(id);
+  const res = await fetch(c.base.replace(/\/+$/, '') + '/models', { headers:c.key ? { Authorization:'Bearer ' + c.key } : {} });
+  if (!res.ok) throw new Error(`المزوّد رفض طلب قائمة النماذج (${res.status})${res.status === 401 ? '. تأكد من المفتاح' : ''}`);
+  const j = await res.json(), arr = Array.isArray(j) ? j : Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : [];
+  const list = [...new Set(arr.map(m => String(m?.id || m?.name || '').replace(/^models\//, '')).filter(x => x && !SKIP_MODEL.test(x)))].sort();
+  if (!list.length) throw new Error('المزوّد رجّع قائمة فاضية');
+  store.set('models.' + id, { at:Date.now(), list });
+}
+
 function cooling(){ const c = store.get('cool', {}), now = Date.now(); for (const k of Object.keys(c)) if (c[k] < now) delete c[k]; return c; }
 function cool(id, ms){ const c = cooling(); c[id] = Date.now() + ms; store.set('cool', c); }
 const stopErr = () => Object.assign(new Error('أوقفت الرسم'), { stop:true });
 const fatalErr = msg => Object.assign(new Error(msg), { fatal:true });
 const skipErr = (msg, ms, extra = {}) => Object.assign(new Error(msg), { skip:true, ms, ...extra });
 function orClassify(status, msg){
-  if (/free-models-per-day/i.test(msg)) return fatalErr('خلصت طلباتك المجانية لليوم: حد OpenRouter ٥٠ طلب باليوم للحساب كله (أو ١٠٠٠ إذا شحنت الحساب ١٠$ ولو مرة). يتجدد منتصف الليل بتوقيت UTC.');
+  if (status === -1) return skipErr('انقطع الاستلام', 60e3);
+  if (/free-models-per-day/i.test(msg)) return fatalErr('خلصت طلباتك المجانية لليوم: حد OpenRouter ٥٠ طلب باليوم للحساب كله (أو ١٠٠٠ إذا شحنت الحساب ١٠$ ولو مرة). يتجدد منتصف الليل بتوقيت UTC. لحد ذاك الوقت جرّب مزوّد ثاني من الإعدادات.');
   if (/free-models-per-min/i.test(msg)) return skipErr('وصلت حد الدقيقة للمجانية', 60e3);
   if (/data policy|privacy/i.test(msg)) return skipErr('محجوب بإعدادات الخصوصية', 24 * 3600e3, { policy:true });
   switch (status){
@@ -1300,16 +1375,43 @@ function orClassify(status, msg){
     default: return skipErr(`خطأ ${status}`, 3 * 60e3);
   }
 }
-async function orStream(model, prompt, signal, onText){
-  const body = { model:model.id, messages:[{ role:'user', content:prompt }], stream:true, temperature:0.6, max_tokens:Math.min(model.maxOut || 9000, 9000) };
-  let res;
-  try {
-    res = await fetch(OR + '/chat/completions', { method:'POST', signal, body:JSON.stringify(body),
-      headers:{ Authorization:'Bearer ' + store.get('orKey', ''), 'Content-Type':'application/json', 'HTTP-Referer':'https://github.com/notlikeyouthink888/Non', 'X-Title':'Command Swarm' } });
-  } catch (e){ if (signal.aborted) throw stopErr(); throw fatalErr('تعذر الوصول لـ OpenRouter. تأكد من الإنترنت.'); }
-  if (!res.ok){ let msg = ''; try { const e = (await res.json()).error || {}; msg = [e.message, e.metadata?.raw].filter(Boolean).join(' — '); } catch {} throw orClassify(res.status, msg); }
+function apiClassify(status, msg){
+  const m = msg ? `: ${short(msg, 160)}` : '';
+  if (status === -1) return fatalErr('انقطع الاستلام قبل ما تكمل الرسمة. جرّب مرة ثانية.');
+  if (status === 401 || status === 403) return fatalErr(`المفتاح غير صحيح أو ما عنده صلاحية (${status})${m}`);
+  if (status === 402) return fatalErr(`الحساب يحتاج رصيد (402)${m}`);
+  if (status === 404) return fatalErr(`النموذج مو موجود عند هذا المزوّد (404). اختر غيره من القائمة${m}`);
+  if (status === 429) return fatalErr(`وصلت حد الطلبات عند المزوّد (429). انتظر شوية وجرّب${m}`);
+  if (status >= 500) return fatalErr(`خادم المزوّد مشغول (${status}). جرّب بعد شوية.`);
+  return fatalErr(`المزوّد رفض الطلب (${status})${m}`);
+}
+function errText(j){
+  if (Array.isArray(j)) j = j[0];
+  const e = j?.error ?? j;
+  if (typeof e === 'string') return e;
+  return [e?.message || j?.message || j?.detail, e?.metadata?.raw].filter(Boolean).map(String).join(' — ');
+}
+// طلب واحد لأي API متوافق مع OpenAI، بالبث. إذا رفض معامل معيّن نعيد بصيغة أبسط
+async function apiCall(o){
+  const url = o.base.replace(/\/+$/, '') + '/chat/completions';
+  const headers = { 'Content-Type':'application/json', ...(o.key ? { Authorization:'Bearer ' + o.key } : {}), ...(o.extra || {}) };
+  const variants = [{ max_tokens:o.maxTokens, temperature:0.6 }, { max_completion_tokens:o.maxTokens }, {}];
+  let stream = true;
+  for (let v = 0; v < variants.length; v++){
+    let res;
+    try { res = await fetch(url, { method:'POST', signal:o.signal, headers, body:JSON.stringify({ model:o.model, messages:[{ role:'user', content:o.prompt }], stream, ...variants[v] }) }); }
+    catch { if (o.signal.aborted) throw stopErr(); throw fatalErr(o.netMsg); }
+    if (res.ok) return stream ? readStream(res, o) : readWhole(res, o);
+    let msg = ''; try { msg = errText(await res.json()); } catch {}
+    if (res.status === 400 && stream && /stream/i.test(msg)){ stream = false; v--; continue; }
+    if (res.status === 400 && v < variants.length - 1 && /max_tokens|max_completion_tokens|temperature|unsupported|not supported|unrecognized|unknown (field|param|argument)|extra inputs/i.test(msg)) continue;
+    throw o.classify(res.status, msg);
+  }
+  throw o.classify(400, '');
+}
+async function readStream(res, o){
   const reader = res.body.getReader(), dec = new TextDecoder();
-  let buf = '', text = '', finish = null;
+  let buf = '', text = '';
   try {
     for (;;){
       const { done, value } = await reader.read(); if (done) break;
@@ -1318,30 +1420,30 @@ async function orStream(model, prompt, signal, onText){
       while ((nl = buf.indexOf('\n')) >= 0){
         const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
         if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim(); if (data === '[DONE]') continue;
+        const data = line.slice(5).trim(); if (!data || data === '[DONE]') continue;
         let j; try { j = JSON.parse(data); } catch { continue; }
-        if (j.error) throw orClassify(Number(j.error.code) || 502, String(j.error.message || ''));
-        const ch = j.choices?.[0];
-        if (ch?.delta?.content){ text += ch.delta.content; onText(text, false); }
-        else if (ch?.delta?.reasoning) onText(text, true);
-        if (ch?.finish_reason) finish = ch.finish_reason;
+        if (j.error) throw o.classify(Number(j.error.code) || 502, errText(j));
+        const d = j.choices?.[0]?.delta;
+        if (d?.content){ text += d.content; o.onText(text, false); }
+        else if (d?.reasoning || d?.reasoning_content) o.onText(text, true);
       }
     }
-  } catch (e){ if (signal.aborted) throw stopErr(); if (e.skip || e.fatal) throw e; throw skipErr('انقطع الاستلام', 60e3); }
-  return { text, finish };
+  } catch (e){ if (o.signal.aborted) throw stopErr(); if (e.skip || e.fatal) throw e; throw o.classify(-1, ''); }
+  return { text };
 }
-async function drawWithOpenRouter(prompt, mode, signal, progress){
-  const chosen = store.get('orModel', 'auto'), all = freeModels(), cool0 = cooling();
-  const chain = chosen === 'auto' ? all.filter(m => !cool0[m.id]) : [all.find(m => m.id === chosen) || { id:chosen, name:chosen }];
-  if (!chain.length) throw new Error('كل النماذج المجانية مشغولة أو موقوفة هسه. جرّب بعد دقائق.');
+async function readWhole(res, o){ const j = await res.json(); const text = String(j.choices?.[0]?.message?.content || ''); o.onText(text, false); return { text }; }
+
+// OpenRouter «تلقائي»: المجانية بالترتيب، واللي ينشغل يتوقف شوية ونتحول للي بعده
+async function openRouterChain(common, progress){
+  const cool0 = cooling(), chain = orCatalog().free.filter(m => !cool0[m.id]);
+  if (!chain.length) throw new Error('كل النماذج المجانية مشغولة أو موقوفة هسه. جرّب بعد دقائق، أو اختر نموذج مدفوع أو مزوّد ثاني من الإعدادات.');
   let policy = false;
   for (let i = 0; i < chain.length; i++){
     const m = chain[i];
-    progress({ model:m.name, text:'', phase:'start' });
+    progress({ model:m.name, text:'' });
     try {
-      const { text } = await orStream(m, drawPrompt(prompt, mode), signal, (t, thinking) => progress({ model:m.name, text:t, thinking }));
-      const drawing = extractDrawing(text);
-      return { drawing, model:m.name };
+      const { text } = await apiCall({ ...common, model:m.id, maxTokens:Math.min(m.maxOut || 9000, 9000), classify:orClassify, onText:(t, th) => progress({ model:m.name, text:t, thinking:th }) });
+      return { drawing:extractDrawing(text), model:m.name };
     } catch (e){
       if (e.stop || e.fatal) throw e;
       policy ||= !!e.policy;
@@ -1352,19 +1454,38 @@ async function drawWithOpenRouter(prompt, mode, signal, progress){
   }
   throw new Error(policy
     ? 'النماذج المجانية محجوبة بإعدادات الخصوصية بحسابك. فعّل خيارات النماذج المجانية من openrouter.ai/settings/privacy وجرّب.'
-    : 'كل النماذج المجانية فشلت هالمرة. جرّب بعد دقيقة أو غيّر الوصف.');
+    : 'كل النماذج المجانية فشلت هالمرة. جرّب بعد دقيقة، أو اختر نموذج مدفوع أو مزوّد ثاني من الإعدادات.');
 }
-const ai = { inClaude:typeof window.claude?.use === 'function', sample:null, ctl:null, busy:false, lastPreview:0, previewUrl:null };
+async function drawWithApi(prompt, mode, signal, progress){
+  const id = currentProv(), p = provMap[id], c = cfg(id), model = c.custom.trim() || c.model;
+  const common = { base:c.base.trim(), key:c.key, signal, prompt:drawPrompt(prompt, mode),
+    netMsg:`تعذر الوصول لـ ${p.name}. تأكد من الإنترنت والرابط، أو المزوّد ما يسمح بالاتصال من المتصفح.` };
+  if (id === 'openrouter'){
+    common.extra = { 'HTTP-Referer':'https://github.com/notlikeyouthink888/Non', 'X-Title':'Command Swarm' };
+    if (!model || model === 'auto') return openRouterChain(common, progress);
+    const cat = orCatalog(), info = [...cat.free, ...cat.paid].find(m => m.id === model), name = info?.name || model;
+    progress({ model:name, text:'' });
+    try {
+      const { text } = await apiCall({ ...common, model, maxTokens:Math.min(info?.maxOut || 9000, 9000), classify:orClassify, onText:(t, th) => progress({ model:name, text:t, thinking:th }) });
+      return { drawing:extractDrawing(text), model:name };
+    } catch (e){ if (e.skip) throw fatalErr(`${name}: ${e.message}`); throw e; }
+  }
+  if (!model) throw new Error('اختر نموذج أو اكتب اسمه بالإعدادات');
+  progress({ model, text:'' });
+  const { text } = await apiCall({ ...common, model, maxTokens:8000, classify:apiClassify, onText:(t, th) => progress({ model, text:t, thinking:th }) });
+  return { drawing:extractDrawing(text), model:`${model} · ${p.name}` };
+}
+
+const ai = { inClaude:typeof window.claude?.use === 'function', sample:null, ctl:null, busy:false, lastPreview:0 };
 const CLAUDE_ERR = { not_granted:'ما سمحت للصفحة تستخدم Claude.', sampling_disabled:'Claude مو متاح لهذا الحساب.', rate_limited:'طلبات كثيرة، انتظر شوية وجرّب.',
   refused:'Claude رفض هالطلب، غيّر الوصف.', session_expired:'سجّل دخولك من جديد.', empty_completion:'ما رجع رد، جرّب وصف أبسط.' };
 async function drawWithClaude(prompt, mode, signal, progress){
-  progress({ model:'Claude', text:'', phase:'start' });
+  progress({ model:'Claude', text:'' });
   let r;
   try { r = await ai.sample(drawPrompt(prompt, mode), { signal, cache:false, onText:({ text }) => progress({ model:'Claude', text }) }); }
   catch (e){ if (e?.code === 'cancelled') throw stopErr(); throw new Error(CLAUDE_ERR[e?.code] || 'تعذر الاتصال بـ Claude، جرّب مرة ثانية.'); }
   return { drawing:extractDrawing(r.text), model:'Claude' };
 }
-function provider(){ return ai.inClaude ? (ai.sample ? 'claude' : null) : 'openrouter'; }
 function setPreview(svgText){
   try {
     const prep = prepareSvg(svgText, 300);
@@ -1395,20 +1516,26 @@ function aiProgress({ model, text, thinking }){
 }
 function setBusy(on){ ai.busy = on; ui.drawBtn.disabled = on; ui.wordBtn.disabled = on; ui.stopBtn.hidden = !on; }
 function setStatus(msg, bad){ ui.aiStatus.textContent = msg; ui.aiStatus.className = 'ai-status' + (bad ? ' bad' : ''); }
+function syncFields(){ const id = currentProv(); saveCfg(id, { key:ui.aiKey.value.trim(), base:ui.aiBase.value.trim(), custom:ui.aiCustom.value.trim(), model:ui.aiModelSel.value || cfg(id).model }); }
 async function aiDraw(){
   if (ai.busy) return;
   const prompt = ui.prompt.value.trim();
   if (!prompt){ setStatus('اكتب شنو تريد الذكاء يرسم', true); return; }
-  const p = provider();
-  if (!p){ setStatus('الذكاء مو متاح بهالصفحة حاليًا. الأشكال الجاهزة تشتغل.', true); return; }
-  if (p === 'openrouter' && !store.get('orKey')){
-    ui.more.open = true; ui.orKey.focus(); setStatus('حط مفتاح OpenRouter المجاني بالإعدادات أول (من openrouter.ai/keys).', true); return;
+  if (ai.inClaude){ if (!ai.sample){ setStatus('Claude مو متاح بهالصفحة حاليًا. الأشكال الجاهزة تشتغل.', true); return; } }
+  else {
+    syncFields();
+    const id = currentProv(), p = provMap[id], c = cfg(id);
+    if (!c.base.trim()){ ui.more.open = true; ui.aiBase.focus(); setStatus('حط رابط الـ API بالإعدادات أول.', true); return; }
+    if (id !== 'custom' && !c.key){
+      ui.more.open = true; ui.aiKey.focus();
+      setStatus(`حط مفتاح ${p.name} بالإعدادات أول${p.keys ? ` (تاخذه من ${p.keys.replace(/^https:\/\//, '')})` : ''}.`, true); return;
+    }
   }
   const mode = ui.mode.value;
   setBusy(true); ai.ctl = new AbortController(); ai.lastPreview = 0; ui.aiPreview.hidden = true;
   setStatus('أرسلت الطلب للذكاء…'); log(`طلبت من الذكاء: «${short(prompt, 40)}»`, 'ai');
   try {
-    const res = p === 'claude' ? await drawWithClaude(prompt, mode, ai.ctl.signal, aiProgress) : await drawWithOpenRouter(prompt, mode, ai.ctl.signal, aiProgress);
+    const res = ai.inClaude ? await drawWithClaude(prompt, mode, ai.ctl.signal, aiProgress) : await drawWithApi(prompt, mode, ai.ctl.signal, aiProgress);
     if (res.drawing.kind === 'svg') setPreview(res.drawing.data);
     else { const u = partsThumb(res.drawing.data); ui.aiPreview.hidden = !u; if (u) ui.aiPreview.src = u; }
     ui.aiModel.textContent = `رسمها: ${res.model}`; ui.aiChars.textContent = res.drawing.info;
@@ -1423,28 +1550,87 @@ async function aiDraw(){
     else { setStatus(e.message, true); log(e.message, 'warn'); }
   } finally { setBusy(false); }
 }
-function fillModelSelect(){
-  const cur = store.get('orModel', 'auto');
-  ui.orModel.textContent = '';
-  const auto = new Option('تلقائي: يجرّب المجانية بالترتيب', 'auto'); ui.orModel.append(auto);
-  for (const m of freeModels()) ui.orModel.append(new Option(m.name, m.id));
-  ui.orModel.value = [...ui.orModel.options].some(o => o.value === cur) ? cur : 'auto';
+
+/* settings: المزوّد ورابطه ومفتاحه ونموذجه، والتعليمات */
+function fillModels(){
+  const id = currentProv(), c = cfg(id), sel = ui.aiModelSel;
+  sel.textContent = '';
+  const group = label => { const g = document.createElement('optgroup'); g.label = label; sel.append(g); return g; };
+  if (id === 'openrouter'){
+    const { free, paid } = orCatalog();
+    sel.append(new Option('تلقائي: يجرّب المجانية بالترتيب', 'auto'));
+    const gf = group(`مجانية (${fmt(free.length)})`); for (const m of free) gf.append(new Option(m.name, m.id));
+    for (const [label, test] of [['قوية', m => m.out >= 8], ['متوسطة', m => m.out >= 1.6 && m.out < 8], ['رخيصة', m => m.out < 1.6]]){
+      const list = paid.filter(test); if (!list.length) continue;
+      const g = group(`مدفوعة ${label} (${fmt(list.length)})`);
+      for (const m of list) g.append(new Option(`${m.name} · ${price(m.out)}$ للمليون`, m.id));
+    }
+    if (!paid.length){ const o = new Option('— اضغط «حدّث القائمة» حتى تطلع المدفوعة —', ''); o.disabled = true; sel.append(o); }
+  } else {
+    const list = store.get('models.' + id)?.list || [];
+    for (const m of list) sel.append(new Option(m, m));
+    if (!list.length){
+      if (c.model) sel.append(new Option(c.model, c.model));
+      const o = new Option('— احفظ المفتاح واضغط «حدّث القائمة» حتى تطلع كل النماذج —', ''); o.disabled = true; sel.append(o);
+    }
+  }
+  if (c.model && ![...sel.options].some(o => o.value === c.model)) sel.append(new Option(c.model, c.model));
+  sel.value = c.model || sel.options[0]?.value || '';
+}
+function keyNote(){
+  const id = currentProv(), p = provMap[id];
+  ui.aiKeyNote.textContent = '';
+  if (p.keys) ui.aiKeyNote.append(`مفتاح ${p.name} تاخذه من `, Object.assign(document.createElement('a'), { href:p.keys, target:'_blank', rel:'noopener', textContent:p.keys.replace(/^https:\/\//, '') }), '. ');
+  ui.aiKeyNote.append('المفتاح ينحفظ بجهازك بس ويروح للمزوّد وقت الرسم.');
+  if (id === 'openrouter'){
+    const sel = ui.aiModelSel.value, paid = orCatalog().paid.find(m => m.id === sel);
+    if (paid) ui.aiKeyNote.append(` النموذج المختار مدفوع (${price(paid.out)}$ لكل مليون رمز يكتبه) ويخصم من رصيد حسابك.`);
+    else if (sel === 'auto') ui.aiKeyNote.append(' «تلقائي» يستخدم المجانية بس، وإذا وحدة انشغلت يتحول للي بعدها.');
+  } else if (id === 'custom') ui.aiKeyNote.append(' الرابط لازم يكون متوافق مع OpenAI (ينتهي عادة بـ /v1) ويسمح بالاتصال من المتصفح.');
+}
+function renderProvider(){
+  const id = currentProv(), c = cfg(id);
+  ui.aiProv.value = id; ui.aiBase.value = c.base; ui.aiKey.value = c.key; ui.aiCustom.value = c.custom;
+  ui.aiKey.placeholder = id === 'openrouter' ? 'sk-or-v1-…' : id === 'custom' ? 'إذا الرابط يحتاج مفتاح' : 'الصق المفتاح هنا';
+  ui.aiCustom.placeholder = id === 'openrouter' ? 'مثلاً anthropic/claude-sonnet-4.5' : 'اسم النموذج بالضبط مثل ما يكتبه المزوّد';
+  fillModels(); keyNote();
+}
+async function refreshModels(force, quiet){
+  const id = currentProv();
+  try {
+    if (id === 'openrouter') await refreshOpenRouter(force);
+    else { if (!cfg(id).base) throw new Error('حط رابط الـ API أول'); await refreshProviderModels(id); }
+    if (currentProv() === id){ fillModels(); keyNote(); }
+    if (!quiet) setStatus('تحدّثت قائمة النماذج.');
+  } catch (e){ if (!quiet) setStatus(e.message || 'تعذر جلب القائمة', true); }
 }
 function setupAiSettings(){
+  ui.aiRules.value = rules();
+  let rt;
+  ui.aiRules.addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { const v = ui.aiRules.value; store.set('rules', v.trim() && v !== DRAW_RULES ? v : null); }, 400); });
+  ui.aiRulesReset.addEventListener('click', () => { store.set('rules', null); ui.aiRules.value = DRAW_RULES; setStatus('رجعت التعليمات الأصلية.'); });
   if (ai.inClaude){
-    ui.orKeyRow.hidden = true; ui.orModelRow.hidden = true;
-    ui.aiNote.textContent = 'صفحات claude.ai تمنع الاتصال المباشر بالمواقع الخارجية، فـ OpenRouter ما يشتغل هنا. بهذي الصفحة الرسم يصير بـ Claude (يسألك مرة وحدة تسمح). النسخة المستقلة (index.html بالمستودع) ترسم بـ OpenRouter المجاني.';
+    ui.apiRows.hidden = true; ui.aiKeyNote.hidden = true;
+    ui.aiNote.textContent = 'صفحات claude.ai تمنع الاتصال المباشر بالمواقع الخارجية، فالمزوّدات (OpenRouter وغيره) ما تشتغل هنا، والرسم بهذي الصفحة يصير بـ Claude (يسألك مرة وحدة تسمح). افتح نسخة GitHub Pages حتى تختار المزوّد والنموذج بنفسك.';
     window.claude.use('sample').then(fn => { ai.sample = fn; if (!fn) ui.aiNote.textContent += ' Claude مو متاح بهذا العرض حاليًا.'; }).catch(() => {});
     return;
   }
-  ui.aiNote.innerHTML = '';
-  ui.aiNote.append('الرسم يصير بنماذج OpenRouter المجانية. سوّي حساب وانسخ مفتاحك من ',
-    Object.assign(document.createElement('a'), { href:'https://openrouter.ai/keys', target:'_blank', rel:'noopener', textContent:'openrouter.ai/keys' }),
-    '. المفتاح ينحفظ بجهازك بس، ويروح لـ OpenRouter وقت الرسم. إذا نموذج انشغل أو وصل حده، يتحول للي بعده تلقائيًا.');
-  ui.orKey.value = store.get('orKey', '');
-  ui.orSave.addEventListener('click', () => { const v = ui.orKey.value.trim(); store.set('orKey', v || null); setStatus(v ? 'انحفظ المفتاح. اكتب طلبك واضغط «ارسم بالذكاء».' : 'انمسح المفتاح.'); });
-  ui.orModel.addEventListener('change', () => store.set('orModel', ui.orModel.value));
-  fillModelSelect(); refreshFreeModels(false);
+  ui.aiNote.textContent = 'اختر المزوّد: أغلبهم عدهم خطة مجانية (OpenRouter بنماذجه المجانية، Gemini، Groq، Cerebras، Mistral، Hugging Face)، والباقي مدفوع. وإذا عندك أي API ثاني متوافق مع OpenAI، اختر «رابط خاص» وحط رابطه.';
+  for (const p of PROVIDERS) ui.aiProv.append(new Option(`${p.name} · ${p.tag}`, p.id));
+  ui.aiProv.addEventListener('change', () => { syncFieldsFor(ui.aiProv.dataset.cur); store.set('provider', ui.aiProv.value); ui.aiProv.dataset.cur = ui.aiProv.value; renderProvider(); autoRefresh(); });
+  ui.aiBase.addEventListener('change', () => saveCfg(currentProv(), { base:ui.aiBase.value.trim() }));
+  ui.aiSave.addEventListener('click', () => { const v = ui.aiKey.value.trim(); saveCfg(currentProv(), { key:v, base:ui.aiBase.value.trim() }); setStatus(v ? 'انحفظ المفتاح.' : 'انمسح المفتاح.'); if (v && currentProv() !== 'openrouter') refreshModels(true, true); });
+  ui.aiModelSel.addEventListener('change', () => { saveCfg(currentProv(), { model:ui.aiModelSel.value }); keyNote(); });
+  ui.aiCustom.addEventListener('change', () => saveCfg(currentProv(), { custom:ui.aiCustom.value.trim() }));
+  ui.aiRefresh.addEventListener('click', () => refreshModels(true, false));
+  ui.aiProv.dataset.cur = currentProv();
+  renderProvider(); autoRefresh();
+}
+function syncFieldsFor(id){ if (!provMap[id]) return; saveCfg(id, { key:ui.aiKey.value.trim(), base:ui.aiBase.value.trim(), custom:ui.aiCustom.value.trim() }); }
+function autoRefresh(){
+  const id = currentProv();
+  if (id === 'openrouter') refreshModels(false, true);
+  else if (cfg(id).key && !store.get('models.' + id)) refreshModels(false, true);
 }
 
 /* ═══════════════ wiring & boot ═══════════════ */

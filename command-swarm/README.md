@@ -24,25 +24,59 @@
 | دروع | ٣٠٠ | أبطأ وأكبر، يملّون الداخل ويوصلون آخر شي |
 | مشاعل | ٥٨ | تلمع |
 
-## الرسم بالذكاء (OpenRouter المجاني)
+## افتحها من التلفون
 
-1. سوّي حساب ببلاش على [openrouter.ai](https://openrouter.ai) وخذ مفتاح من [openrouter.ai/keys](https://openrouter.ai/keys).
-2. افتح `index.html`، ومن «الإعدادات واختبار السلسلة» حط المفتاح واضغط «احفظ المفتاح».
-3. اكتب طلبك، مثل «صورة لشخص يبتسم ويلبس شماغ أحمر»، واضغط «ارسم بالذكاء».
+**https://notlikeyouthink888.github.io/Non/command-swarm/**
+
+تنشر تلقائيًا على GitHub Pages بكل تعديل (`.github/workflows/pages.yml`). الصفحة الرئيسية للموقع تبقى صفحة الشطرنج.
+
+## الرسم بالذكاء
+
+1. من «الإعدادات واختبار السلسلة» اختر المزوّد. رابط الـ API ينكتب تلقائيًا، وتگدر تغيّره.
+2. خذ مفتاح من رابط المزوّد اللي يطلعلك تحت الحقول، والصقه واضغط «احفظ».
+3. اختر النموذج من القائمة، أو اكتب اسمه بنفسك.
+4. اكتب طلبك، مثل «صورة لشخص يبتسم ويلبس شماغ أحمر»، واضغط «ارسم بالذكاء».
+
+| المزوّد | رابط الـ API | المفتاح من | السعر |
+|---|---|---|---|
+| OpenRouter | `https://openrouter.ai/api/v1` | [openrouter.ai/keys](https://openrouter.ai/keys) | مئات النماذج: مجانية ومدفوعة |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | مجاني بحدود يومية |
+| Groq | `https://api.groq.com/openai/v1` | [console.groq.com/keys](https://console.groq.com/keys) | مجاني بحدود |
+| Cerebras | `https://api.cerebras.ai/v1` | [cloud.cerebras.ai](https://cloud.cerebras.ai) | مجاني بحدود |
+| Mistral | `https://api.mistral.ai/v1` | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys) | خطة تجربة مجانية |
+| Hugging Face | `https://router.huggingface.co/v1` | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) | رصيد مجاني شهري صغير |
+| DeepSeek | `https://api.deepseek.com` | [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys) | مدفوع ورخيص |
+| Together AI | `https://api.together.xyz/v1` | [api.together.ai/settings/api-keys](https://api.together.ai/settings/api-keys) | مدفوع |
+| OpenAI | `https://api.openai.com/v1` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | مدفوع |
+| xAI Grok | `https://api.x.ai/v1` | [console.x.ai](https://console.x.ai) | مدفوع |
+| رابط خاص | أي رابط متوافق مع OpenAI | — | — |
+
+كل هذي الروابط مفحوصة إنها تقبل الاتصال من المتصفح (CORS). GitHub Models وSambaNova ما يقبلون، فما انضافوا.
+
+**OpenRouter:**
+- القائمة تجيب تقريبًا كل نماذج النص: المجانية، وبعدها المدفوعة مقسّمة (قوية، متوسطة، رخيصة) ويا سعر كل مليون رمز.
+- «تلقائي» يستخدم المجانية بس ويتحول بينها.
+- إذا اخترت نموذج مدفوع ينخصم من رصيد حسابك.
+
+**المزوّدات الثانية:** «حدّث القائمة» يجيب نماذجهم من الرابط نفسه (`/models`).
+
+**التعليمات (البرومبت):** النص اللي يروح للنموذج قبل طلبك تگدر تعدله من الإعدادات، و«رجّع التعليمات الأصلية» يرجعه.
+لازم يبقى يطلب الرد SVG أو JSON حتى السرب يفهمه.
 
 - **نوع الرسمة:** الذكاء يختار بين:
   - **صورة ملوّنة (SVG):** تتحول لنحت بارز ملوّن.
   - **مجسم ثلاثي الأبعاد:** يتبني من أشكال: كرات، صناديق، أسطوانات، مخاريط، حلقات.
   - تگدر تفرض النوع من القائمة جنب مربع الكتابة.
 - **المعاينة:** تشوف الرسمة تنرسم وهي توصل، وبعدها تنحفظ بشريط الأشكال حتى ترجعلها بدون ما تطلب من جديد.
-- **النماذج:** التطبيق يجيب قائمة النماذج المجانية من OpenRouter ويجربها بالترتيب. إذا نموذج انشغل (429)
-  أو انحذف أو رجّع رسمة خربانة، يتحول للي بعده تلقائيًا. وتگدر تختار نموذج معيّن من الإعدادات.
+- **سلسلة المجانية:** بـ«تلقائي» على OpenRouter، إذا نموذج انشغل (429) أو انحذف أو رجّع رسمة خربانة،
+  يتحول للي بعده تلقائيًا.
 - **الحدود:** حد OpenRouter للمجانية ٥٠ طلب باليوم للحساب كله (١٠٠٠ إذا شحنت ١٠$ ولو مرة)، و٢٠ بالدقيقة.
+  إذا خلصت، جرّب Gemini أو Groq.
 - **الخصوصية:** إذا طلع خطأ عن الخصوصية، فعّل خيارات النماذج المجانية من [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy).
-- **المفتاح:** ينحفظ بالمتصفح على جهازك بس، وما يروح لغير OpenRouter.
+- **المفاتيح:** كل مفتاح ينحفظ بالمتصفح على جهازك بس، وما يروح لغير مزوّده.
 
-> داخل صفحة المعاينة على claude.ai ما يصير الاتصال بـ OpenRouter، لأن claude.ai يمنع الاتصال بالمواقع
-> الخارجية. هناك الرسم يصير بـ Claude بعد ما تسمح للصفحة مرة وحدة. النسخة هذي (`index.html`) ترسم بـ OpenRouter.
+> داخل صفحة المعاينة على claude.ai ما يصير الاتصال بأي مزوّد خارجي، لأن claude.ai يمنع ذلك.
+> هناك الرسم يصير بـ Claude بعد ما تسمح للصفحة مرة وحدة. نسخة GitHub Pages ترسم بالمزوّد اللي تختاره.
 
 ## شلون تمشي الأوامر
 
@@ -76,8 +110,8 @@
 
 ## التشغيل
 
-ملف واحد: `index.html`. افتحه بمتصفح حديث يدعم WebGL2 (Chrome أو Edge أو Safari أو Firefox).
-يحتاج إنترنت لتحميل three.js (نسخة 0.160.0 من jsDelivr) والخطوط، وللرسم بـ OpenRouter.
+ملف واحد: `index.html`. افتحه بمتصفح حديث يدعم WebGL2 (Chrome أو Edge أو Safari أو Firefox)،
+أو من رابط GitHub Pages فوق. يحتاج إنترنت لتحميل three.js (نسخة 0.160.0 من jsDelivr) والخطوط، وللرسم بالذكاء.
 
 ### التقنية باختصار
 
