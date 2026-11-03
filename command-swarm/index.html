@@ -117,6 +117,25 @@ input[type=range]{width:100%;accent-color:var(--signal)}
 .toggles label{display:flex;gap:6px;align-items:center;color:var(--ink);cursor:pointer}
 input[type=checkbox]{accent-color:var(--signal)}
 .fatal{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--ink);font-size:15px;line-height:1.7}
+.chain-head{grid-column:1/-1;display:flex;align-items:center;gap:8px;background:none;border:0;color:var(--ink);padding:0;cursor:pointer;font:inherit;text-align:start}
+.chain-head .ch-title{font-weight:600;white-space:nowrap}
+.chain-head .ch-sum{flex:1;min-width:0;color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chain-head svg{width:16px;height:16px;flex:none;transition:transform .2s}
+.chain.collapsed .chain-head svg{transform:rotate(180deg)}
+.chain.collapsed > :not(.chain-head){display:none}
+.viewbar{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(var(--console-h,0px) + 10px);display:flex;flex-wrap:wrap;gap:8px;z-index:6;max-width:calc(100vw - 32px)}
+body.viewing .viewbar{bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
+.vb{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--edge-strong);background:rgba(11,15,27,.86);color:var(--ink);font-weight:500;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.vb svg{width:18px;height:18px;flex:none}
+.vb[aria-pressed="true"]{border-color:var(--signal);color:var(--signal)}
+.vb.rec svg{color:var(--danger)}
+.vb.rec.on{background:var(--danger);color:#fff;border-color:transparent}
+.vb.rec.on svg{color:#fff}
+body.viewing .hud{display:none}
+.clip{position:fixed;z-index:7;left:50%;transform:translateX(-50%);bottom:calc(var(--console-h,0px) + 64px);width:min(420px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px}
+body.viewing .clip{bottom:calc(env(safe-area-inset-bottom,0px) + 72px)}
+.clip video{width:100%;max-height:46vh;border-radius:8px;background:#000}
+.clip .row{display:flex;gap:8px;flex-wrap:wrap}
 :focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 @media (max-width:760px){
   .log{display:none}
@@ -244,6 +263,25 @@ input[type=checkbox]{accent-color:var(--signal)}
   </div>
 </div>
 
+<div class="viewbar" id="viewbar">
+  <button class="vb" type="button" id="vbFull"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>عرض كامل</span></button>
+  <button class="vb" type="button" id="vbIn" hidden aria-label="قرّب"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+  <button class="vb" type="button" id="vbOut" hidden aria-label="بعّد"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+  <button class="vb" type="button" id="vbFocus" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg><span>ركّز</span></button>
+  <button class="vb" type="button" id="vbLeaders" hidden aria-pressed="false"><span>القادة</span></button>
+  <button class="vb rec" type="button" id="vbRec"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg><span id="vbRecLabel">فيديو قصير</span></button>
+  <button class="vb" type="button" id="vbExit" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span>رجوع</span></button>
+</div>
+<div class="clip card" id="clipBox" hidden>
+  <video id="clipVideo" playsinline muted loop controls></video>
+  <div class="row">
+    <button class="btn" type="button" id="clipShare">شارك أو احفظ</button>
+    <a class="btn ghost" id="clipDownload" href="#" download="command-swarm.webm">نزّل الفيديو</a>
+    <button class="btn ghost" type="button" id="clipClose">سكّر</button>
+  </div>
+  <p class="note" id="clipNote"></p>
+</div>
+
 <dialog id="rulesDlg" aria-labelledby="rulesTitle">
   <form method="dialog" class="dlg">
     <h2 id="rulesTitle">برومبت النموذج</h2>
@@ -324,7 +362,7 @@ const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 20
 camera.position.set(0, 60, 150);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.minDistance = 6; controls.maxDistance = 600;
+controls.minDistance = 2; controls.maxDistance = 600;
 controls.autoRotateSpeed = 0.5;
 let spinPref = !reduceMotion;
 
@@ -381,7 +419,7 @@ void main(){
 }`;
 const PARTICLE_VS = `
 uniform sampler2D tPos; uniform sampler2D tNew; uniform sampler2D tCol; uniform sampler2D tPrevCol; uniform sampler2D tGroup; uniform sampler2D tGroupCol;
-uniform float uTime; uniform float uScale; uniform float uSize; uniform float uGroups; uniform float uHier;
+uniform float uTime; uniform float uScale; uniform float uSize; uniform float uGroups; uniform float uHier; uniform float uGlow;
 varying vec3 vC;
 ${GLSL_HASH}
 void main(){
@@ -394,9 +432,11 @@ void main(){
   vec3 c = mix(texture2D(tPrevCol, ref).rgb, texture2D(tCol, ref).rgb, smoothstep(act, act + 1.6, uTime));
   c = mix(c, texture2D(tGroupCol, gref).rgb, uHier);
   float size = 1.0, b = 1.0;
-  if (t > 2.5) { float h = hash11(g * 2000.0 + q + 5.0); b = 1.05 + 0.5 * sin(uTime * 5.0 + h * 40.0); c = mix(c, vec3(1.0, 0.86, 0.58), 0.3); size = 1.25; }
-  else if (t > 1.5) { b = 0.86; size = 1.45; }
-  else if (t > 0.5) { c = mix(c, vec3(1.0), 0.2); size = 0.78; }
+  // بالألوان الحقيقية (الصور) تأثير البيادق خفيف حتى تبقى تفاصيل الرسمة واضحة
+  float fx = uGlow > 0.5 ? 1.0 : 0.3;
+  if (t > 2.5) { float h = hash11(g * 2000.0 + q + 5.0); b = 1.0 + fx * (0.05 + 0.5 * sin(uTime * 5.0 + h * 40.0)); c = mix(c, vec3(1.0, 0.86, 0.58), 0.3 * fx); size = 1.0 + 0.25 * fx; }
+  else if (t > 1.5) { b = 1.0 - 0.14 * fx; size = 1.0 + 0.45 * fx; }
+  else if (t > 0.5) { c = mix(c, vec3(1.0), 0.2 * fx); size = 1.0 - 0.22 * fx; }
   if (texture2D(tGroup, gref).r > 0.5) c = c * 0.25 + vec3(0.45, 0.07, 0.09);
   vC = c * b;
   gl_PointSize = clamp(uSize * size * uScale / -mv.z, 1.0, 64.0);
@@ -517,6 +557,11 @@ function cloudTop(pts){ let t = -Infinity; for (let i = 1; i < pts.length; i += 
 function gen(kind, N){
   const p = new Float32Array(N * 3);
   if (kind === 'camps'){ p.set(S.camp); return { pts:p, col:null, edge:null, top:CAMP_Y + 1, camps:true }; }
+  if (kind === 'burst'){ // تفرّق: غيمة كبيرة حول الشكل، حتى الفيديو يبين السرب وهو يتجمّع
+    for (let i = 0; i < N; i++){ const u = rnd() * 2 - 1, t = rnd() * TAU, q = Math.sqrt(1 - u * u), r = R * (1.7 + Math.cbrt(rnd()) * 1.4);
+      p[i * 3] = r * q * Math.cos(t); p[i * 3 + 1] = r * u * 0.8 + R * 0.2; p[i * 3 + 2] = r * q * Math.sin(t); }
+    return { pts:p, col:null, edge:null, top:S.topTarget - 1.5 };
+  }
   for (let i = 0; i < N; i++){
     let x = 0, y = 0, z = 0;
     if (kind === 'sphere'){ const u = rnd() * 2 - 1, t = rnd() * TAU, q = Math.sqrt(1 - u * u), r = R * (1 + (rnd() - 0.5) * 0.02);
@@ -699,8 +744,10 @@ async function wordCloud(text, N){
 }
 
 /* ═══════════════ 3D parts → particles ═══════════════ */
-const SHAPE_ALIAS = { sphere:'ellipsoid', ball:'ellipsoid', ellipsoid:'ellipsoid', oval:'ellipsoid', box:'box', cube:'box', cuboid:'box', rect:'box',
-  cylinder:'cylinder', tube:'cylinder', disc:'cylinder', disk:'cylinder', cone:'cone', pyramid:'cone', capsule:'capsule', pill:'capsule', torus:'torus', ring:'torus', donut:'torus' };
+const SHAPE_ALIAS = { sphere:'ellipsoid', ball:'ellipsoid', ellipsoid:'ellipsoid', oval:'ellipsoid', hemisphere:'ellipsoid', egg:'ellipsoid', head:'ellipsoid',
+  box:'box', cube:'box', cuboid:'box', rect:'box', rectangle:'box', block:'box', plane:'box', prism:'box', slab:'box',
+  cylinder:'cylinder', tube:'cylinder', disc:'cylinder', disk:'cylinder', pipe:'cylinder', rod:'cylinder', cone:'cone', pyramid:'cone', tetrahedron:'cone',
+  capsule:'capsule', pill:'capsule', limb:'capsule', torus:'torus', ring:'torus', donut:'torus' };
 function parseColor(c){ const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c || '').trim()); if (!m) return [200, 200, 212];
   let h = m[1]; if (h.length === 3) h = h.split('').map(x => x + x).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -709,10 +756,10 @@ function cleanParts(raw){
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.parts) ? raw.parts : [];
   const out = [];
   for (const p of list.slice(0, 400)){
-    const type = SHAPE_ALIAS[String(p?.shape || p?.type || '').toLowerCase()]; if (!type) continue;
+    const type = SHAPE_ALIAS[String(p?.shape || p?.type || p?.primitive || '').toLowerCase().trim()]; if (!type) continue;
     const size = vec3(p.size ?? p.scale ?? p.dimensions, [1, 1, 1]).map(v => Math.min(60, Math.max(0.05, Math.abs(v))));
     if (p.radius != null && p.size == null){ const r = Math.min(60, Math.max(0.05, Math.abs(num(p.radius, 0.5)) * 2)); size[0] = size[1] = size[2] = r; }
-    out.push({ type, size, pos:vec3(p.pos ?? p.position ?? p.center, [0, 0, 0]).map(v => Math.max(-60, Math.min(60, v))),
+    out.push({ type, size, pos:vec3(p.pos ?? p.position ?? p.center ?? p.centre ?? p.location, [0, 0, 0]).map(v => Math.max(-60, Math.min(60, v))),
       rot:vec3(p.rot ?? p.rotation, [0, 0, 0]), rgb:parseColor(p.color ?? p.colour) });
   }
   return out;
@@ -961,6 +1008,11 @@ function assignGroup(n, order, lo, hi){
   pairUp(src, newD, 4, dst, pts, 3, 0, NS);
   pairUp(src, newD, 4, dst, pts, 3, NS, GROUP - NS - NH);
   pairUp(src, newD, 4, dst, pts, 3, GROUP - NH, NH);
+  // المشاعل واقفة بحواف التشكيلة، فلو تبقى بمكانها تطلع خطوط بالرسمة: نوزّعها عشوائيًا
+  for (let i = NS; i < GROUP - NH; i++){
+    if (ptype(src[i] - base) !== 3) continue;
+    const j = NS + ((rnd() * (GROUP - NS - NH)) | 0), t = dst[i]; dst[i] = dst[j]; dst[j] = t;
+  }
   const lx = n.pos.x, ly = n.pos.y, lz = n.pos.z;
   let aMin = Infinity, aMax = 0;
   for (let i = 0; i < GROUP; i++){
@@ -983,10 +1035,11 @@ function assignGroup(n, order, lo, hi){
   if (S.lost[g]) setLost(g, false);
 }
 function setLost(g, on){ S.lost[g] = on ? 1 : 0; S.groupD[g * 4] = on ? 1 : 0; S.texGroup.needsUpdate = true; }
-function issue(cloud, label, chip){
+function issue(cloud, label, chip, quiet = false){
   const N = S.N, idx = new Uint32Array(N); for (let i = 0; i < N; i++) idx[i] = i;
   const order = { id:++S.orderSeq, label, pts:cloud.pts, col:cloud.col, edge:cloud.edge, idx, t0:S.now, got:[0, 0, 0, 0, 0] };
   S.latest = order.id; S.topTarget = cloud.top + 1.5;
+  if (!quiet){
   for (const b of ui.shapes.children) b.setAttribute('aria-pressed', String(b.dataset.k === chip));
   const lightMode = ui.light.value;
   setGlow(lightMode === 'glow' || (lightMode === 'auto' && !cloud.col));
@@ -998,6 +1051,7 @@ function issue(cloud, label, chip){
   else { // الشكل مع سلسلة القيادة فوقه، ومرفوع شوية عن لوحة الأوامر
     const top = cloud.top + 1.5 + CANOPY[0] + 1.5, half = Math.max(b.rx, b.rz, (top - b.minY) / 2) * 1.08;
     focusOn(new V3(b.cx, (top + b.minY) / 2 - half * 0.2, b.cz), half, !!cloud.picture);
+  }
   }
   log(`أمرك: شكّلوا «${label}»`, 'cmd');
   receive(S.root, order, 0, N);
@@ -1098,9 +1152,11 @@ function drawMarkers(){
 const cam = { focus:null, front:false, free:1 }, sph = new THREE.Spherical();
 // مركز الصورة بالمساحة الفاضية فوق لوحة الأوامر (وتحت اللوحة العليا بالموبايل)
 function layoutView(){
-  const W = innerWidth, H = innerHeight;
-  const bot = Math.min(H * 0.45, Math.max(0, H - document.getElementById('console').getBoundingClientRect().top));
-  const top = W <= 760 ? Math.min(H * 0.4, document.querySelector('.top').getBoundingClientRect().bottom) : 0;
+  const W = innerWidth, H = innerHeight, viewing = document.body.classList.contains('viewing');
+  const consoleH = viewing ? 0 : Math.max(0, H - document.getElementById('console').getBoundingClientRect().top);
+  document.documentElement.style.setProperty('--console-h', consoleH + 'px');
+  const bot = Math.min(H * 0.45, consoleH);
+  const top = viewing || W > 760 ? 0 : Math.min(H * 0.4, document.querySelector('.top').getBoundingClientRect().bottom);
   cam.free = Math.max(0.3, (H - top - bot) / H);
   camera.aspect = W / H;
   camera.setViewOffset(W, H, 0, (bot - top) / 2, W, H);
@@ -1110,6 +1166,7 @@ function focusOn(center, radius, front){
   const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const dist = Math.min(500, Math.max(12, radius / (t * cam.free), radius / (t * camera.aspect * 0.92)));
   cam.focus = { target:center.clone(), dist }; cam.front = front;
+  cam.last = { center:center.clone(), radius, front };
 }
 function easeCamera(dt){
   if (!cam.focus) return;
@@ -1139,7 +1196,11 @@ const ui = {
   aiKey:document.getElementById('aiKey'), aiSave:document.getElementById('aiSave'), aiModelSel:document.getElementById('aiModelSel'), aiRefresh:document.getElementById('aiRefresh'),
   aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), connectBtn:document.getElementById('connectBtn'), aiConnect:document.getElementById('aiConnect'),
   quickModel:document.getElementById('quickModel'), rulesBtn:document.getElementById('rulesBtn'), rulesBtn2:document.getElementById('rulesBtn2'),
-  rulesDlg:document.getElementById('rulesDlg'), rulesState:document.getElementById('rulesState'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
+  rulesDlg:document.getElementById('rulesDlg'), rulesState:document.getElementById('rulesState'),
+  vbFull:document.getElementById('vbFull'), vbIn:document.getElementById('vbIn'), vbOut:document.getElementById('vbOut'), vbFocus:document.getElementById('vbFocus'),
+  vbLeaders:document.getElementById('vbLeaders'), vbRec:document.getElementById('vbRec'), vbRecLabel:document.getElementById('vbRecLabel'), vbExit:document.getElementById('vbExit'),
+  clipBox:document.getElementById('clipBox'), clipVideo:document.getElementById('clipVideo'), clipShare:document.getElementById('clipShare'),
+  clipDownload:document.getElementById('clipDownload'), clipClose:document.getElementById('clipClose'), clipNote:document.getElementById('clipNote'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
 };
 const RANK_ICON = [
   '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>',
@@ -1151,8 +1212,15 @@ const RANK_ICON = [
 ];
 const RANK_TINT = ['#ffffff', '#ffd27a', '#9fb4ff', '#c3a6ff', '#a7b0c8', '#7d869e'];
 let chainRows = [];
+function setChainCollapsed(v){ ui.chain.classList.toggle('collapsed', v); store.set('chainCollapsed', v); const h = ui.chain.querySelector('.chain-head'); if (h) h.setAttribute('aria-expanded', String(!v)); layoutView(); }
 function buildChainPanel(){
   ui.chain.textContent = ''; chainRows = [];
+  const head = document.createElement('button'); head.type = 'button'; head.className = 'chain-head';
+  head.innerHTML = '<span class="ch-title">سلسلة القيادة</span><span class="ch-sum"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  head.addEventListener('click', () => setChainCollapsed(!ui.chain.classList.contains('collapsed')));
+  ui.chain.append(head);
+  const collapsed = store.get('chainCollapsed') ?? innerWidth <= 760;
+  ui.chain.classList.toggle('collapsed', collapsed); head.setAttribute('aria-expanded', String(!collapsed));
   const counts = [1, S.levels[1].length, S.levels[2].length, S.levels[3].length, S.G, S.N];
   const names = [...RANK_MANY, 'البيادق'];
   names.forEach((name, L) => {
@@ -1171,6 +1239,14 @@ function buildChainPanel(){
 }
 function updateChainPanel(){
   const latest = S.latest;
+  let dead = 0, got = 0, total = 0, lostG = 0, doingAll = 0;
+  for (let L = 1; L <= 4; L++) for (const n of S.levels[L]){ total++; if (!n.alive) dead++; else if (n.order && n.order.id === latest) got++; }
+  for (const n of S.groups){ if (S.lost[n.group]){ lostG++; continue; } if (n.order && n.order.id === latest) doingAll += S.now >= n.actMax ? GROUP : S.now <= n.actMin ? 0 : GROUP * (S.now - n.actMin) / (n.actMax - n.actMin); }
+  const sum = ui.chain.querySelector('.ch-sum');
+  if (sum) sum.textContent = !latest ? 'بانتظار أمرك'
+    : dead ? `${fmt(dead)} قائد ساقط${lostG ? ` · ${fmt(lostG * GROUP)} بيدق تايه` : ''}`
+    : got < total ? `الأمر ينزل: ${fmt(got)} من ${fmt(total)} قائد استلموا`
+    : `كل القادة استلموا · ينفّذون ${fmt(doingAll)} بيدق`;
   for (const row of chainRows){
     if (row.L === 0){ row.fill.style.width = latest ? '100%' : '0%'; row.st.textContent = latest ? 'تعطي الأوامر' : 'بانتظارك'; row.st.className = 'st'; continue; }
     if (row.L === 5){
@@ -1282,23 +1358,71 @@ function drawPrompt(prompt, mode){
   return `${rules()}\n\nRequest: ${prompt}${force}`;
 }
 // يطلّع الرسمة من رد الذكاء: SVG أو JSON
-function extractDrawing(text){
-  const t = String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
-  if (t.includes('<svg')){
-    let prep = null, err = null;
-    for (let at = t.lastIndexOf('<svg'); at >= 0 && !prep; at = at > 0 ? t.lastIndexOf('<svg', at - 1) : -1){
-      try { const p = prepareSvg(t.slice(at)); if (p.elements >= 2) prep = p; } catch (e){ err = e; }
-    }
-    if (!prep) throw err || new Error('الرسمة ناقصة');
-    return { kind:'svg', data:prep.str, info:`${fmt(prep.elements)} شكل` };
+// الرسمة من رد الذكاء. النماذج المجانية أحيانًا ترجّع JSON خربان أو مقطوع، أو SVG داخل JSON، فنصلّح اللي نگدر عليه
+function svgFrom(t){
+  let prep = null, err = null;
+  for (let at = t.lastIndexOf('<svg'); at >= 0 && !prep; at = at > 0 ? t.lastIndexOf('<svg', at - 1) : -1){
+    try { const p = prepareSvg(t.slice(at)); if (p.elements >= 2) prep = p; } catch (e){ err = e; }
   }
-  let s = t.replace(/```(?:json)?/gi, '').trim(); const a = s.indexOf('{'), b = s.lastIndexOf('}');
-  if (a < 0 || b <= a) throw new Error('الرد ما بيه رسمة مفهومة');
-  s = s.slice(a, b + 1);
-  let obj; try { obj = JSON.parse(s); } catch { try { obj = JSON.parse(s.replace(/,\s*([}\]])/g, '$1')); } catch { throw new Error('المجسم بيه خطأ بصياغة JSON'); } }
-  const parts = cleanParts(obj);
-  if (parts.length < 2) throw new Error('المجسم ما بيه أجزاء كافية');
-  return { kind:'parts', data:JSON.stringify({ title:String(obj.title || '').slice(0, 60), parts:obj.parts || obj }), info:`${fmt(parts.length)} جزء` };
+  return prep ? { kind:'svg', data:prep.str, info:`${fmt(prep.elements)} شكل` } : (err ? { err } : null);
+}
+function fixJson(str){
+  return str
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:"'\\])\/\/[^\n]*/g, '$1')
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/([{,]\s*)([A-Za-z_][\w-]*)\s*:/g, '$1"$2":')
+    .replace(/'([^'\\\n]*)'/g, '"$1"')
+    .replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null')
+    .replace(/:\s*#([0-9a-fA-F]{3,8})\b/g, ':"#$1"');
+}
+function looseParse(str){ try { return JSON.parse(str); } catch {} try { return JSON.parse(fixJson(str)); } catch {} return null; }
+function closeJson(str){ // يكمّل JSON مقطوع بإغلاق الأقواس المفتوحة
+  const stack = []; let inStr = false, esc = false;
+  for (const ch of str){
+    if (inStr){ if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true; else if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']'); else if ((ch === '}' || ch === ']') && stack.length) stack.pop();
+  }
+  return (inStr ? str + '"' : str).replace(/,\s*$/, '') + stack.reverse().join('');
+}
+function leafObjects(s){ // كل {...} مكتمل بالنص، حتى لو الملف كله خربان
+  const out = [], stack = []; let inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++){ const ch = s[i];
+    if (inStr){ if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true; else if (ch === '{') stack.push(i); else if (ch === '}' && stack.length) out.push(s.slice(stack.pop(), i + 1));
+  }
+  return out;
+}
+const toHex = rgb => '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
+function partsFrom(t){
+  const s = t.replace(/```[a-zA-Z]*\s*/g, '').replace(/```/g, '');
+  const a = s.indexOf('{'), b = s.lastIndexOf('}'), a2 = s.indexOf('[');
+  let obj = a >= 0 && b > a ? looseParse(s.slice(a, b + 1)) : null;
+  if (!obj && a >= 0) obj = looseParse(closeJson(s.slice(a)));
+  if (!obj && a2 >= 0) obj = looseParse(s.slice(a2, s.lastIndexOf(']') + 1)) || looseParse(closeJson(s.slice(a2)));
+  let parts = obj ? cleanParts(obj) : [];
+  if (parts.length < 2){ // إنقاذ: كل جزء لحاله
+    const found = leafObjects(s).filter(x => /shape|type|primitive/i.test(x)).map(looseParse).filter(o => o && !Array.isArray(o) && (o.shape || o.type || o.primitive));
+    const salvaged = cleanParts(found);
+    if (salvaged.length > parts.length) parts = salvaged;
+  }
+  return { parts, title:String(obj?.title || '').slice(0, 60) };
+}
+function extractDrawing(text){
+  let t = String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
+  if (/&lt;svg/i.test(t) && !/<svg/i.test(t)) t = t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  let svgErr = null;
+  if (/<svg/i.test(t)){
+    t = t.replace(/<SVG/g, '<svg').replace(/<\/SVG>/g, '</svg>');
+    const tries = [t]; if (/\\"|\\n/.test(t)) tries.push(t.replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, ' ').replace(/\\\//g, '/'));
+    for (const c of tries){ const r = svgFrom(c); if (r?.kind) return r; if (r?.err) svgErr = r.err; }
+  }
+  const { parts, title } = partsFrom(t);
+  if (parts.length >= 2){
+    const raw = parts.map(p => ({ shape:p.type, pos:p.pos, size:p.size, rot:p.rot, color:toHex(p.rgb) }));
+    return { kind:'parts', data:JSON.stringify({ title, parts:raw }), info:`${fmt(parts.length)} جزء` };
+  }
+  if (svgErr) throw new Error('الرسمة اللي رجعت ناقصة أو خربانة');
+  throw new Error(t.trim() ? 'النموذج رجّع كلام بدل رسمة' : 'النموذج ما رجّع شي');
 }
 
 const OR = 'https://openrouter.ai/api/v1';
@@ -1426,7 +1550,8 @@ function errText(j){
 async function apiCall(o){
   const url = o.base.replace(/\/+$/, '') + '/chat/completions';
   const headers = { 'Content-Type':'application/json', ...(o.key ? { Authorization:'Bearer ' + o.key } : {}), ...(o.extra || {}) };
-  const variants = o.variants || [{ max_tokens:o.maxTokens, temperature:0.6 }, { max_completion_tokens:o.maxTokens }, {}];
+  const json = o.json ? { response_format:{ type:'json_object' } } : {};
+  const variants = (o.variants || [{ max_tokens:o.maxTokens, temperature:0.6 }, { max_completion_tokens:o.maxTokens }, {}]).map((v, i) => i === 0 ? { ...v, ...json } : v);
   let stream = true;
   for (let v = 0; v < variants.length; v++){
     let res;
@@ -1436,7 +1561,7 @@ async function apiCall(o){
     if (res.ok) return stream ? readStream(res, o) : readWhole(res, o);
     let msg = ''; try { msg = errText(await res.json()); } catch {}
     if (res.status === 400 && stream && /stream/i.test(msg)){ stream = false; v--; continue; }
-    if (res.status === 400 && v < variants.length - 1 && /max_tokens|max_completion_tokens|temperature|reasoning|unsupported|not supported|unrecognized|unknown (field|param|argument)|extra inputs/i.test(msg)) continue;
+    if (res.status === 400 && v < variants.length - 1 && /max_tokens|max_completion_tokens|temperature|reasoning|response_format|json|unsupported|not supported|unrecognized|unknown (field|param|argument)|extra inputs/i.test(msg)) continue;
     throw o.classify(res.status, msg);
   }
   throw o.classify(400, '');
@@ -1474,7 +1599,7 @@ const POLICY_MSG = 'حسابك بـ OpenRouter مانع النماذج المج�
 async function openRouterChain(common, progress){
   const free = orCatalog().free, cool0 = cooling();
   const ranked = [...free.filter(m => !cool0[m.id]), ...free.filter(m => cool0[m.id])];
-  const groups = [[FREE_ROUTER], ranked.slice(0, 3), ranked.slice(3, 6)].filter(g => g.length);
+  const groups = [ranked.slice(0, 3), [FREE_ROUTER], ranked.slice(3, 6)].filter(g => g.length);
   let lastErr = null;
   for (let i = 0; i < groups.length; i++){
     const g = groups[i], name = g.map(m => m.name).join(' أو ');
@@ -1490,13 +1615,14 @@ async function openRouterChain(common, progress){
       if (e.skip && e.ms && g.length === 1 && g[0] !== FREE_ROUTER) cool(g[0].id, e.ms);
       lastErr = e;
       log(`${name}: ${e.message}${groups[i + 1] ? '، أجرّب غيره' : ''}`, 'warn');
+      progress({ model:groups[i + 1] ? 'نموذج ثاني' : name, text:'' });
     }
   }
-  throw new Error(`ما ضبطت الرسمة هالمرة (${lastErr?.message || 'خطأ'}). جرّب مرة ثانية بعد دقيقة، أو اختر نموذج معيّن من الإعدادات.`);
+  throw new Error(`النماذج المجانية ما ضبطت الرسمة هالمرة (${lastErr?.message || 'خطأ'}). جرّب مرة ثانية، أو اختر «صورة ملوّنة» بدل «مجسم»، أو اختر نموذج أقوى من القائمة.`);
 }
 async function drawWithApi(prompt, mode, signal, progress){
   const id = currentProv(), p = provMap[id], c = cfg(id), model = c.custom.trim() || c.model;
-  const common = { base:c.base.trim(), key:c.key, signal, prompt:drawPrompt(prompt, mode),
+  const common = { base:c.base.trim(), key:c.key, signal, prompt:drawPrompt(prompt, mode), json:mode === '3d',
     netMsg:`تعذر الوصول لـ ${p.name}. تأكد من الإنترنت والرابط، أو المزوّد ما يسمح بالاتصال من المتصفح.` };
   if (id === 'openrouter'){
     common.extra = { 'HTTP-Referer':/^https?:/.test(location.protocol) ? location.origin + location.pathname : 'https://github.com/notlikeyouthink888/Non', 'X-Title':'Command Swarm' };
@@ -1765,6 +1891,85 @@ function autoRefresh(){
   else if (cfg(id).key && !store.get('models.' + id)) refreshModels(false, true);
 }
 
+/* ═══════════════ view mode: the swarm full screen, zoom in for detail ═══════════════ */
+let viewPrev = null;
+function showLeaders(leaders, lines){ ui.tLeaders.checked = leaders; ui.tLines.checked = lines; if (S) S.lines.visible = lines; ui.vbLeaders.setAttribute('aria-pressed', String(leaders)); }
+function refocus(){ if (cam.last) focusOn(cam.last.center, cam.last.radius, cam.last.front); }
+function zoomBy(f){ const d = camera.position.distanceTo(controls.target); cam.focus = { target:controls.target.clone(), dist:Math.min(600, Math.max(2.5, d * f)) }; cam.front = false; }
+function setViewing(on){
+  if (on === document.body.classList.contains('viewing')) return;
+  document.body.classList.toggle('viewing', on);
+  for (const b of [ui.vbIn, ui.vbOut, ui.vbFocus, ui.vbLeaders, ui.vbExit]) b.hidden = !on;
+  ui.vbFull.hidden = on;
+  if (on){ viewPrev = { leaders:ui.tLeaders.checked, lines:ui.tLines.checked }; showLeaders(false, false); }
+  else if (viewPrev){ showLeaders(viewPrev.leaders, viewPrev.lines); viewPrev = null; }
+  layoutView(); refocus();
+}
+ui.vbFull.addEventListener('click', () => setViewing(true));
+ui.vbExit.addEventListener('click', () => setViewing(false));
+ui.vbIn.addEventListener('click', () => zoomBy(0.72));
+ui.vbOut.addEventListener('click', () => zoomBy(1.38));
+ui.vbFocus.addEventListener('click', refocus);
+ui.vbLeaders.addEventListener('click', () => { const on = ui.vbLeaders.getAttribute('aria-pressed') !== 'true'; showLeaders(on, on); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('viewing') && !ui.rulesDlg.open) setViewing(false); });
+
+/* فيديو قصير: يسجّل الشاشة ٩ ثواني والسرب يتفرّق ويرجع يتشكّل */
+const CLIP_SECONDS = 9;
+const rec = { mr:null, chunks:[], mime:'', timer:0, tick:0, t0:0, url:null, file:null, saver:null };
+function pickMime(){
+  for (const t of ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'])
+    if (window.MediaRecorder?.isTypeSupported?.(t)) return t;
+  return '';
+}
+function replayFormation(){
+  const spec = S.lastSpec; if (!spec) return;
+  issue(gen('burst', S.N), 'تفرّقوا', null, true);
+  setTimeout(() => { if (rec.mr) command(spec); }, 2200);
+}
+function startClip(){
+  if (rec.mr){ stopClip(); return; }
+  if (!window.MediaRecorder || !renderer.domElement.captureStream){ setStatus('هذا المتصفح ما يدعم تسجيل الفيديو. جرّب Chrome أو Safari حديث.', true); return; }
+  closeClip();
+  const mime = pickMime();
+  let mr;
+  try { mr = new MediaRecorder(renderer.domElement.captureStream(30), { ...(mime ? { mimeType:mime } : {}), videoBitsPerSecond:8e6 }); }
+  catch { setStatus('ما گدرت أبدي التسجيل بهذا المتصفح.', true); return; }
+  rec.mr = mr; rec.chunks = []; rec.mime = mr.mimeType || mime || 'video/webm'; rec.t0 = performance.now();
+  mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+  mr.onstop = finishClip;
+  mr.start(250);
+  ui.vbRec.classList.add('on');
+  const tick = () => { ui.vbRecLabel.textContent = `يسجّل ${nf.format(Math.max(0, Math.ceil(CLIP_SECONDS - (performance.now() - rec.t0) / 1000)))}`; };
+  tick(); rec.tick = setInterval(tick, 250);
+  rec.timer = setTimeout(stopClip, CLIP_SECONDS * 1000);
+  replayFormation();
+}
+function stopClip(){ clearTimeout(rec.timer); clearInterval(rec.tick); if (rec.mr && rec.mr.state !== 'inactive') rec.mr.stop(); }
+function finishClip(){
+  ui.vbRec.classList.remove('on'); ui.vbRecLabel.textContent = 'فيديو قصير';
+  const blob = new Blob(rec.chunks, { type:rec.mime.split(';')[0] }); rec.mr = null;
+  if (!blob.size){ setStatus('ما انسجل شي، جرّب مرة ثانية.', true); return; }
+  const ext = rec.mime.includes('mp4') ? 'mp4' : 'webm';
+  rec.file = new File([blob], `command-swarm.${ext}`, { type:blob.type });
+  if (rec.url) URL.revokeObjectURL(rec.url);
+  rec.url = URL.createObjectURL(blob);
+  ui.clipVideo.src = rec.url; ui.clipVideo.play().catch(() => {});
+  ui.clipDownload.href = rec.url; ui.clipDownload.download = rec.file.name;
+  ui.clipDownload.hidden = ai.inClaude;
+  ui.clipShare.hidden = !(navigator.canShare?.({ files:[rec.file] }) || rec.saver);
+  ui.clipNote.textContent = `فيديو ${nf.format(CLIP_SECONDS)} ثواني، ${fmt(blob.size / 1024)} كيلوبايت (${ext.toUpperCase()}).`;
+  ui.clipBox.hidden = false;
+}
+function closeClip(){ ui.clipBox.hidden = true; ui.clipVideo.pause(); }
+ui.vbRec.addEventListener('click', startClip);
+ui.clipClose.addEventListener('click', closeClip);
+ui.clipShare.addEventListener('click', async () => {
+  if (!rec.file) return;
+  if (navigator.canShare?.({ files:[rec.file] })){ try { await navigator.share({ files:[rec.file], title:'سرب القيادة' }); } catch {} return; }
+  if (rec.saver){ try { await rec.saver.save({ filename:rec.file.name, data:rec.file }); } catch { setStatus('ما انحفظ الفيديو.', true); } }
+});
+if (ai.inClaude) window.claude.use('downloads').then(d => { rec.saver = d; }).catch(() => {});
+
 /* ═══════════════ wiring & boot ═══════════════ */
 ui.askForm.addEventListener('submit', e => { e.preventDefault(); aiDraw(); });
 ui.prompt.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); aiDraw(); } });
@@ -1798,7 +2003,9 @@ layoutView();
 build(ui.size.value);
 renderChips();
 log('السرب بمعسكراته. أول أمر راح يطلع منك بعد لحظة');
-window.__swarm = { command, extractDrawing, state:() => S, aiDraw };
+window.__swarm = { command, extractDrawing, state:() => S, aiDraw, setViewing,
+  manual(){ renderer.setAnimationLoop(null); },
+  frame(dt = 1 / 30){ step(dt); easeCamera(dt); controls.update(); renderer.render(scene, camera); return renderer.domElement.toDataURL('image/jpeg', 0.9); } };
 
 const clock = new THREE.Clock(); let hudT = 0;
 renderer.setAnimationLoop(() => {
