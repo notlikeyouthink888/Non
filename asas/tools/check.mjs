@@ -644,6 +644,62 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.goto(BASE + '#/admin');
     await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
 
+    // ── Gemini: المدير يختاره للكتابة، ومفاتيحه المجانية، ونماذجه من القائمة الحيّة ──
+    await page.locator('.admin .chip', { hasText: 'Gemini (مجاني)' }).click();
+    await appear(page.locator('.toast', { hasText: 'تغيّرت طريقة الكتابة' }));
+    await sleep(200);
+    assert((await admin('/state')).config.provider === 'gemini', 'لوحة المدير: اختيار Gemini للكتابة للمستخدمين');
+    await page.locator('.admin .add-key .chip', { hasText: 'Gemini' }).first().click();
+    await page.fill('input[name="key-label"]', 'جيميناي ١');
+    await page.fill('input[name="key-secret"]', 'AIzaSyFlashOut00000000000000000000000000');
+    await page.locator('.admin .add-key button', { hasText: 'أضف المفتاح' }).click();
+    await appear(page.locator('.toast', { hasText: 'أُضيف المفتاح' }));
+    const gemKey = (await admin('/state')).keys.find((k) => k.provider === 'gemini');
+    const gemTest = await admin(`/keys/${gemKey?.id}/test`, { method: 'POST' });
+    assert(gemKey?.label === 'جيميناي ١' && gemTest.ok, 'لوحة المدير: إضافة مفتاح Gemini واختباره');
+    await admin('/keys', { method: 'POST', body: JSON.stringify({ provider: 'gemini', label: 'خاطئ', secret: 'AIzaSyBad000000000000000000000000000000' }) });
+    const badGem = (await admin('/state')).keys.find((k) => k.label === 'خاطئ');
+    const badTest = await admin(`/keys/${badGem.id}/test`, { method: 'POST' });
+    assert(!badTest.ok && (await admin('/state')).keys.find((k) => k.id === badGem.id).status === 'invalid', 'مفتاح Gemini خاطئ يُكشف في الاختبار ويُستبعد');
+    await admin(`/keys/${badGem.id}`, { method: 'DELETE' });
+    await page.goto(BASE + '#/');
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin .gemini-models', { timeout: 10000 });
+    await page.locator('.admin .gemini-models button', { hasText: 'أضف نموذج Gemini' }).click();
+    await page.waitForSelector('.sheet .list .item');
+    const gemNames = await page.locator('.sheet .list .item .t').allInnerTexts();
+    assert(gemNames.length === 2 && gemNames.includes('Gemini 2.5 Pro'), `نماذج Gemini من القائمة الحيّة دون نماذج الصوت والتضمين (${gemNames.join('، ')})`);
+    await page.locator('.sheet .list .item', { hasText: 'Gemini 2.5 Pro' }).click();
+    await appear(page.locator('.toast', { hasText: 'أُضيف النموذج' }));
+    const gemChain = (await admin('/state')).config.geminiModels.map((m) => m.id);
+    assert(gemChain.join() === 'gemini-flash-latest,gemini-flash-lite-latest,gemini-2.5-pro', `ترتيب نماذج Gemini (${gemChain.join(' ← ')})`);
+    // طلب بصيغة OpenRouter يتحوّل إلى Gemini: انتهت حصة النموذج الأول فيكمل بالثاني بالمفتاح نفسه
+    const gemCall = (dev) => fetch(SRV + '/or/api/v1/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json', 'x-asas-device': dev, 'x-asas-kind': 'other' }, body: JSON.stringify({ model: 'x', models: ['x', 'openrouter/free'], reasoning: { effort: 'low' }, response_format: { type: 'json_schema', json_schema: { name: 'r', strict: true, schema: { type: 'object' } } }, messages: [{ role: 'system', content: '"ok"' }, { role: 'user', content: 'x' }] }) });
+    const g0 = up.log.gem.length;
+    const gr = await gemCall(owner.id);
+    const gemCalls = up.log.gem.slice(g0);
+    const gemBody = await gr.json().catch(() => ({}));
+    assert(gr.ok && gemCalls.map((c) => c.model).join() === 'gemini-flash-latest,gemini-flash-lite-latest' && gemBody.choices?.[0]?.message?.content,
+      `الخادم: حين انتهت حصة نموذج Gemini الأول كمل بالثاني (${gemCalls.map((c) => c.model).join(' ← ')})`);
+    assert(gemCalls.every((c) => !c.models && !c.reasoning && c.response_format?.type === 'json_object' && c.reasoning_effort === 'low'), 'طلب Gemini نظيف: بلا حقول OpenRouter، ووضع JSON، وتفكير منخفض');
+    assert((await admin('/state')).keys.find((k) => k.id === gemKey.id).status === 'ok', 'انتهاء حصة نموذج واحد لا يوقف مفتاح Gemini كله');
+    // تقرير كامل من التطبيق يُكتب عبر Gemini (بث متدفق)
+    await page.goto(BASE + '#/create?topic=tension_test');
+    await page.waitForSelector('.type-card.on');
+    await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
+    await page.waitForURL(/#\/report\//);
+    await waitDone(page, 40000);
+    assert(await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0 && up.log.gem.slice(g0).some((c) => c.stream),
+      `تقرير كامل عبر Gemini (${await page.locator('.rsec').count()} أقسام)`);
+    // لا مفاتيح Gemini متاحة: يكمل الخادم بمفاتيح OpenRouter احتياطًا
+    await admin(`/keys/${gemKey.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: false }) });
+    const o0 = up.log.or.length;
+    const fr = await gemCall(owner.id);
+    assert(fr.ok && up.log.or.length > o0, 'Gemini بلا مفاتيح متاحة: الخادم يكمل بـ OpenRouter احتياطًا');
+    await admin('/config', { method: 'PUT', body: JSON.stringify({ provider: 'openrouter' }) });
+    await page.goto(BASE + '#/');
+    await page.goto(BASE + '#/admin');
+    await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
     await page.locator('.admin [data-device] .switch').first().click();
     await appear(page.locator('.toast', { hasText: 'أُوقف' }));
     await page.goto(BASE + '#/create?topic=curing');

@@ -24,7 +24,7 @@ const readBody = (req) => new Promise((res) => { const c = []; req.on('data', (d
 
 /** المزوّدات الوهمية: تعيد تقريرًا تجريبيًا، وترفض المفاتيح التي فيها «limit» بانتهاء الحصة اليومية. */
 export function startUpstream(port) {
-  const log = { or: [], an: [], tg: [] };
+  const log = { or: [], an: [], tg: [], gem: [] };
   const server = createServer(async (req, res) => {
     const body = await readBody(req);
     const url = new URL(req.url, 'http://x');
@@ -33,6 +33,31 @@ export function startUpstream(port) {
     if (url.pathname.startsWith('/tg/')) {
       log.tg.push({ path: url.pathname, type: req.headers['content-type'] || '', body: body.toString('utf8') });
       return send(200, { ok: true, result: {} });
+    }
+    // Gemini: مفتاح فيه «FlashOut» انتهت حصته اليومية لأول نموذج فقط (الحصة لكل نموذج)، و«Bad» مرفوض
+    const gkey = req.headers['x-goog-api-key'] || auth.replace(/^Bearer /, '');
+    if (url.pathname === '/gemini/v1beta/models') {
+      if (!/^AIza/.test(gkey) || /Bad/.test(gkey)) return send(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } });
+      return send(200, { models: [
+        { name: 'models/gemini-flash-latest', displayName: 'Gemini Flash Latest', supportedGenerationMethods: ['generateContent', 'countTokens'], inputTokenLimit: 1048576, outputTokenLimit: 65536 },
+        { name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', supportedGenerationMethods: ['generateContent'], inputTokenLimit: 1048576, outputTokenLimit: 65536 },
+        { name: 'models/gemini-2.5-flash-preview-tts', displayName: 'Gemini TTS', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/text-embedding-004', displayName: 'Embedding', supportedGenerationMethods: ['embedContent'] },
+      ] });
+    }
+    if (url.pathname === '/gemini/v1beta/openai/chat/completions') {
+      const b = JSON.parse(body.toString('utf8') || '{}');
+      log.gem.push({ key: gkey, model: b.model, stream: !!b.stream, models: b.models, reasoning: b.reasoning, reasoning_effort: b.reasoning_effort, response_format: b.response_format });
+      if (/Bad/.test(gkey)) return send(400, [{ error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }]);
+      if (/FlashOut/.test(gkey) && b.model === 'gemini-flash-latest') {
+        return send(429, [{ error: { code: 429, message: 'You exceeded your current quota. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20', status: 'RESOURCE_EXHAUSTED', details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } }]);
+      }
+      const user = b.messages?.[1]?.content;
+      const text = typeof user === 'string' ? user : (user || []).filter((p) => p.type === 'text').map((p) => p.text).join('\n');
+      if (b.stream) { res.writeHead(200, { 'content-type': 'text/event-stream' }); return res.end(orSse(reportMarkdown(text), b.model)); }
+      const sys = b.messages?.[0]?.content || '';
+      const props = Object.fromEntries(['figures', 'choices', 'titles', 'ok'].filter((k) => sys.includes(`"${k}"`)).map((k) => [k, {}]));
+      return send(200, { id: 'gem', model: b.model, choices: [{ index: 0, message: { role: 'assistant', content: JSON.stringify(jsonFor({ messages: b.messages }, props)) }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10 } });
     }
     if (url.pathname === '/api/v1/key') return /limit|good|second/.test(auth) ? send(200, { data: { label: 'x', is_free_tier: true, limit_remaining: 40 } }) : send(401, { error: { code: 401, message: 'No auth' } });
     if (url.pathname === '/api/v1/chat/completions') {
@@ -66,6 +91,7 @@ export function startWorker(port, upstreamPort, { password = 'admin-pass-123' } 
     ADMIN_PASSWORD: password,
     OR_UPSTREAM: `http://127.0.0.1:${upstreamPort}/api/v1`,
     ANTHROPIC_UPSTREAM: `http://127.0.0.1:${upstreamPort}`,
+    GEMINI_UPSTREAM: `http://127.0.0.1:${upstreamPort}/gemini/v1beta`,
     TELEGRAM_API: `http://127.0.0.1:${upstreamPort}/tg`,
   };
   const pending = new Set();

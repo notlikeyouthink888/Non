@@ -20,6 +20,9 @@ import { topbar } from './common.js';
 const STATUS_TEXT = {
   ok: 'يعمل', daily: 'انتهت حصة اليوم', minute: 'حد الدقيقة', credits: 'انتهى الرصيد', invalid: 'مرفوض', off: 'موقوف',
 };
+const PROV_NAME = { openrouter: 'OpenRouter', anthropic: 'Claude', gemini: 'Gemini' };
+const PROV_CHIPS = [{ value: 'openrouter', label: 'OpenRouter' }, { value: 'gemini', label: 'Gemini' }, { value: 'anthropic', label: 'Claude' }];
+const KEY_PLACEHOLDER = 'sk-or-v1-…  أو  AIza…  أو  sk-ant-api03-…';
 const time = (t) => new Date(t).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' });
 
 async function copy(text) {
@@ -168,7 +171,7 @@ export default {
         const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg, 'ok'); await load(); } catch (e) { toast(e.message, 'err'); } };
         return h('div.key-row', { dataset: { id: k.id } }, [
           h('div.grow', [
-            h('div.t', [k.label, ' ', h('span.badge', k.provider === 'anthropic' ? 'Claude' : 'OpenRouter'), ' ', h('span.ltr.muted', k.hint)]),
+            h('div.t', [k.label, ' ', h('span.badge', PROV_NAME[k.provider] || k.provider), ' ', h('span.ltr.muted', k.hint)]),
             k.owners?.length ? h('div.s', `خاص بـ: ${k.owners.join('، ')}`) : null,
             h('div.s', [h('span.kst' + (k.status === 'ok' ? '.ok' : '.bad'), status + when), ` • اليوم ${fmtNum(k.today)} • الكل ${fmtNum(k.uses)}`]),
             k.note ? h('div.s.muted.note', k.note.slice(0, 140)) : null,
@@ -184,14 +187,15 @@ export default {
           ]),
         ]);
       };
-      let prov = st.config.provider === 'anthropic' ? 'anthropic' : 'openrouter';
+      let prov = PROV_NAME[st.config.provider] ? st.config.provider : 'openrouter';
       const labelIn = h('input', { placeholder: 'اسم للتمييز (مثلًا: حسابي الثاني)', name: 'key-label' });
-      const keyIn = h('input.ltr', { placeholder: 'sk-or-v1-… أو sk-ant-api03-…', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'key-secret' });
+      const keyIn = h('input.ltr', { placeholder: KEY_PLACEHOLDER, autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'key-secret' });
       fill(card, [
         st.keys.length ? h('div.keys', st.keys.map(keyRow)) : h('p.hint', 'لا توجد مفاتيح بعد.'),
         h('div.hint', 'يستعمل الخادم المفاتيح بالترتيب: حين تنتهي حصة مفتاح أو رصيده ينتقل تلقائيًا إلى التالي ويرسل لك تنبيهًا، ويرجع للمفتاح بعد تجدد حصته. ولتعيين مفتاح لمستخدم معيّن: «المستخدمون» ← «المفتاح».'),
         h('div.add-key', [
-          field('مفتاح جديد', chipGroup([{ value: 'openrouter', label: 'OpenRouter' }, { value: 'anthropic', label: 'Claude' }], prov, (v) => { prov = v; })),
+          field('مفتاح جديد', chipGroup(PROV_CHIPS, prov, (v) => { prov = v; })),
+          prov === 'gemini' || st.config.provider === 'gemini' ? h('p.hint', 'مفتاح Gemini مجاني من aistudio.google.com ← Get API key. حصته لكل حساب Google، فمفاتيح من حسابات مختلفة تزيد الحصة.') : null,
           labelIn,
           keyIn,
           h('button.btn.primary.block', {
@@ -216,8 +220,8 @@ export default {
       const draw = () => {
         const chain = cfg.textModels || [];
         fill(card, [
-          field('الكتابة للمستخدمين عبر', chipGroup([{ value: 'openrouter', label: 'OpenRouter (مجاني أو مدفوع)' }, { value: 'anthropic', label: 'Claude' }], cfg.provider, (v) => save({ provider: v }, 'تغيّرت طريقة الكتابة ✓', { redraw: true }))),
-          cfg.provider === 'anthropic'
+          field('الكتابة للمستخدمين عبر', chipGroup([{ value: 'openrouter', label: 'OpenRouter (مجاني أو مدفوع)' }, { value: 'gemini', label: 'Gemini (مجاني)' }, { value: 'anthropic', label: 'Claude' }], cfg.provider, (v) => save({ provider: v }, 'تغيّرت طريقة الكتابة ✓', { redraw: true }))),
+          cfg.provider === 'gemini' ? geminiModels(cfg) : cfg.provider === 'anthropic'
             ? field('نموذج Claude', chipGroup(MODELS.map((m) => ({ value: m.id, label: m.name.replace('Claude ', '') })), cfg.claudeModel, (v) => save({ claudeModel: v }, 'حُفظ ✓', { redraw: true })), 'يحتاج مفتاح Claude برصيد. Haiku الأرخص بكثير، وOpus الأدق.')
             : h('div', [
               h('label.lbl', 'نماذج الكتابة (بالترتيب، حتى ثلاثة — الثاني والثالث بدائل تلقائية)'),
@@ -237,6 +241,43 @@ export default {
       };
       draw();
       return card;
+    }
+
+    /** نماذج Gemini بالترتيب: إذا انتهت حصة الأول المجانية يكمل بالتالي. */
+    function geminiModels(cfg) {
+      const chain = cfg.geminiModels?.length ? cfg.geminiModels : [];
+      return h('div.gemini-models', [
+        h('label.lbl', 'نماذج Gemini (بالترتيب، حتى ثلاثة)'),
+        chain.length
+          ? h('div.list', chain.map((m, i) => h('div.item.static', [
+            h('div.grow', [h('div.t', `${i + 1}. ${m.name}`), h('div.s.ltr', m.id)]),
+            h('button.icon-btn', { type: 'button', 'aria-label': 'إزالة', onclick: () => save({ geminiModels: chain.filter((x) => x.id !== m.id) }, 'حُذف ✓', { redraw: true }) }, icon('x', 18)),
+          ])))
+          : h('p.hint', 'الافتراضي: أحدث Gemini Flash ثم Flash-Lite.'),
+        chain.length < 3 ? h('button.btn.block.mt', { type: 'button', onclick: () => pickGemini((m) => save({ geminiModels: [...chain, m] }, 'أُضيف النموذج ✓', { redraw: true })) }, [icon('plus', 16), 'أضف نموذج Gemini']) : null,
+        h('p.hint', 'Gemini يرى الصور ويكتب بالعربي جيدًا. الحصة المجانية لكل نموذج على حدة، فإذا انتهت حصة نموذج انتقل الخادم للتالي ثم للمفتاح التالي. وإن كانت لديك مفاتيح OpenRouter تُستعمل احتياطًا.'),
+      ]);
+    }
+
+    /** يختار نموذج Gemini من القائمة الحيّة لمفتاحك. */
+    function pickGemini(onPick) {
+      let q = '';
+      let list = [];
+      const box = h('div.list');
+      const draw = () => {
+        const shown = list.filter((m) => !q || `${m.id} ${m.name}`.toLowerCase().includes(q));
+        fill(box, shown.length ? shown.map((m) => h('button.item', {
+          type: 'button',
+          onclick: () => { sh.close(); onPick({ id: m.id, name: m.name }); },
+        }, [h('div.grow', [h('div.t', m.name), h('div.s', [h('span.ltr', m.id)])])])) : h('p.hint', 'لا نتائج.'));
+      };
+      const sh = sheet('أضف نموذج Gemini', [
+        h('input', { placeholder: 'ابحث: flash، pro، lite…', oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } }),
+        h('p.hint', 'Flash وFlash-Lite لهما حصة مجانية أكبر؛ Pro حصته المجانية قليلة أو معدومة.'),
+        box,
+      ], { full: true });
+      fill(box, h('div.row', [h('div.spinner'), h('span.muted', 'يجلب نماذج Gemini…')]));
+      adminApi('/gemini/models').then((r) => { list = r.models || []; draw(); }).catch((e) => fill(box, h('p.hint', e.message)));
     }
 
     /** يختار نموذجًا من قائمة OpenRouter الحيّة (المجانية أولًا). */
@@ -369,8 +410,8 @@ export default {
     function userKeySheet(d, keyEl) {
       const who = d.name || 'هذا المستخدم';
       let pick = d.key_id || 0;
-      let prov = st.config.provider === 'anthropic' ? 'anthropic' : 'openrouter';
-      const keyIn = h('input.ltr', { placeholder: 'sk-or-v1-… أو sk-ant-api03-…', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'user-key-secret' });
+      let prov = PROV_NAME[st.config.provider] ? st.config.provider : 'openrouter';
+      const keyIn = h('input.ltr', { placeholder: KEY_PLACEHOLDER, autocomplete: 'off', autocapitalize: 'off', spellcheck: false, name: 'user-key-secret' });
       const done = (keyId, label) => {
         d.key_id = keyId; d.key_label = label;
         keyEl.textContent = keyId ? `مفتاحه: ${label}` : 'المفاتيح المشتركة';
@@ -391,7 +432,7 @@ export default {
         field('اختر مفتاحه', chipGroup(options, pick, (v) => { pick = v; })),
         h('button.btn.primary.block', { type: 'button', onclick: () => save(sh, { keyId: pick }) }, 'حفظ'),
         h('div.add-key', [
-          field('أو أضف له مفتاحًا جديدًا', chipGroup([{ value: 'openrouter', label: 'OpenRouter' }, { value: 'anthropic', label: 'Claude' }], prov, (v) => { prov = v; })),
+          field('أو أضف له مفتاحًا جديدًا', chipGroup(PROV_CHIPS, prov, (v) => { prov = v; })),
           keyIn,
           h('button.btn.block', { type: 'button', onclick: () => save(sh, { newKey: { provider: prov, secret: keyIn.value } }) }, [icon('plus', 16), 'أضف المفتاح وخصّصه له']),
         ]),
