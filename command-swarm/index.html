@@ -1384,6 +1384,16 @@ function closeJson(str){ // يكمّل JSON مقطوع بإغلاق الأقوا
   }
   return (inStr ? str + '"' : str).replace(/,\s*$/, '') + stack.reverse().join('');
 }
+function closeJsonTries(str){ // يرجع خطوة خطوة لحد آخر فاصلة لحد ما يصير JSON صالح
+  let t = str;
+  for (let k = 0; k < 40 && t.length > 1; k++){
+    const o = looseParse(closeJson(t)); if (o) return o;
+    const cut = Math.max(t.lastIndexOf(','), t.lastIndexOf('{'), t.lastIndexOf('['));
+    if (cut <= 0) break;
+    t = t.slice(0, cut);
+  }
+  return null;
+}
 function leafObjects(s){ // كل {...} مكتمل بالنص، حتى لو الملف كله خربان
   const out = [], stack = []; let inStr = false, esc = false;
   for (let i = 0; i < s.length; i++){ const ch = s[i];
@@ -1397,8 +1407,8 @@ function partsFrom(t){
   const s = t.replace(/```[a-zA-Z]*\s*/g, '').replace(/```/g, '');
   const a = s.indexOf('{'), b = s.lastIndexOf('}'), a2 = s.indexOf('[');
   let obj = a >= 0 && b > a ? looseParse(s.slice(a, b + 1)) : null;
-  if (!obj && a >= 0) obj = looseParse(closeJson(s.slice(a)));
-  if (!obj && a2 >= 0) obj = looseParse(s.slice(a2, s.lastIndexOf(']') + 1)) || looseParse(closeJson(s.slice(a2)));
+  if (!obj && a >= 0) obj = closeJsonTries(s.slice(a));
+  if (!obj && a2 >= 0) obj = looseParse(s.slice(a2, s.lastIndexOf(']') + 1)) || closeJsonTries(s.slice(a2));
   let parts = obj ? cleanParts(obj) : [];
   if (parts.length < 2){ // إنقاذ: كل جزء لحاله
     const found = leafObjects(s).filter(x => /shape|type|primitive/i.test(x)).map(looseParse).filter(o => o && !Array.isArray(o) && (o.shape || o.type || o.primitive));
