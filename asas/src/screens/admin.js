@@ -331,17 +331,18 @@ export default {
     function telegramCard() {
       const cfg = st.config;
       const tokIn = h('input.ltr', { value: cfg.telegram.hasToken ? cfg.telegram.token : '', placeholder: '123456789:ABC… (من @BotFather)', autocomplete: 'off', name: 'tg-token' });
-      const chatIn = h('input.ltr', { value: cfg.telegram.chat || '', placeholder: 'رقم المحادثة (من @userinfobot)', name: 'tg-chat' });
+      // أكثر من معرّف: كل واحد بسطر أو مفصولة بفاصلة (أشخاص، مجموعات تبدأ بـ -100، أو @قناة)
+      const chatIn = h('textarea.ltr', { rows: 3, value: String(cfg.telegram.chat || '').split(/[\s,،;]+/).filter(Boolean).join('\n'), placeholder: '123456789\n987654321', name: 'tg-chat' });
       const n = cfg.notify;
       return h('div.card', [
         h('ol.steps-mini', [
           h('li', 'في تيليغرام افتح @BotFather ← /newbot ← اختر اسمًا، وانسخ الرمز (token).'),
-          h('li', 'افتح بوتك واضغط Start، ثم افتح @userinfobot وانسخ رقمك (Id).'),
-          h('li', 'الصقهما هنا واحفظ، ثم «رسالة تجربة».'),
+          h('li', 'افتح بوتك واضغط Start، ثم افتح @userinfobot وانسخ رقمك (Id). كل شخص تريده أن يستلم: يضغط Start في البوت ويرسل لك رقمه.'),
+          h('li', 'الصق الرمز والأرقام هنا (كل رقم بسطر) واحفظ، ثم «رسالة تجربة».'),
         ]),
         field('رمز البوت', tokIn),
-        field('رقم المحادثة', chatIn),
-        settingRow('كل تقرير جديد (مع ملف نصه)', null, toggle(n.reports, (v) => save({ notify: { reports: v } }))),
+        field('أرقام المحادثات (كل رقم بسطر)', chatIn, 'يصل كل شيء إلى كل الأرقام. للمجموعة أضف البوت إليها واكتب رقمها (يبدأ بـ -100).'),
+        settingRow('كل تقرير جديد (ملف PDF)', null, toggle(n.reports, (v) => save({ notify: { reports: v } }))),
         settingRow('انتهاء حصة مفتاح أو رصيده', null, toggle(n.keys, (v) => save({ notify: { keys: v } }))),
         settingRow('مستخدم جديد', null, toggle(n.users, (v) => save({ notify: { users: v } }))),
         h('div.grid2', [
@@ -349,7 +350,12 @@ export default {
           h('button.btn', {
             type: 'button',
             onclick: async () => {
-              try { await adminApi('/telegram/test', { method: 'POST' }); toast('وصلت رسالة التجربة ✓', 'ok'); } catch (e) { toast(`لم تصل: ${e.message}`, 'err', 4000); }
+              try {
+                const r = await adminApi('/telegram/test', { method: 'POST' });
+                const bad = (r.results || []).filter((x) => !x.ok);
+                if (bad.length) toast(`وصلت إلى ${r.sent} من ${r.results.length}. لم تصل إلى: ${bad.map((x) => `${x.chat} (${x.error})`).join('، ')}`, 'err', 6000);
+                else toast(r.sent > 1 ? `وصلت رسالة التجربة إلى ${r.sent} أرقام ✓` : 'وصلت رسالة التجربة ✓', 'ok');
+              } catch (e) { toast(`لم تصل: ${e.message}`, 'err', 5000); }
             },
           }, 'رسالة تجربة'),
         ]),

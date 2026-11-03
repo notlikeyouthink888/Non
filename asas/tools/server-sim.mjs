@@ -82,8 +82,14 @@ export function startUpstream(port) {
     const auth = req.headers.authorization || req.headers['x-api-key'] || '';
     const send = (status, obj, type = 'application/json') => { res.writeHead(status, { 'content-type': type }); res.end(typeof obj === 'string' ? obj : JSON.stringify(obj)); };
     if (url.pathname.startsWith('/tg/')) {
-      log.tg.push({ path: url.pathname, type: req.headers['content-type'] || '', body: body.toString('utf8') });
-      return send(200, { ok: true, result: {} });
+      const type = req.headers['content-type'] || '';
+      const json = /json/.test(type) ? JSON.parse(body.toString('utf8') || '{}') : null;
+      const chat = json ? String(json.chat_id) : (body.toString('latin1').match(/name="chat_id"\r\n\r\n([^\r]+)/) || [])[1] || '';
+      log.tg.push({ path: url.pathname, type, chat, json, raw: body, body: body.toString('utf8') });
+      // محادثة غير موجودة (لاختبار رسائل الفشل)
+      if (chat === '999') return send(400, { ok: false, error_code: 400, description: 'Bad Request: chat not found' });
+      const fileId = `FILE-${log.tg.length}`;
+      return send(200, { ok: true, result: url.pathname.endsWith('/sendDocument') ? { document: { file_id: json?.document || fileId } } : {} });
     }
     // Gemini: مفتاح فيه «FlashOut» انتهت حصته اليومية لأول نموذج فقط (الحصة لكل نموذج)، و«Bad» مرفوض
     const gkey = req.headers['x-goog-api-key'] || auth.replace(/^Bearer /, '');

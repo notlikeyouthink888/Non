@@ -23,6 +23,8 @@ function boot() {
 
   // تقارير توقفت أثناء كتابتها (أُغلق التطبيق): تكمل تلقائيًا في الخلفية — من الخادم إن كان يكتبها
   setTimeout(() => import('./report/pipeline.js').then((m) => m.resumeUnfinished()).catch(() => {}), 800);
+  // ملفات PDF لتقارير لم تصل إلى المدير (لا إنترنت وقتها) تُرسل الآن
+  setTimeout(() => import('./report/deliver.js').then((m) => m.retryPendingPdfs()).catch(() => {}), 4000);
 
   // محرّك المعادلات يُجهَّز في وقت الفراغ حتى تظهر المعادلات مرسومة من أول عرض
   const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));

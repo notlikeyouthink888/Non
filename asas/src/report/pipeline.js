@@ -12,7 +12,8 @@ import { getType, sectionsOf } from '../data/types.js';
 import { SYSTEM, reportPrompt, figurePrompt, FIGURE_SCHEMA, verifyContent, VERIFY_SCHEMA } from '../ai/prompts.js';
 import { streamText, jsonCall, aiErrorMessage, activeModelId, visionLimits, isTransientError } from '../ai/client.js';
 import { holdAwake, retryTransient } from '../core/keepalive.js';
-import { linked, onServer, ensureConfig, logReport } from '../core/server.js';
+import { linked, onServer, ensureConfig } from '../core/server.js';
+import { deliverReport } from './deliver.js';
 import { newJobId } from '../ai/jobfetch.js';
 import { splitSections, wordsOf, normalizeHeadings, joinSections } from './md.js';
 import { composeOffline, planFiguresOffline } from './compose.js';
@@ -120,9 +121,16 @@ export function startGeneration(report, mode = 'ai', { resume = false } = {}) {
     })
     .finally(() => {
       const st = job.report.status;
-      // نسخة للمدير حين يكون التطبيق مربوطًا بخادمه (والمستخدم مُبلَّغ بذلك في الإعدادات وصفحة الإنشاء)
-      if (linked() && job.mode !== 'images' && !job.ctrl.signal.aborted) logReport(job.report, { type: getType(job.report.typeId).name });
-      job.awake.release(st === 'ready' ? `التقرير جاهز ✓ — ${job.report.title.slice(0, 50)}` : job.ctrl.signal.aborted ? '' : 'توقف التقرير — افتح التطبيق للمتابعة');
+      const doneText = st === 'ready' ? `التقرير جاهز ✓ — ${job.report.title.slice(0, 50)}` : job.ctrl.signal.aborted ? '' : 'توقف التقرير — افتح التطبيق للمتابعة';
+      // نسخة للمدير حين يكون التطبيق مربوطًا بخادمه (والمستخدم مُبلَّغ بذلك في الإعدادات وصفحة الإنشاء):
+      // النص ثم ملف PDF. يبقى التطبيق يعمل في الخلفية حتى يُرسل، ثم يظهر إشعار «جاهز».
+      if (linked() && job.mode !== 'images' && !job.ctrl.signal.aborted) {
+        const hold = holdAwake('يحفظ التقرير…');
+        deliverReport(job.report, { type: getType(job.report.typeId).name }).catch(() => {}).finally(() => hold.release(doneText));
+        job.awake.release('');
+      } else {
+        job.awake.release(doneText);
+      }
       job.done = true;
       jobs.delete(report.id);
       emit(job, 'done');

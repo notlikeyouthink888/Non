@@ -104,14 +104,14 @@ async function flows(page) {
   await page.getByText('أنشئ التقرير (محتوى كامل دون اتصال)').click();
   await page.waitForURL(/#\/report\//);
   await waitDone(page);
-  assert(await page.locator('.rsec').count() === 10, 'تقرير مختبر مقاومة المواد دون اتصال: 10 أقسام مع المواصفة');
-  assert(await page.locator('.rsec ol li').count() >= 10, 'خطوات العمل مرقّمة (10 خطوات)');
+  assert(await page.locator('#app .rsec').count() === 10, 'تقرير مختبر مقاومة المواد دون اتصال: 10 أقسام مع المواصفة');
+  assert(await page.locator('#app .rsec ol li').count() >= 10, 'خطوات العمل مرقّمة (10 خطوات)');
   assert(await page.locator('.eq').count() >= 1, 'المعادلات تُعرض في كتلة مستقلة');
   await page.waitForFunction(() => document.querySelectorAll('.eq .mx svg').length >= 1 && !document.querySelector('.mx-wait'), null, { timeout: 20000 });
   assert(await page.locator('.eq .mx svg [data-mml-node="mfrac"]').count() >= 1, 'المعادلات مرسومة صورًا بكسور حقيقية بلا «/»');
-  assert(await page.locator('.rsec li .mx svg').count() >= 1, 'رموز المعادلات في «حيث» مرسومة بدلائلها السفلية');
+  assert(await page.locator('#app .rsec li .mx svg').count() >= 1, 'رموز المعادلات في «حيث» مرسومة بدلائلها السفلية');
   assert(await page.locator('.mx-err').count() === 0, 'لا معادلة فشل رسمها');
-  assert(await page.locator('.rsec h3', { hasText: 'أسئلة المناقشة' }).count() === 1, 'المناقشة: أسئلة المناقشة مع أجوبتها');
+  assert(await page.locator('#app .rsec h3', { hasText: 'أسئلة المناقشة' }).count() === 1, 'المناقشة: أسئلة المناقشة مع أجوبتها');
   const cover = await page.locator('.paper > .cover').innerText();
   assert(cover.includes('جمهورية العراق') && cover.includes('جامعة بغداد') && cover.includes('التجربة رقم (3)') && cover.includes('مقاومة المواد'), 'الغلاف بصيغة الجامعة: الوزارة والجامعة والمادة ورقم التجربة');
   // الطباعة/PDF: الصفحة والغلاف «only light» حتى لا يقلب الوضع الداكن الإجباري في الهاتف الغلاف أسود
@@ -195,10 +195,10 @@ async function flows(page) {
   await page.locator('.sheet .fmt-save').click();
   await page.waitForSelector('.sheet', { state: 'detached', timeout: 10000 });
   await appear(page.locator('.paper[data-border="double"][data-heading="underline"]'));
-  assert(await page.locator('.paper[data-border="double"][data-heading="underline"]').count() === 1 && await page.locator('.rsec h2 .n').count() === 0, 'التنسيق: إطار مزدوج وعناوين تحتها خط وأقسام بلا أرقام بعد الحفظ');
+  assert(await page.locator('.paper[data-border="double"][data-heading="underline"]').count() === 1 && await page.locator('#app .rsec h2 .n').count() === 0, 'التنسيق: إطار مزدوج وعناوين تحتها خط وأقسام بلا أرقام بعد الحفظ');
   assert((await page.locator('.paper').evaluate((p) => p.style.getPropertyValue('--frame'))).trim() === '#15803d', 'التنسيق: تغيير اللون يُطبَّق (أخضر)');
   info = await exportWord('format.docx');
-  const firstHead = (await page.locator('.rsec h2').first().innerText()).trim();
+  const firstHead = (await page.locator('#app .rsec h2').first().innerText()).trim();
   assert(info.pgBorders === 1 && info.sections === 2 && new RegExp(`^${firstHead}$`, 'm').test(info.text) && !new RegExp(`^\\d+\\. ${firstHead}`, 'm').test(info.text), `Word: إطار على كل صفحات التقرير وعناوين بلا أرقام («${firstHead}»)`);
 
   // تقرير جماعي: أسماء الطلبة ولقب المشرف ونمط «شعاران»
@@ -291,9 +291,9 @@ async function flows(page) {
   await page.waitForSelector('.gen-panel .phase', { timeout: 5000 });
   await shot(page, '08-generating');
   await waitDone(page, 40000);
-  assert(await page.locator('.rsec').count() === 9, 'تقرير نظري بالذكاء الاصطناعي: 9 أقسام كما في الهيكل');
-  assert(await page.locator('.rsec table').count() >= 1, 'الجداول تُعرض');
-  assert(await page.locator('.rsec .ph').count() >= 1, 'القيم بين [ ] مميزة لتعديلها');
+  assert(await page.locator('#app .rsec').count() === 9, 'تقرير نظري بالذكاء الاصطناعي: 9 أقسام كما في الهيكل');
+  assert(await page.locator('#app .rsec table').count() >= 1, 'الجداول تُعرض');
+  assert(await page.locator('#app .rsec .ph').count() >= 1, 'القيم بين [ ] مميزة لتعديلها');
   await page.waitForFunction(() => document.querySelectorAll('figure.fig img').length >= 2, null, { timeout: 15000 });
   const aiImgs = await page.locator('figure.fig img').count();
   const rejected = await page.locator('.fig-pending').count();
@@ -305,14 +305,14 @@ async function flows(page) {
   await shot(page, '09-report-ai');
 
   /* ── 6. تحرير قسم بالذكاء الاصطناعي ─────────── */
-  await page.locator('.rsec .tools button').first().click();
+  await page.locator('#app .rsec .tools button').first().click();
   await page.waitForSelector('.sheet .editor');
   await page.locator('.sheet .chip', { hasText: 'أعد الصياغة' }).click();
   await page.waitForFunction(() => document.querySelector('.sheet textarea')?.value.includes('بعد إعادة الصياغة'), null, { timeout: 10000 });
   await shot(page, '10-edit-section');
   await page.locator('.sheet button.btn.primary', { hasText: 'حفظ' }).click();
   await until(page, () => document.querySelector('.rsec')?.innerText.includes('بعد إعادة الصياغة'));
-  assert(await page.locator('.rsec').first().innerText().then((t) => t.includes('بعد إعادة الصياغة')), 'تحرير القسم بالذكاء الاصطناعي وحفظه');
+  assert(await page.locator('#app .rsec').first().innerText().then((t) => t.includes('بعد إعادة الصياغة')), 'تحرير القسم بالذكاء الاصطناعي وحفظه');
 
   /* ── 7. استبدال صورة ─────────────────────────── */
   await page.locator('figure.fig .fig-tools button').first().click();
@@ -370,7 +370,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.waitForURL(/#\/report\//);
   await waitDone(page, 40000);
   assert(stats.lastReportPrompt.includes('قراءات الطالب الفعلية') && stats.lastReportPrompt.includes('h1 = 0.352'), 'قراءات الطالب تصل إلى الذكاء الاصطناعي ليحسب منها النتائج');
-  assert(await page.locator('.rsec').count() === 9, 'تقرير مختبر الموائع: 9 أقسام (المواصفة خاصة بالخرسانة والمقاومة)');
+  assert(await page.locator('#app .rsec').count() === 9, 'تقرير مختبر الموائع: 9 أقسام (المواصفة خاصة بالخرسانة والمقاومة)');
 
   /* ── 8ب2. تقرير بالإنجليزية بأسلوب طالب عادي ─── */
   await page.goto(BASE + '#/create?topic=slump');
@@ -381,7 +381,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.waitForURL(/#\/report\//);
   await waitDone(page, 40000);
   assert(stats.lastReportPrompt.includes('Write the ENTIRE report in English') && stats.lastReportPrompt.includes('طالب عادي') && stats.lastReportPrompt.includes('كتابة طبيعية'), 'الأسلوب واللغة يصلان للذكاء الاصطناعي: إنجليزي بأسلوب طالب عادي وكتابة طبيعية');
-  const enHeads = await page.locator('.rsec h2').allInnerTexts();
+  const enHeads = await page.locator('#app .rsec h2').allInnerTexts();
   assert(await page.locator('.paper[dir="ltr"]').count() === 1 && /Introduction|Background|Overview/.test(enHeads[0] || ''), `تقرير إنجليزي: الورقة من اليسار لليمين وعناوين إنجليزية (${enHeads.slice(0, 3).join(' | ')})`);
   assert((await page.locator('.paper > .cover').innerText()).includes('Republic of Iraq'), 'تقرير إنجليزي: الغلاف بالإنجليزية');
   {
@@ -427,7 +427,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.waitForURL(/#\/report\//);
   await waitDone(page, 40000);
   const orText = await page.locator('.paper').innerText();
-  assert(await page.locator('.rsec').count() === 9, 'OpenRouter: تقرير مختبر كامل بأقسامه التسعة رغم اختلاف صيغ العناوين (### و**…**)');
+  assert(await page.locator('#app .rsec').count() === 9, 'OpenRouter: تقرير مختبر كامل بأقسامه التسعة رغم اختلاف صيغ العناوين (### و**…**)');
   assert(!/think|أرتب الأقسام/.test(orText), 'OpenRouter: أفكار النموذج (<think>) لا تظهر في التقرير');
   await page.waitForFunction(() => document.querySelectorAll('figure.fig img').length >= 1, null, { timeout: 15000 });
   assert((await page.content()).includes('OpenRouter — Qwen3 235B'), 'التقرير يذكر النموذج المجاني الذي كتبه');
@@ -464,7 +464,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await waitDone(page);
   const lists = await page.evaluate(() => [...document.querySelectorAll('.rsec')].slice(0, -1).reduce((n, s) => n + s.querySelectorAll('li').length, 0));
   assert(lists === 0 && await page.locator('.tbl-wrap').count() === 0, `محتوى التقرير: فقرات بلا نقاط وبلا جداول (${lists} نقطة)`);
-  assert(await page.locator('.rsec p', { hasText: /أولًا،/ }).count() >= 1, 'الخطوات تُكتب جملًا متتابعة «أولًا… ثانيًا…» بدل قائمة');
+  assert(await page.locator('#app .rsec p', { hasText: /أولًا،/ }).count() >= 1, 'الخطوات تُكتب جملًا متتابعة «أولًا… ثانيًا…» بدل قائمة');
 
   /* ── 9ج. DeepSeek بربط الحساب دون مفتاح ───────── */
   await page.goto(BASE + '#/settings');
@@ -497,7 +497,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
   await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
   await page.waitForURL(/#\/report\//);
   await waitDone(page, 40000); // يكتمل والتطبيق ما زال في الخلفية
-  const contHeads = await page.locator('.rsec h2').allInnerTexts();
+  const contHeads = await page.locator('#app .rsec h2').allInnerTexts();
   assert(stats.orContinued === 1 && contHeads.length === 10 && new Set(contHeads).size === contHeads.length && await page.locator('.notice.err').count() === 0,
     `انقطع الاتصال والتطبيق في الخلفية: أكمل فورًا من حيث انقطع دون انتظار رجوعك، بلا تكرار ولا خطأ (${contHeads.length} قسمًا)`);
   await setVisible(true);
@@ -553,13 +553,24 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.locator('.admin .chip', { hasText: '5 تقارير' }).click();
     await page.waitForSelector('.toast:has-text("حُفظ")', { timeout: 10000 });
     await page.fill('input[name="tg-token"]', '777:telegram-token');
-    await page.fill('input[name="tg-chat"]', '424242');
-    await page.locator('.admin button', { hasText: /^حفظ$/ }).last().click();
-    await page.waitForSelector('.toast:has-text("حُفظ تيليغرام")', { timeout: 10000 });
-    await page.waitForFunction(() => document.querySelector('input[name="tg-chat"]')?.value === '424242', null, { timeout: 10000 });
+    // أكثر من رقم: واحد غير موجود أولًا (رسالة فشل واضحة)، ثم رقمان صحيحان
+    const tgSave = async (v) => {
+      await page.fill('textarea[name="tg-chat"]', v);
+      await page.locator('.admin button', { hasText: /^حفظ$/ }).last().click();
+      await page.waitForSelector('.toast:has-text("حُفظ تيليغرام")', { timeout: 10000 });
+      await page.locator('.toast').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+    };
+    await tgSave('424242\n999');
     await page.getByRole('button', { name: 'رسالة تجربة' }).click();
-    await appear(page.locator('.toast', { hasText: 'وصلت رسالة التجربة' }));
-    assert(up.log.tg.some((m) => m.path === '/tg/bot777:telegram-token/sendMessage' && m.body.includes('424242')), 'تيليغرام: رسالة تجربة وصلت إلى بوت المدير');
+    await appear(page.locator('.toast', { hasText: 'لم تصل إلى' }));
+    assert((await page.locator('.toast', { hasText: 'لم تصل إلى' }).first().innerText()).includes('999'), 'تيليغرام: رقم خاطئ بين الأرقام يُذكر باسمه في رسالة الفشل');
+    await tgSave('424242, 515151');
+    assert((await admin('/state')).config.telegram.chat === '424242, 515151', 'تيليغرام: يُحفظ أكثر من رقم (بفاصلة أو بسطر)');
+    const tg0 = up.log.tg.length;
+    await page.getByRole('button', { name: 'رسالة تجربة' }).click();
+    await appear(page.locator('.toast', { hasText: 'وصلت رسالة التجربة إلى 2' }));
+    const tgTest = up.log.tg.slice(tg0).filter((m) => m.path === '/tg/bot777:telegram-token/sendMessage').map((m) => m.chat);
+    assert(tgTest.includes('424242') && tgTest.includes('515151'), `تيليغرام: رسالة التجربة وصلت إلى كل الأرقام (${tgTest.join('، ')})`);
     await shot(page, '15-admin');
 
     // المستخدم: «خادم التطبيق» دون أي مفتاح
@@ -584,7 +595,7 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
     await page.waitForURL(/#\/report\//);
     await waitDone(page, 40000);
-    assert(await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0, `تقرير كامل عبر خادم التطبيق (${await page.locator('.rsec').count()} أقسام)`);
+    assert(await page.locator('#app .rsec').count() >= 8 && await page.locator('.notice.err').count() === 0, `تقرير كامل عبر خادم التطبيق (${await page.locator('#app .rsec').count()} أقسام)`);
     const streams = up.log.or.filter((x) => x.stream);
     // الطلبات الأولى (الكتابة وتخطيط الصور معًا) تصطدم بحصة المفتاح الأول، ثم كل ما بعدها بالثاني
     const orKeys = up.log.or.map((x) => (/limit/.test(x.key) ? 1 : 2));
@@ -595,7 +606,25 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     for (let i = 0; i < 40 && !logged.length; i++) { logged = (await admin('/reports')).reports; if (!logged.length) await sleep(250); }
     assert(logged.length === 1 && logged[0].name === 'سجاد علي' && logged[0].title.includes('الانضغاط') && logged[0].words > 50, `سجل المدير: التقرير بعنوانه واسم صاحبه (${logged[0]?.title} — ${logged[0]?.name})`);
     await srv.settle();
-    assert(up.log.tg.some((m) => m.body.includes('انتهت حصته اليومية')) && up.log.tg.some((m) => m.path.endsWith('/sendDocument') && m.body.includes('الانضغاط')), 'تيليغرام: تنبيه انتهاء حصة المفتاح، وملف التقرير الجديد كاملًا');
+    assert(up.log.tg.some((m) => m.body.includes('انتهت حصته اليومية')), 'تيليغرام: تنبيه انتهاء حصة المفتاح');
+    // ملف PDF للتقرير يبنيه التطبيق ويصل إلى كل الأرقام: يُرفع مرة، ثم يُرسل للرقم الثاني بمعرّفه دون رفع جديد
+    let docs = [];
+    for (let i = 0; i < 160 && docs.length < 2; i++) { docs = up.log.tg.filter((m) => m.path.endsWith('/sendDocument')); if (docs.length < 2) await sleep(250); }
+    const upload = docs.find((m) => /multipart/.test(m.type));
+    const raw = upload?.raw || Buffer.alloc(0);
+    const pdf = raw.subarray(raw.indexOf('%PDF-'), raw.lastIndexOf('%%EOF') + 5);
+    const pdfPages = (pdf.toString('latin1').match(/\/Type \/Page \/Parent/g) || []).length;
+    writeFileSync(join(OUT, 'telegram-report.pdf'), pdf);
+    assert(upload && pdf.length > 20000 && pdfPages >= 4 && /filename="[^"]*\.pdf"/.test(upload.body) && /Content-Type: application\/pdf/i.test(upload.body) && upload.body.includes('الانضغاط'),
+      `تيليغرام: التقرير ملف PDF (${pdfPages} صفحات، ${Math.round(pdf.length / 1024)} ك.ب) مع وصفه — لا ملف نصي`);
+    const forwarded = docs.find((m) => m.json?.document);
+    assert(upload.chat === '424242' && forwarded?.chat === '515151' && forwarded.json.document === 'FILE-' + (up.log.tg.indexOf(upload) + 1),
+      'تيليغرام: PDF رُفع مرة واحدة ثم أُرسل للرقم الثاني بمعرّفه في تيليغرام');
+    assert(!up.log.tg.some((m) => /filename="[^"]*\.md"/.test(m.body)), 'لا يُرسل أي ملف .md بعد الآن');
+    // إعادة الإرسال (مثلًا بعد انقطاع) لا تكرر الملف عند المدير
+    const devId = (await admin('/devices')).devices[0].id;
+    const again = await fetch(SRV + '/api/pdf', { method: 'POST', headers: { 'content-type': 'application/pdf', 'x-asas-device': devId, 'x-asas-report': logged[0].id }, body: pdf }).then((r) => r.json());
+    assert(again.already === true && up.log.tg.filter((m) => m.path.endsWith('/sendDocument')).length === docs.length, 'الخادم لا يرسل PDF التقرير نفسه مرتين');
 
     // المدير يرى التقرير ويوقف الجهاز
     await page.goto(BASE + '#/admin');
@@ -686,8 +715,8 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
     await page.waitForURL(/#\/report\//);
     await waitDone(page, 40000);
-    assert(await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0 && up.log.gem.slice(g0).some((c) => c.stream),
-      `تقرير كامل عبر Gemini (${await page.locator('.rsec').count()} أقسام)`);
+    assert(await page.locator('#app .rsec').count() >= 8 && await page.locator('.notice.err').count() === 0 && up.log.gem.slice(g0).some((c) => c.stream),
+      `تقرير كامل عبر Gemini (${await page.locator('#app .rsec').count()} أقسام)`);
     // لا مفاتيح Gemini متاحة: يكمل الخادم بمفاتيح OpenRouter احتياطًا
     await admin(`/keys/${gemKey.id}`, { method: 'PATCH', body: JSON.stringify({ enabled: false }) });
     const o0 = up.log.or.length;
@@ -697,6 +726,13 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.goto(BASE + '#/');
     await page.goto(BASE + '#/admin');
     await page.waitForSelector('.admin [data-device]', { timeout: 10000 });
+    // نسخة قديمة من التطبيق لا تبني PDF: تصل عنها رسالة قصيرة فقط، بلا أي ملف
+    const tgOld = up.log.tg.length;
+    await fetch(SRV + '/api/log', { method: 'POST', headers: { 'content-type': 'application/json', 'x-asas-device': devId }, body: JSON.stringify({ id: 'old-client-report', title: 'تقرير من نسخة قديمة', status: 'ready', words: 300, text: '## مقدمة\n\n' + 'نص تجريبي طويل. '.repeat(40) }) });
+    await srv.settle();
+    const oldMsgs = up.log.tg.slice(tgOld);
+    assert(oldMsgs.length === 2 && oldMsgs.every((m) => m.path.endsWith('/sendMessage') && m.body.includes('نسخة قديمة')), 'تقرير من نسخة قديمة: رسالة قصيرة لكل رقم بلا ملف .md');
+
     // ── الكتابة في الخادم نفسه: انقطاع اتصال الهاتف أثناء الكتابة لا يوقفها ولا يعيدها ──
     const streamsNow = () => up.log.or.filter((x) => x.stream).length;
     up.ctl.slow = 25;
@@ -709,10 +745,10 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.waitForURL(/#\/report\//);
     await waitDone(page, 40000);
     assert(srv.ctl.cuts === 1 && srv.ctl.jobs - j0 >= 2, `انقطع اتصال الهاتف أثناء الكتابة وأعاد الاتصال تلقائيًا (${srv.ctl.jobs - j0} اتصال)`);
-    assert(streamsNow() - s0 === 1 && await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
-      `بعد الانقطاع: أكمل من حيث وصل دون إعادة الكتابة ودون خطأ (${await page.locator('.rsec').count()} أقسام، ${streamsNow() - s0} طلب كتابة)`);
-    const cutText = await page.locator('.paper .secs').innerText();
-    const cutHeads = await page.locator('.rsec h2').allInnerTexts();
+    assert(streamsNow() - s0 === 1 && await page.locator('#app .rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
+      `بعد الانقطاع: أكمل من حيث وصل دون إعادة الكتابة ودون خطأ (${await page.locator('#app .rsec').count()} أقسام، ${streamsNow() - s0} طلب كتابة)`);
+    const cutText = await page.locator('#app .paper .secs').innerText();
+    const cutHeads = await page.locator('#app .rsec h2').allInnerTexts();
     assert(!/انقطع الاتصال/.test(cutText) && new Set(cutHeads).size === cutHeads.length, `النص بعد الاستئناف متصل بلا تكرار ولا رسالة انقطاع (${cutHeads.length} عنوانًا)`);
     // إغلاق التطبيق أثناء الكتابة (إعادة تحميل الصفحة تمحو المهمة من الذاكرة): يكمل من الخادم عند فتحه
     up.ctl.slow = 60;
@@ -722,10 +758,10 @@ print(json.dumps({'n': len(p.slides), 'first': texts[0], 'last': texts[-1], 'sec
     await page.getByText('أنشئ التقرير بالذكاء الاصطناعي').click();
     await page.waitForURL(/#\/report\//);
     await page.waitForFunction(() => document.querySelectorAll('.rsec').length >= 1, null, { timeout: 20000 });
-    const partWords = await page.locator('.rsec').count();
+    const partWords = await page.locator('#app .rsec').count();
     await page.reload();
     await waitDone(page, 40000);
-    assert(streamsNow() - s0 === 1 && await page.locator('.rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
+    assert(streamsNow() - s0 === 1 && await page.locator('#app .rsec').count() >= 8 && await page.locator('.notice.err').count() === 0,
       `أُغلق التطبيق أثناء الكتابة (${partWords} قسم وصل): عند فتحه استلم التقرير كاملًا من الخادم دون إعادة كتابته`);
     up.ctl.slow = 0;
     await page.goto(BASE + '#/');

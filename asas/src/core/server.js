@@ -48,14 +48,14 @@ export function serverHeaders(meta = {}) {
   return h;
 }
 
-async function call(path, { method = 'GET', body, signal, timeout = 20000 } = {}) {
+async function call(path, { method = 'GET', body, signal, timeout = 20000, headers = {} } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
   signal?.addEventListener('abort', () => ctrl.abort(), { once: true });
   try {
     const res = await fetch(`${serverUrl()}${path}`, {
       method,
-      headers: { ...serverHeaders(), ...(body ? { 'content-type': 'application/json' } : {}) },
+      headers: { ...serverHeaders(), ...(body ? { 'content-type': 'application/json' } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     });
@@ -92,20 +92,24 @@ function reportText(r) {
 
 /** يرسل نسخة من التقرير إلى المدير (لا يوقف شيئًا إن فشل). */
 export async function logReport(r, { type = '', status = r.status } = {}) {
-  if (!linked()) return;
+  if (!linked()) return false;
   const m = r.meta || {};
   try {
     await call('/api/log', {
       method: 'POST',
       timeout: 30000,
+      // هذه النسخة ترسل بعده ملف PDF للتقرير (deliver.js)، فلا يرسل الخادم عنه رسالة نصية
+      headers: { 'x-asas-pdf': '1' },
       body: {
         id: r.id, title: r.title, type, subject: m.subject || '', lang: r.options?.lang || '', words: r.words || 0, status,
         model: r.model || '', name: String(m.author || userName()).trim(), people: String(m.students || '').split(/\n|،|,/).map((x) => x.trim()).filter(Boolean).join('، '),
         uni: [m.university, m.college].filter(Boolean).join(' — '), text: reportText(r),
       },
     });
+    return true;
   } catch (err) {
     console.warn('[server] تعذّر إرسال التقرير للمدير', err);
+    return false;
   }
 }
 
