@@ -66,7 +66,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 button,input,select,textarea{font:inherit;color:inherit}
 .ask{display:flex;flex-direction:column;gap:8px}
 .ask-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ask textarea{flex:1 1 260px;min-width:0;resize:none;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px;line-height:1.5}
+.ask textarea{width:100%;box-sizing:border-box;min-width:0;resize:none;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px;line-height:1.5}
 .ask select,.field select{background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px}
 select option{background:#101525}
 .btn{background:var(--signal);color:var(--signal-ink);border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
@@ -103,7 +103,13 @@ details[open] summary::before{content:"▾ "}
 .api-grid input,.api-grid select,#aiRules{min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px}
 .api-grid input{direction:ltr;text-align:left}
 .api-grid .row select{flex:1 1 180px}
-#aiRules{direction:ltr;text-align:left;resize:vertical;font-size:12px;line-height:1.5;width:100%;box-sizing:border-box}
+#aiRules{text-align:start;resize:vertical;font-size:12.5px;line-height:1.55;width:100%;box-sizing:border-box;height:min(52vh,440px);color:var(--ink)}
+#quickModel{flex:1 1 200px;min-width:0;max-width:100%}
+#rulesDlg{width:min(760px,calc(100vw - 32px));max-height:88vh;padding:0;border:1px solid var(--edge-strong);border-radius:14px;background:#0d1220;color:var(--ink)}
+#rulesDlg::backdrop{background:rgba(3,5,10,.62)}
+.dlg{display:flex;flex-direction:column;gap:10px;padding:16px}
+.dlg h2{margin:0;font-family:var(--display);font-size:20px;font-weight:700}
+.dlg .row{display:flex;gap:8px;flex-wrap:wrap}
 optgroup{background:#101525;color:var(--dim)}
 .note a{color:var(--ai)}
 .note code{direction:ltr;unicode-bidi:embed;color:var(--ink)}
@@ -122,7 +128,6 @@ input[type=checkbox]{accent-color:var(--signal)}
   .chain .pawns{font-size:10.5px}
   .top{flex-direction:column;align-items:stretch}
   .top > .col{width:100%}
-  .ask textarea{flex-basis:100%}
   .ai-live img{width:60px;height:60px}
   .api-grid{grid-template-columns:1fr}
 }
@@ -144,13 +149,15 @@ input[type=checkbox]{accent-color:var(--signal)}
 
   <div class="card console" id="console">
     <form class="ask" id="askForm">
+      <textarea id="prompt" rows="2" maxlength="400" aria-label="شنو تريد الذكاء يرسم">صورة لشخص يبتسم ويلبس شماغ أحمر</textarea>
       <div class="ask-row">
-        <textarea id="prompt" rows="2" maxlength="400" aria-label="شنو تريد الذكاء يرسم">صورة لشخص يبتسم ويلبس شماغ أحمر</textarea>
         <select id="mode" aria-label="نوع الرسمة">
           <option value="auto">الذكاء يختار النوع</option>
           <option value="svg">صورة ملوّنة</option>
           <option value="3d">مجسم ثلاثي الأبعاد</option>
         </select>
+        <select id="quickModel" aria-label="النموذج"></select>
+        <button class="btn ghost" type="button" id="rulesBtn">البرومبت</button>
       </div>
       <div class="ask-row">
         <button class="btn" type="submit" id="drawBtn">ارسم بالذكاء</button>
@@ -184,9 +191,7 @@ input[type=checkbox]{accent-color:var(--signal)}
             <input id="aiCustom" type="text" spellcheck="false" autocomplete="off">
           </div>
           <p class="note" id="aiKeyNote"></p>
-          <label for="aiRules">التعليمات اللي تروح للنموذج قبل طلبك (البرومبت). تگدر تعدلها، بس خلي شرط إن الرد يكون SVG أو JSON حتى السرب يفهمه.</label>
-          <textarea id="aiRules" rows="7" spellcheck="false"></textarea>
-          <div class="row"><button class="btn ghost" type="button" id="aiRulesReset">رجّع التعليمات الأصلية</button></div>
+          <div class="row"><button class="btn ghost" type="button" id="rulesBtn2">عدّل البرومبت</button><span class="note" id="rulesState"></span></div>
         </div>
         <div class="field">
           <label for="size">حجم السرب</label>
@@ -238,6 +243,18 @@ input[type=checkbox]{accent-color:var(--signal)}
     </details>
   </div>
 </div>
+
+<dialog id="rulesDlg" aria-labelledby="rulesTitle">
+  <form method="dialog" class="dlg">
+    <h2 id="rulesTitle">برومبت النموذج</h2>
+    <p class="note">هذا النص يروح للنموذج قبل طلبك، وهو اللي يعلّمه شلون يرسم. غيّره مثل ما تريد، بالعربي أو الإنكليزي، بس خلي شرط إن الرد يكون SVG أو JSON حتى السرب يفهم الرسمة. ينحفظ وحده وإنت تكتب.</p>
+    <textarea id="aiRules" rows="14" spellcheck="false" dir="auto" aria-labelledby="rulesTitle"></textarea>
+    <div class="row">
+      <button class="btn" value="ok">تم</button>
+      <button class="btn ghost" type="button" id="aiRulesReset">رجّع البرومبت الأصلي</button>
+    </div>
+  </form>
+</dialog>
 
 <script type="importmap">
 { "imports": {
@@ -1120,7 +1137,9 @@ const ui = {
   aiLive:document.getElementById('aiLive'), aiPreview:document.getElementById('aiPreview'), aiModel:document.getElementById('aiModel'), aiChars:document.getElementById('aiChars'),
   aiNote:document.getElementById('aiNote'), apiRows:document.getElementById('apiRows'), aiProv:document.getElementById('aiProv'), aiBase:document.getElementById('aiBase'),
   aiKey:document.getElementById('aiKey'), aiSave:document.getElementById('aiSave'), aiModelSel:document.getElementById('aiModelSel'), aiRefresh:document.getElementById('aiRefresh'),
-  aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), connectBtn:document.getElementById('connectBtn'), aiConnect:document.getElementById('aiConnect'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
+  aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), connectBtn:document.getElementById('connectBtn'), aiConnect:document.getElementById('aiConnect'),
+  quickModel:document.getElementById('quickModel'), rulesBtn:document.getElementById('rulesBtn'), rulesBtn2:document.getElementById('rulesBtn2'),
+  rulesDlg:document.getElementById('rulesDlg'), rulesState:document.getElementById('rulesState'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
 };
 const RANK_ICON = [
   '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>',
@@ -1599,7 +1618,21 @@ function fillModels(){
     }
   }
   if (c.model && ![...sel.options].some(o => o.value === c.model)) sel.append(new Option(c.model, c.model));
-  sel.value = c.model || sel.options[0]?.value || '';
+  if (c.custom){ const o = new Option(`${c.custom} (مكتوب)`, c.custom); sel.insertBefore(o, sel.firstChild); }
+  sel.value = c.custom || c.model || sel.options[0]?.value || '';
+  ui.quickModel.innerHTML = sel.innerHTML; ui.quickModel.value = sel.value;
+}
+function modelName(id, v){
+  if (id !== 'openrouter') return v;
+  if (v === 'auto') return 'تلقائي';
+  const cat = orCatalog(); return [...cat.free, ...cat.paid].find(m => m.id === v)?.name || v;
+}
+function pickModel(v){
+  const id = currentProv();
+  saveCfg(id, { model:v, custom:'' });
+  ui.aiCustom.value = ''; fillModels(); keyNote();
+  const paid = id === 'openrouter' && orCatalog().paid.find(m => m.id === v);
+  setStatus(paid ? `«${paid.name}» مدفوع: ${price(paid.out)}$ لكل مليون رمز يكتبه، ويخصم من رصيد OpenRouter.` : `النموذج صار: ${modelName(id, v)}`);
 }
 function keyNote(){
   const id = currentProv(), p = provMap[id];
@@ -1684,13 +1717,27 @@ async function refreshModels(force, quiet){
     if (!quiet) setStatus('تحدّثت قائمة النماذج.');
   } catch (e){ if (!quiet) setStatus(e.message || 'تعذر جلب القائمة', true); }
 }
-function setupAiSettings(){
+function saveRules(){ const v = ui.aiRules.value; store.set('rules', v.trim() && v.trim() !== DRAW_RULES.trim() ? v : null); rulesLabel(); }
+function rulesLabel(){
+  const edited = !!store.get('rules');
+  ui.rulesBtn.textContent = edited ? 'البرومبت (معدّل)' : 'البرومبت';
+  ui.rulesState.textContent = edited ? 'البرومبت الحالي معدّل منك.' : 'البرومبت الحالي هو الأصلي.';
+}
+function openRules(){
   ui.aiRules.value = rules();
+  if (typeof ui.rulesDlg.showModal === 'function'){ ui.rulesDlg.showModal(); ui.aiRules.focus(); ui.aiRules.setSelectionRange(0, 0); ui.aiRules.scrollTop = 0; }
+  else { ui.rulesDlg.setAttribute('open', ''); }
+}
+function setupAiSettings(){
+  ui.aiRules.value = rules(); rulesLabel();
   let rt;
-  ui.aiRules.addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { const v = ui.aiRules.value; store.set('rules', v.trim() && v !== DRAW_RULES ? v : null); }, 400); });
-  ui.aiRulesReset.addEventListener('click', () => { store.set('rules', null); ui.aiRules.value = DRAW_RULES; setStatus('رجعت التعليمات الأصلية.'); });
+  ui.aiRules.addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(saveRules, 400); });
+  ui.aiRulesReset.addEventListener('click', () => { ui.aiRules.value = DRAW_RULES; saveRules(); setStatus('رجع البرومبت الأصلي.'); });
+  ui.rulesDlg.addEventListener('close', () => { clearTimeout(rt); saveRules(); setStatus(store.get('rules') ? 'انحفظ البرومبت المعدّل، ويروح للنموذج من الرسمة الجاية.' : ''); });
+  ui.rulesBtn.addEventListener('click', openRules);
+  ui.rulesBtn2.addEventListener('click', openRules);
   if (ai.inClaude){
-    ui.apiRows.hidden = true; ui.aiKeyNote.hidden = true;
+    ui.apiRows.hidden = true; ui.aiKeyNote.hidden = true; ui.quickModel.hidden = true;
     ui.aiNote.textContent = 'صفحات claude.ai تمنع الاتصال المباشر بالمواقع الخارجية، فالمزوّدات (OpenRouter وغيره) ما تشتغل هنا، والرسم بهذي الصفحة يصير بـ Claude (يسألك مرة وحدة تسمح). افتح نسخة GitHub Pages حتى تختار المزوّد والنموذج بنفسك.';
     window.claude.use('sample').then(fn => { ai.sample = fn; if (!fn) ui.aiNote.textContent += ' Claude مو متاح بهذا العرض حاليًا.'; }).catch(() => {});
     return;
@@ -1701,8 +1748,9 @@ function setupAiSettings(){
   ui.aiBase.addEventListener('change', () => saveCfg(currentProv(), { base:ui.aiBase.value.trim() }));
   ui.aiSave.addEventListener('click', () => { const v = ui.aiKey.value.trim(); saveCfg(currentProv(), { key:v, base:ui.aiBase.value.trim() }); setStatus(v ? 'انحفظ المفتاح.' : 'انمسح المفتاح.');
     if (currentProv() === 'openrouter') checkKey(); else { if (v) refreshModels(true, true); } updateConnect(); });
-  ui.aiModelSel.addEventListener('change', () => { saveCfg(currentProv(), { model:ui.aiModelSel.value }); keyNote(); });
-  ui.aiCustom.addEventListener('change', () => saveCfg(currentProv(), { custom:ui.aiCustom.value.trim() }));
+  ui.aiModelSel.addEventListener('change', () => pickModel(ui.aiModelSel.value));
+  ui.quickModel.addEventListener('change', () => pickModel(ui.quickModel.value));
+  ui.aiCustom.addEventListener('change', () => { const v = ui.aiCustom.value.trim(); saveCfg(currentProv(), { custom:v }); fillModels(); if (v) setStatus(`النموذج صار: ${v}`); });
   ui.aiRefresh.addEventListener('click', () => refreshModels(true, false));
   ui.connectBtn.addEventListener('click', connectOpenRouter);
   ui.aiConnect.addEventListener('click', connectOpenRouter);
