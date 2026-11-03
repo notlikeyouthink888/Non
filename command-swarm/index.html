@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>سرب القيادة</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap">
+<style>
+/* Layout: full-bleed 3D field; chain-of-command readout pinned top, command console docked bottom. Single night look by design. */
+:root{
+  color-scheme: dark;
+  --night:#060911;
+  --panel:rgba(11,15,27,.8);
+  --edge:rgba(150,170,230,.16);
+  --ink:#e9edf7;
+  --dim:#8b94ad;
+  --signal:#ffb547;
+  --signal-ink:#1d1305;
+  --danger:#ff5f6d;
+  --ok:#7ee0a1;
+  --display:"Reem Kufi","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;direction:rtl;font-size:14px}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;touch-action:none}
+.hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;gap:12px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 12px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.card{pointer-events:auto;background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:10px 12px;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.brand h1{margin:0;font-family:var(--display);font-weight:700;font-size:26px;line-height:1.1;letter-spacing:0;text-shadow:0 2px 18px rgba(0,0,0,.6)}
+.brand p{margin:4px 0 0;color:var(--dim);font-size:13px;text-shadow:0 1px 8px rgba(0,0,0,.8)}
+.brand .last{color:var(--signal);display:none}
+.chain{display:grid;grid-template-columns:auto auto minmax(70px,1fr) auto;align-items:center;column-gap:10px;row-gap:7px;min-width:300px}
+.chain .lv{display:flex;align-items:center;gap:7px;font-weight:600;white-space:nowrap}
+.chain .mk{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);flex:none}
+.chain .n{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px}
+.chain .bar{height:5px;border-radius:3px;background:rgba(150,170,230,.14);overflow:hidden}
+.chain .bar i{display:block;height:100%;width:0;background:var(--signal);transition:width .2s linear}
+.chain .st{font-size:12px;color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chain .st.bad{color:var(--danger)}
+.chain .st.good{color:var(--ok)}
+.chain .arrow{grid-column:1/-1;height:0}
+.log{width:min(330px,34vw);display:flex;flex-direction:column;gap:5px;font-size:12.5px;max-height:220px;overflow:hidden}
+.log h2{margin:0 0 2px;font-size:11px;color:var(--dim);font-weight:500;letter-spacing:.04em}
+.log div{line-height:1.45}
+.log .warn{color:var(--danger)}
+.log .cmd{color:var(--signal)}
+.log .ok{color:var(--ok)}
+.console{align-self:center;width:min(780px,100%);display:flex;flex-direction:column;gap:9px}
+.shapes{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.shapes::-webkit-scrollbar{display:none}
+button,input,select{font:inherit;color:inherit}
+.chip{flex:none;background:transparent;border:1px solid var(--edge);border-radius:999px;padding:7px 14px;font-weight:500;white-space:nowrap;cursor:pointer}
+.chip:hover{border-color:var(--signal)}
+.chip[aria-pressed="true"]{background:var(--signal);color:var(--signal-ink);border-color:transparent}
+.word{display:flex;gap:8px}
+.word input{flex:1;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:8px 10px}
+.btn{background:var(--signal);color:var(--signal-ink);border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--edge);font-weight:500}
+.btn.kill{background:transparent;color:var(--danger);border:1px solid rgba(255,95,109,.4);font-weight:500}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"▸ ";display:inline-block}
+details[open] summary::before{content:"▾ "}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;margin-top:10px}
+.field{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--dim)}
+.field .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.field output{color:var(--ink);font-variant-numeric:tabular-nums}
+.field select{background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;padding:6px 8px}
+.field select option{background:#101525}
+input[type=range]{width:100%;accent-color:var(--signal)}
+.toggles label{display:flex;gap:6px;align-items:center;color:var(--ink);cursor:pointer}
+input[type=checkbox]{accent-color:var(--signal)}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+@media (max-width:720px){
+  .log{display:none}
+  .brand h1{font-size:20px}
+  .brand .last{display:block}
+  .chain{min-width:0;column-gap:7px;row-gap:4px;font-size:12px;padding:8px 10px}
+  .chain .st{font-size:11px}
+  .top{flex-direction:column;align-items:stretch}
+  .top > .col{width:100%}
+}
+</style>
+
+<div id="stage"></div>
+<div class="hud">
+  <div class="top">
+    <div class="col">
+      <div class="brand">
+        <h1>سرب القيادة</h1>
+        <p id="summary">كل ٢٬٠٠٠ جسيم إلهم قائد، والقادة يستلمون من قادة أكبر، والكبار يستلمون منك.</p>
+        <p class="last" id="lastLine"></p>
+      </div>
+      <div class="card chain" id="chain" aria-label="سلسلة القيادة"></div>
+    </div>
+    <div class="card log" id="log" aria-live="polite"><h2>سجل الأوامر</h2></div>
+  </div>
+
+  <div class="card console">
+    <div class="shapes" id="shapes" role="group" aria-label="الأشكال"></div>
+    <form class="word" id="wordForm">
+      <input id="word" type="text" value="القائد" maxlength="14" aria-label="كلمة يشكّلها السرب" placeholder="اكتب كلمة يشكّلها السرب">
+      <button class="btn" type="submit">شكّل الكلمة</button>
+    </form>
+    <details id="more">
+      <summary>التحكم واختبار السلسلة</summary>
+      <div class="controls">
+        <div class="field">
+          <label for="delay">تأخير الإشارة بكل مستوى: <output id="delayOut"></output></label>
+          <input id="delay" type="range" min="0" max="1.5" step="0.05" value="0.45">
+        </div>
+        <div class="field">
+          <label for="count">حجم السرب</label>
+          <select id="count">
+            <option value="s">٢٤٬٠٠٠ جسيم · ١٢ مجموعة</option>
+            <option value="m">٤٨٬٠٠٠ جسيم · ٢٤ مجموعة</option>
+            <option value="l">٩٦٬٠٠٠ جسيم · ٤٨ مجموعة</option>
+            <option value="xl">١٦٠٬٠٠٠ جسيم · ٨٠ مجموعة</option>
+          </select>
+        </div>
+        <div class="field">
+          <span>أسقط قائد عشوائي وشوف شنو يصير</span>
+          <div class="row">
+            <button class="btn kill" type="button" data-kill="1">قائد كبير</button>
+            <button class="btn kill" type="button" data-kill="2">قائد وسط</button>
+            <button class="btn kill" type="button" data-kill="3">قائد مجموعة</button>
+          </div>
+        </div>
+        <div class="field toggles">
+          <span>العرض</span>
+          <div class="row">
+            <label><input id="tLines" type="checkbox" checked> خطوط القيادة</label>
+            <label><input id="tLeaders" type="checkbox" checked> القادة</label>
+            <label><input id="tSpin" type="checkbox" checked> دوران</label>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- constants ----------
+const GROUP = 2000;                          // جسيمات كل قائد مجموعة
+const SIZES = { s:[2,3,2], m:[2,3,4], l:[3,4,4], xl:[4,4,5] }; // [كبار, وسط لكل كبير, مجاميع لكل وسط]
+const R = 10;
+const LEVEL_NAMES = ['أنت','القادة الكبار','قادة الوسط','قادة المجاميع'];
+const LEVEL_ONE   = ['أنت','القائد الكبير','قائد الوسط','قائد المجموعة'];
+const HUES = ['#ffb547','#4fd1ff','#ff6b9a','#a4f06c'].map(c => new THREE.Color(c));
+const SIGNAL = new THREE.Color('#ffb547');
+const WHITE = new THREE.Color(1,1,1);
+const DEAD = new THREE.Color('#ff4d5e');
+const SHAPES = [['sphere','كرة'],['cube','مكعب'],['torus','حلقة'],['heart','قلب'],['galaxy','مجرة'],['dna','لولب DNA'],['pyramid','هرم'],['camps','المعسكرات']];
+const nf = new Intl.NumberFormat('ar-IQ');
+const nf1 = new Intl.NumberFormat('ar-IQ',{maximumFractionDigits:1,minimumFractionDigits:1});
+const fmt = n => nf.format(n);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- renderer ----------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:'high-performance' });
+const DPR = Math.min(devicePixelRatio || 1, 2);
+renderer.setPixelRatio(DPR);
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x060911, 1);
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 600);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 8; controls.maxDistance = 140;
+controls.autoRotate = !reduceMotion; controls.autoRotateSpeed = 0.55;
+function fitCamera(){
+  const a = innerWidth/innerHeight;
+  const d = a < 1 ? Math.min(78, 40 / (a*1.05)) : 40;
+  camera.position.set(0, d*0.32, d);
+  controls.target.set(0, 0.5, 0);
+}
+fitCamera();
+document.getElementById('tSpin').checked = !reduceMotion;
+
+// ambience: stars + polar ground grid
+{
+  const n = 1400, s = new Float32Array(n*3);
+  for (let i=0;i<n;i++){ const u=Math.random()*2-1, t=Math.random()*Math.PI*2, r=160+Math.random()*120, q=Math.sqrt(1-u*u);
+    s[i*3]=r*q*Math.cos(t); s[i*3+1]=r*u; s[i*3+2]=r*q*Math.sin(t); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(s,3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color:0x3a4666, size:1.4, sizeAttenuation:false })));
+  const grid = new THREE.PolarGridHelper(30, 12, 6, 72, 0x1c2540, 0x141b30);
+  grid.position.y = -9; grid.material.transparent = true; grid.material.opacity = 0.55;
+  scene.add(grid);
+}
+
+// ---------- shaders ----------
+const particleMat = new THREE.ShaderMaterial({
+  uniforms:{ uSize:{value:0.085}, uScale:{value:1}, uGain:{value:0.8} },
+  vertexShader:`uniform float uSize; uniform float uScale; attribute vec3 aColor; varying vec3 vC;
+    void main(){ vec4 mv = modelViewMatrix*vec4(position,1.0); gl_Position = projectionMatrix*mv;
+      gl_PointSize = clamp(uSize*uScale/(-mv.z), 1.5, 40.0); vC = aColor; }`,
+  fragmentShader:`uniform float uGain; varying vec3 vC;
+    void main(){ vec2 c = gl_PointCoord-0.5; float d = dot(c,c)*4.0; if(d>1.0) discard; float a = 1.0-d; a*=a;
+      gl_FragColor = vec4(vC*uGain, a); }`,
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+});
+const markerMat = new THREE.ShaderMaterial({
+  uniforms:{ uDpr:{value:DPR} },
+  vertexShader:`uniform float uDpr; attribute float aSize; attribute vec3 aColor; attribute float aRing; varying vec3 vC; varying float vR;
+    void main(){ gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_PointSize = aSize*uDpr; vC=aColor; vR=aRing; }`,
+  fragmentShader:`varying vec3 vC; varying float vR;
+    void main(){ float d = length(gl_PointCoord-0.5)*2.0; if(d>1.0) discard;
+      float ring = 1.0 - smoothstep(0.0, 0.14, abs(d-0.74));
+      float core = 1.0 - smoothstep(0.22, 0.42, d);
+      float glow = (1.0-d)*0.25;
+      float a = vR > 0.5 ? max(max(ring, core*0.95), glow) : (1.0-smoothstep(0.1,1.0,d));
+      if(a<0.02) discard; gl_FragColor = vec4(vC, a); }`,
+  transparent:true, depthWrite:false, depthTest:false
+});
+function updateScale(){ particleMat.uniforms.uScale.value = (renderer.domElement.height/2) / Math.tan(THREE.MathUtils.degToRad(camera.fov/2)); }
+updateScale();
+
+// ---------- helpers ----------
+const rnd = Math.random;
+function gauss(){ let u=0,v=0; while(!u) u=rnd(); while(!v) v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+// in-place quickselect on index array, keyed by arr[idx*3+ax]; range [lo,hi)
+function select(idx, lo, hi, k, arr, ax){
+  hi -= 1;
+  while (hi > lo){
+    const pivot = arr[idx[(lo+hi)>>1]*3+ax];
+    let i = lo, j = hi;
+    while (i <= j){
+      while (arr[idx[i]*3+ax] < pivot) i++;
+      while (arr[idx[j]*3+ax] > pivot) j--;
+      if (i <= j){ const t = idx[i]; idx[i] = idx[j]; idx[j] = t; i++; j--; }
+    }
+    if (k <= j) hi = j; else if (k >= i) lo = i; else return;
+  }
+}
+function extent(idx, lo, hi, arr, out){
+  let a=Infinity,b=Infinity,c=Infinity,A=-Infinity,B=-Infinity,C=-Infinity;
+  for (let i=lo;i<hi;i++){ const p=idx[i]*3, x=arr[p], y=arr[p+1], z=arr[p+2];
+    if(x<a)a=x; if(x>A)A=x; if(y<b)b=y; if(y>B)B=y; if(z<c)c=z; if(z>C)C=z; }
+  out[0]=A-a; out[1]=B-b; out[2]=C-c; return out;
+}
+const ext1 = [0,0,0], ext2 = [0,0,0];
+const bigAxis = e => e[0]>=e[1] ? (e[0]>=e[2]?0:2) : (e[1]>=e[2]?1:2);
+// split a range of points into k spatially coherent, equal-sized parts (k-d style)
+function splitK(idx, lo, hi, k, arr, out){
+  if (k === 1){ out.push([lo,hi]); return out; }
+  const k1 = k>>1, cut = lo + Math.round((hi-lo)*k1/k);
+  select(idx, lo, hi, cut, arr, bigAxis(extent(idx, lo, hi, arr, ext1)));
+  splitK(idx, lo, cut, k1, arr, out); splitK(idx, cut, hi, k-k1, arr, out);
+  return out;
+}
+// pair n particles with n target points by recursive bisection of both sets on the same axis
+function pairUp(src, srcArr, dst, dstArr, lo, n, onPair){
+  if (n === 1){ onPair(src[lo], dst[lo]); return; }
+  extent(dst, lo, lo+n, dstArr, ext1); extent(src, lo, lo+n, srcArr, ext2);
+  ext1[0]+=ext2[0]; ext1[1]+=ext2[1]; ext1[2]+=ext2[2];
+  const ax = bigAxis(ext1), h = n>>1;
+  select(src, lo, lo+n, lo+h, srcArr, ax);
+  select(dst, lo, lo+n, lo+h, dstArr, ax);
+  pairUp(src, srcArr, dst, dstArr, lo, h, onPair);
+  pairUp(src, srcArr, dst, dstArr, lo+h, n-h, onPair);
+}
+const permCache = {};
+function perms(k){
+  if (permCache[k]) return permCache[k];
+  const out = [], a = [...Array(k).keys()];
+  (function rec(i){ if (i===k){ out.push(a.slice()); return; }
+    for (let j=i;j<k;j++){ [a[i],a[j]]=[a[j],a[i]]; rec(i+1); [a[i],a[j]]=[a[j],a[i]]; } })(0);
+  return permCache[k] = out;
+}
+// which range should each child take: smallest total travel
+function bestAssign(rc, cc){
+  const k = cc.length; let best=null, bc=Infinity;
+  for (const p of perms(k)){ let c=0; for (let i=0;i<k;i++) c += cc[i].distanceToSquared(rc[p[i]]); if (c<bc){ bc=c; best=p; } }
+  return best;
+}
+
+// ---------- shapes ----------
+function triSample(A,B,C,o,i){ let r1=rnd(), r2=rnd(); if(r1+r2>1){ r1=1-r1; r2=1-r2; }
+  for (let k=0;k<3;k++) o[i*3+k] = A[k] + r1*(B[k]-A[k]) + r2*(C[k]-A[k]); }
+function gen(kind, N){
+  const p = new Float32Array(N*3);
+  if (kind === 'camps'){ p.set(S.camp); return p; }
+  for (let i=0;i<N;i++){
+    let x=0,y=0,z=0;
+    if (kind==='sphere'){ const u=rnd()*2-1, t=rnd()*Math.PI*2, q=Math.sqrt(1-u*u), r=R*(1+(rnd()-0.5)*0.025);
+      x=r*q*Math.cos(t); y=r*u; z=r*q*Math.sin(t); }
+    else if (kind==='cube'){ const a=R*0.72, f=(rnd()*6)|0, u=(rnd()*2-1)*a, v=(rnd()*2-1)*a, s=(f&1)?a:-a, ax=f>>1;
+      if(ax===0){x=s;y=u;z=v} else if(ax===1){x=u;y=s;z=v} else {x=u;y=v;z=s} }
+    else if (kind==='torus'){ const Rt=R*0.72, rt=R*0.32; let t,ph;
+      do { t=rnd()*Math.PI*2; ph=rnd()*Math.PI*2; } while (rnd()*(Rt+rt) > Rt+rt*Math.cos(ph));
+      const w=Rt+rt*Math.cos(ph); x=w*Math.cos(t); y=rt*Math.sin(ph); z=w*Math.sin(t);
+      const c=Math.cos(0.5), s=Math.sin(0.5), y2=y*c-z*s; z=y*s+z*c; y=y2; }
+    else if (kind==='heart'){ const t=rnd()*Math.PI*2, r=Math.sqrt(rnd()), st=Math.sin(t);
+      const hx=16*st*st*st, hy=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);
+      x=r*hx/17*R; y=r*hy/17*R+R*0.18; z=(rnd()<0.5?-1:1)*R*0.42*Math.pow(Math.max(0,1-r*r),0.6); }
+    else if (kind==='galaxy'){
+      if (rnd()<0.16){ x=gauss()*1.4; y=gauss()*0.8; z=gauss()*1.4; }
+      else { const arm=(rnd()*3)|0, d=Math.pow(rnd(),0.75)*R*1.35+0.9, a=arm*2*Math.PI/3 + d*0.42 + gauss()*0.22;
+        x=Math.cos(a)*d+gauss()*0.45; z=Math.sin(a)*d+gauss()*0.45; y=gauss()*0.35*(1.25-d/(R*1.5)); }
+      const c=Math.cos(0.38), s=Math.sin(0.38), y2=y*c-z*s; z=y*s+z*c; y=y2; }
+    else if (kind==='dna'){ const H=R*2.1, turns=2.6, rad=R*0.38;
+      if (rnd()<0.72){ const t=rnd(), a=t*turns*Math.PI*2+(rnd()<0.5?0:Math.PI);
+        x=Math.cos(a)*rad+gauss()*0.16; z=Math.sin(a)*rad+gauss()*0.16; y=(t-0.5)*H+gauss()*0.1; }
+      else { const k=(rnd()*44)|0, t=(k+0.5)/44, a=t*turns*Math.PI*2, s=rnd()*2-1;
+        x=Math.cos(a)*rad*s; z=Math.sin(a)*rad*s; y=(t-0.5)*H+gauss()*0.06; } }
+    else if (kind==='pyramid'){ const a=R*0.85, h=R*1.6, by=-h*0.42, ty=h*0.58;
+      const T=[0,ty,0], c=[[-a,by,-a],[a,by,-a],[a,by,a],[-a,by,a]];
+      const side=a*Math.sqrt(h*h+a*a), base=4*a*a, pick=rnd()*(4*side+base);
+      if (pick < 4*side){ const f=Math.min(3,(pick/side)|0); triSample(c[f],c[(f+1)%4],T,p,i); continue; }
+      x=(rnd()*2-1)*a; y=by; z=(rnd()*2-1)*a; }
+    p[i*3]=x; p[i*3+1]=y; p[i*3+2]=z;
+  }
+  return p;
+}
+async function genWord(text, N){
+  try { await document.fonts.load('700 180px "Reem Kufi"', text); } catch {}
+  const cv = document.createElement('canvas'), w=1400, h=360; cv.width=w; cv.height=h;
+  const g = cv.getContext('2d'); let fs = 210;
+  g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const font = s => `700 ${s}px "Reem Kufi", "IBM Plex Sans Arabic", sans-serif`;
+  g.font = font(fs); const mw = g.measureText(text).width; if (mw > w*0.92){ fs = Math.floor(fs*w*0.92/mw); g.font = font(fs); }
+  g.fillStyle = '#fff'; g.fillText(text, w/2, h/2);
+  const data = g.getImageData(0,0,w,h).data, px = [];
+  let minX=w, maxX=0, minY=h, maxY=0;
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++) if (data[(y*w+x)*4+3] > 128){ px.push(x,y);
+    if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; }
+  if (!px.length) return null;
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2, s = Math.min(28/(maxX-minX+1), 12/(maxY-minY+1));
+  const p = new Float32Array(N*3), m = px.length/2;
+  for (let i=0;i<N;i++){ const k=((rnd()*m)|0)*2;
+    p[i*3]=(px[k]+rnd()-cx)*s; p[i*3+1]=-(px[k+1]+rnd()-cy)*s; p[i*3+2]=(rnd()-0.5)*1.4; }
+  return p;
+}
+
+// ---------- simulation ----------
+let S = null;
+const ui = {
+  chain: document.getElementById('chain'), log: document.getElementById('log'), last: document.getElementById('lastLine'),
+  summary: document.getElementById('summary'), shapes: document.getElementById('shapes'),
+  delay: document.getElementById('delay'), delayOut: document.getElementById('delayOut'), count: document.getElementById('count'),
+  tLines: document.getElementById('tLines'), tLeaders: document.getElementById('tLeaders'), tSpin: document.getElementById('tSpin')
+};
+const delay = () => parseFloat(ui.delay.value);
+
+function makeNode(level, parent, branch, num){
+  const n = { level, parent, children:[], branch, num, alive:true, pos:new THREE.Vector3(), goal:new THREE.Vector3(),
+    cen:new THREE.Vector3(), orderC:new THREE.Vector3(), hasOrder:false, flash:0, order:null, lo:0, hi:0, childRanges:null, group:-1 };
+  if (parent) parent.children.push(n);
+  return n;
+}
+
+function build(key){
+  if (S){ for (const o of S.objects){ scene.remove(o); o.geometry.dispose(); }
+    S.lines.material.dispose(); }
+  const [K1,K2,K3] = SIZES[key], G = K1*K2*K3, N = G*GROUP;
+  const root = makeNode(0, null, -1, 1), levels = [[root],[],[],[]], groups = [];
+  const camp = new Float32Array(N*3), pos = new Float32Array(N*3), vel = new Float32Array(N*3), tgt = new Float32Array(N*3), nxt = new Float32Array(N*3);
+  const act = new Float32Array(N), pend = new Uint8Array(N), spd = new Float32Array(N), base = new Float32Array(N*3), col = new Float32Array(N*3);
+  const tmp = new THREE.Color();
+  let c1=0,c2=0,c3=0;
+  for (let t=0;t<K1;t++){
+    const top = makeNode(1, root, t, ++c1); levels[1].push(top);
+    for (let m=0;m<K2;m++){
+      const mid = makeNode(2, top, t, ++c2); levels[2].push(mid);
+      for (let j=0;j<K3;j++){
+        const g = groups.length, grp = makeNode(3, mid, t, ++c3); grp.group = g; groups.push(grp); levels[3].push(grp);
+        // camp: each top leader owns a sector, its mids fan out, groups line up outward
+        const sector = 2*Math.PI/K1, aT = t*sector + Math.PI/2, aM = aT + ((m+0.5)/K2 - 0.5)*sector*0.86;
+        const rad = 12 + j*(K3>4?2.3:2.8), cx = Math.cos(aM)*rad, cz = Math.sin(aM)*rad, cy = -6 + (j%2)*0.5;
+        tmp.copy(HUES[t]).offsetHSL((m/Math.max(1,K2-1)-0.5)*0.05, -0.05, (j/Math.max(1,K3-1)-0.5)*0.16);
+        for (let q=0;q<GROUP;q++){
+          const i = g*GROUP+q, u=rnd()*2-1, a=rnd()*Math.PI*2, r=1.05*Math.cbrt(rnd()), s=Math.sqrt(1-u*u);
+          camp[i*3]=cx+r*s*Math.cos(a); camp[i*3+1]=cy+r*u*0.7; camp[i*3+2]=cz+r*s*Math.sin(a);
+          spd[i]=0.7+rnd()*0.6;
+          base[i*3]=tmp.r; base[i*3+1]=tmp.g; base[i*3+2]=tmp.b;
+        }
+      }
+    }
+  }
+  pos.set(camp); tgt.set(camp); col.set(base);
+  const nodes = [...levels[0], ...levels[1], ...levels[2], ...levels[3]];
+
+  // particles
+  const pg = new THREE.BufferGeometry();
+  const posAttr = new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage);
+  const colAttr = new THREE.BufferAttribute(col,3);
+  pg.setAttribute('position', posAttr); pg.setAttribute('aColor', colAttr);
+  const points = new THREE.Points(pg, particleMat); points.frustumCulled = false;
+  // leaders (markers) + pulses share one buffer: first M are leaders, rest are signal pulses
+  const M = nodes.length, P = M*9;
+  const mPos = new Float32Array((M+P)*3), mCol = new Float32Array((M+P)*3), mSize = new Float32Array(M+P), mRing = new Float32Array(M+P);
+  for (let i=0;i<M;i++) mRing[i]=1;
+  const mg = new THREE.BufferGeometry();
+  mg.setAttribute('position', new THREE.BufferAttribute(mPos,3).setUsage(THREE.DynamicDrawUsage));
+  mg.setAttribute('aColor', new THREE.BufferAttribute(mCol,3).setUsage(THREE.DynamicDrawUsage));
+  mg.setAttribute('aSize', new THREE.BufferAttribute(mSize,1).setUsage(THREE.DynamicDrawUsage));
+  mg.setAttribute('aRing', new THREE.BufferAttribute(mRing,1));
+  const markers = new THREE.Points(mg, markerMat); markers.frustumCulled=false; markers.renderOrder = 10;
+  // chain lines
+  const lPos = new Float32Array((M-1)*6), lCol = new Float32Array((M-1)*6);
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.BufferAttribute(lPos,3).setUsage(THREE.DynamicDrawUsage));
+  lg.setAttribute('color', new THREE.BufferAttribute(lCol,3).setUsage(THREE.DynamicDrawUsage));
+  const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:0.5, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:false }));
+  lines.frustumCulled=false; lines.renderOrder = 5;
+  scene.add(points, lines, markers);
+
+  S = { key, K1,K2,K3, G, N, root, levels, groups, nodes, camp, pos, vel, tgt, nxt, act, pend, spd, base, col,
+    lost:new Uint8Array(G), pendCount:new Int32Array(G), posAttr, colAttr, points, markers, lines, mg, lg, M, P, mPos, mCol, mSize,
+    lPos, lCol, events:[], pulses:[], orderSeq:0, latest:null, now:0, objects:[points, markers, lines], src:new Uint32Array(GROUP) };
+
+  // first frame: leaders already standing over their camps
+  computeCentroids();
+  for (const n of nodes){ placeGoal(n); n.pos.copy(n.goal); }
+  lines.visible = ui.tLines.checked; markers.visible = ui.tLeaders.checked || ui.tLines.checked;
+  buildChainPanel();
+  ui.summary.textContent = `${fmt(N)} جسيم · كل ${fmt(GROUP)} إلهم قائد · ${fmt(G)} قائد مجموعة ← ${fmt(K1*K2)} قائد وسط ← ${fmt(K1)} قادة كبار ← أنت`;
+}
+
+function computeCentroids(){
+  // level 3 centroids come from the particle loop; when called standalone compute directly
+  const { pos, groups } = S;
+  for (const n of groups){ let x=0,y=0,z=0; const b=n.group*GROUP;
+    for (let i=b;i<b+GROUP;i++){ x+=pos[i*3]; y+=pos[i*3+1]; z+=pos[i*3+2]; } n.cen.set(x/GROUP,y/GROUP,z/GROUP); }
+  upperCentroids();
+}
+function upperCentroids(){
+  for (let L=2; L>=0; L--) for (const n of S.levels[L]){ n.cen.set(0,0,0); for (const c of n.children) n.cen.add(c.cen); n.cen.multiplyScalar(1/n.children.length); }
+}
+const vA = new THREE.Vector3();
+function placeGoal(n){
+  if (n.level === 0){ n.goal.set(0, 13.5, 0); return; }
+  if (n.level === 3){ n.goal.copy(n.hasOrder && n.alive ? n.orderC : n.cen); return; }
+  n.goal.set(0,0,0); for (const c of n.children) n.goal.add(c.pos); n.goal.multiplyScalar(1/n.children.length);
+  vA.copy(n.goal); vA.y *= 0.35; if (vA.lengthSq() < 0.01) vA.set(0,1,0);
+  n.goal.addScaledVector(vA.normalize(), n.level === 2 ? 2.6 : 3.6); n.goal.y += n.level === 2 ? 1.2 : 2.6;
+}
+
+// ---------- chain of command ----------
+function nameOf(n){ return n.level===0 ? 'أنت' : `${LEVEL_ONE[n.level]} ${fmt(n.num)}`; }
+function send(from, to, order, lo, hi){
+  const dur = 0.06 + delay()*(0.85 + rnd()*0.3);
+  S.events.push({ t:S.now+dur, kind:'order', node:to, order, lo, hi });
+  S.pulses.push({ from, to, t0:S.now, t1:S.now+dur });
+}
+function receive(n, order, lo, hi){
+  if (!n.alive){
+    if (order.id === S.latest) log(`${nameOf(n)} ساقط — أمر «${order.label}» ما عبر منه`, 'warn');
+    return;
+  }
+  n.order = order; n.lo = lo; n.hi = hi; n.flash = 1; n.hasOrder = true;
+  let x=0,y=0,z=0; const idx=order.idx, pts=order.pts;
+  for (let i=lo;i<hi;i++){ const p=idx[i]*3; x+=pts[p]; y+=pts[p+1]; z+=pts[p+2]; }
+  const cnt = hi-lo; n.orderC.set(x/cnt, y/cnt, z/cnt);
+  if (order.id === S.latest && n.level > 0){
+    order.got[n.level]++;
+    if (order.got[n.level] === S.levels[n.level].length)
+      log(`كل ${LEVEL_NAMES[n.level]} استلموا «${order.label}» بعد ${nf1.format(S.now-order.t0)} ث`, n.level===3?'ok':'');
+  }
+  if (n.level === 3){ assignGroup(n, order, lo, hi); return; }
+  const k = n.children.length, ranges = splitK(idx, lo, hi, k, pts, []);
+  const rc = ranges.map(([a,b]) => { let X=0,Y=0,Z=0; for (let i=a;i<b;i++){ const p=idx[i]*3; X+=pts[p]; Y+=pts[p+1]; Z+=pts[p+2]; } return new THREE.Vector3(X,Y,Z).multiplyScalar(1/(b-a)); });
+  const perm = bestAssign(rc, n.children.map(c => c.cen));
+  n.childRanges = n.children.map((c,ci) => ranges[perm[ci]]);
+  n.children.forEach((c,ci) => send(n, c, order, n.childRanges[ci][0], n.childRanges[ci][1]));
+}
+function assignGroup(n, order, lo, hi){
+  const g = n.group, b = g*GROUP, src = S.src, dst = order.idx.subarray(lo, hi);
+  const { pos, nxt, act, pend, spd } = S, pts = order.pts, now = S.now;
+  for (let q=0;q<GROUP;q++) src[q] = b+q;
+  const lx=n.pos.x, ly=n.pos.y, lz=n.pos.z;
+  pairUp(src, pos, dst, pts, 0, GROUP, (i, d) => {
+    nxt[i*3]=pts[d*3]; nxt[i*3+1]=pts[d*3+1]; nxt[i*3+2]=pts[d*3+2];
+    const dx=pos[i*3]-lx, dy=pos[i*3+1]-ly, dz=pos[i*3+2]-lz;
+    act[i] = now + Math.sqrt(dx*dx+dy*dy+dz*dz)*0.03 + rnd()*0.12;  // the order ripples out from the leader
+    pend[i] = 1;
+  });
+  S.pendCount[g] = GROUP;
+  if (S.lost[g]) setLost(g, false);
+}
+function setLost(g, on){
+  S.lost[g] = on ? 1 : 0;
+  const { base, col } = S, b = g*GROUP*3, e = b + GROUP*3;
+  if (on) for (let i=b;i<e;i+=3){ col[i]=base[i]*0.22+0.42; col[i+1]=base[i+1]*0.22+0.06; col[i+2]=base[i+2]*0.22+0.08; }
+  else col.set(base.subarray(b,e), b);
+  S.colAttr.needsUpdate = true;
+}
+function issue(label, pts, chipKey){
+  if (!S) return;
+  const N = S.N, idx = new Uint32Array(N); for (let i=0;i<N;i++) idx[i]=i;
+  const order = { id:++S.orderSeq, label, pts, idx, t0:S.now, got:[0,0,0,0] };
+  S.latest = order.id; S.lastCmd = { label, chipKey };
+  for (const b of ui.shapes.children) b.setAttribute('aria-pressed', String(b.dataset.k === chipKey));
+  log(`أمرك: شكّلوا «${label}»`, 'cmd');
+  receive(S.root, order, 0, N);
+}
+function kill(level){
+  const alive = S.levels[level].filter(n => n.alive);
+  if (!alive.length){ log(`ماكو ${LEVEL_NAMES[level]} واقفين حاليًا`, 'warn'); return; }
+  const n = alive[(rnd()*alive.length)|0];
+  n.alive = false; n.flash = 0;
+  const under = level===3 ? `${fmt(GROUP)} جسيم صاروا بلا قائد وتبعثروا`
+    : level===2 ? `${fmt(S.K3)} مجاميع ما يوصلها أي أمر جديد`
+    : `${fmt(S.K2*S.K3*GROUP)} جسيم انقطعوا عن أوامرك`;
+  log(`سقط ${nameOf(n)}: ${under}`, 'warn');
+  if (level === 3){ const g=n.group, b=g*GROUP; S.pend.fill(0, b, b+GROUP); S.pendCount[g]=0; setLost(g, true); }
+  S.events.push({ t:S.now + Math.max(2.4, delay()*4) + 1, kind:'promote', node:n });
+}
+function promote(n){
+  n.alive = true; n.flash = 1.4;
+  const p = n.parent;
+  if (p.alive && p.childRanges && p.order){
+    const ci = p.children.indexOf(n);
+    log(`تعيّن بديل لـ${nameOf(n)} — ${nameOf(p)} رجّع له آخر أمر`, 'ok');
+    send(p, n, p.order, p.childRanges[ci][0], p.childRanges[ci][1]);
+  } else {
+    log(`تعيّن بديل لـ${nameOf(n)} — ينتظر أمر من فوق`, 'ok');
+    if (n.level===3 && S.lost[n.group]){ const b=n.group*GROUP*3; S.tgt.set(S.pos.subarray(b,b+GROUP*3), b); setLost(n.group,false); }
+  }
+}
+
+// ---------- per frame ----------
+const KSPRING = 7.5, DAMP = 4.4, VMAX2 = 15*15;
+function step(dt){
+  const s = S, now = (s.now += dt);
+  if (!s.booted && now > 1.1){ s.booted = true; issue('كرة', gen('sphere', s.N), 'sphere'); }
+  // deliver due messages
+  if (s.events.length){
+    const due = []; s.events = s.events.filter(e => (e.t <= now ? (due.push(e), false) : true));
+    due.sort((a,b) => a.t - b.t);
+    for (const e of due){ if (e.kind === 'order') receive(e.node, e.order, e.lo, e.hi); else promote(e.node); }
+  }
+  // particles
+  const { pos, vel, tgt, nxt, act, pend, spd, lost, pendCount, groups } = s;
+  const damp = Math.max(0, 1 - DAMP*dt), ldamp = Math.max(0, 1 - 0.9*dt);
+  for (let g=0; g<s.G; g++){
+    const b = g*GROUP, e = b+GROUP, isLost = lost[g]; let sx=0, sy=0, sz=0;
+    for (let i=b;i<e;i++){
+      const k = i*3;
+      if (isLost){
+        vel[k]=(vel[k]+(rnd()-0.5)*7*dt)*ldamp; vel[k+1]=(vel[k+1]+((rnd()-0.5)*7-1.1)*dt)*ldamp; vel[k+2]=(vel[k+2]+(rnd()-0.5)*7*dt)*ldamp;
+      } else {
+        if (pend[i] && now >= act[i]){ tgt[k]=nxt[k]; tgt[k+1]=nxt[k+1]; tgt[k+2]=nxt[k+2]; pend[i]=0; pendCount[g]--; }
+        const f = KSPRING*spd[i]*dt;
+        let vx=(vel[k]+(tgt[k]-pos[k])*f)*damp, vy=(vel[k+1]+(tgt[k+1]-pos[k+1])*f)*damp, vz=(vel[k+2]+(tgt[k+2]-pos[k+2])*f)*damp;
+        const v2 = vx*vx+vy*vy+vz*vz; if (v2 > VMAX2){ const r = 15/Math.sqrt(v2); vx*=r; vy*=r; vz*=r; }
+        vel[k]=vx; vel[k+1]=vy; vel[k+2]=vz;
+      }
+      pos[k]+=vel[k]*dt; pos[k+1]+=vel[k+1]*dt; pos[k+2]+=vel[k+2]*dt;
+      sx+=pos[k]; sy+=pos[k+1]; sz+=pos[k+2];
+    }
+    groups[g].cen.set(sx/GROUP, sy/GROUP, sz/GROUP);
+  }
+  s.posAttr.needsUpdate = true;
+  upperCentroids();
+  // leaders follow their goals, bottom level first so upper levels hover over them
+  const ease = 1 - Math.exp(-dt*3.2);
+  for (let L=3; L>=0; L--) for (const n of s.levels[L]){ placeGoal(n); n.pos.lerp(n.goal, ease); n.flash = Math.max(0, n.flash - dt*1.6); }
+  drawMarkers();
+}
+const cTmp = new THREE.Color();
+const LSIZE = [30, 24, 17, 11];
+function drawMarkers(){
+  const s = S, { mPos, mCol, mSize, lPos, lCol, nodes } = s;
+  for (let i=0;i<nodes.length;i++){
+    const n = nodes[i];
+    mPos[i*3]=n.pos.x; mPos[i*3+1]=n.pos.y; mPos[i*3+2]=n.pos.z;
+    if (!n.alive){ cTmp.copy(DEAD); mSize[i] = LSIZE[n.level]*0.8; }
+    else {
+      if (n.level===0) cTmp.setRGB(1,1,1); else cTmp.copy(HUES[n.branch]).lerp(WHITE, n.level===1?0.25:n.level===2?0.1:0);
+      cTmp.lerp(SIGNAL, Math.min(1, n.flash)); mSize[i] = LSIZE[n.level]*(1 + n.flash*0.8);
+    }
+    if (!ui.tLeaders.checked) mSize[i] = 0;
+    mCol[i*3]=cTmp.r; mCol[i*3+1]=cTmp.g; mCol[i*3+2]=cTmp.b;
+    if (i > 0){
+      const j = (i-1)*6, p = n.parent.pos, broken = !n.alive || !n.parent.alive;
+      lPos[j]=p.x; lPos[j+1]=p.y; lPos[j+2]=p.z; lPos[j+3]=n.pos.x; lPos[j+4]=n.pos.y; lPos[j+5]=n.pos.z;
+      if (broken) cTmp.setRGB(0.5,0.08,0.12); else cTmp.copy(HUES[n.branch]).multiplyScalar(0.45);
+      lCol[j]=lCol[j+3]=cTmp.r; lCol[j+1]=lCol[j+4]=cTmp.g; lCol[j+2]=lCol[j+5]=cTmp.b;
+    }
+  }
+  // signal pulses travelling down the chain, each with a short tail
+  s.pulses = s.pulses.filter(p => s.now < p.t1);
+  let w = s.M; const max = s.M + s.P, show = ui.tLines.checked;
+  for (const p of s.pulses){
+    const t = Math.max(0, (s.now - p.t0)/(p.t1 - p.t0));
+    for (let k=0;k<3 && w<max;k++,w++){
+      const u = Math.max(0, t - k*0.07);
+      vA.copy(p.from.pos).lerp(p.to.pos, u);
+      mPos[w*3]=vA.x; mPos[w*3+1]=vA.y; mPos[w*3+2]=vA.z;
+      const a = 1 - k*0.35; mCol[w*3]=SIGNAL.r*a; mCol[w*3+1]=SIGNAL.g*a; mCol[w*3+2]=SIGNAL.b*a;
+      mSize[w] = show ? (10 - k*3) : 0;
+    }
+  }
+  for (; w<max; w++) mSize[w] = 0;
+  const a = s.mg.attributes; a.position.needsUpdate = a.aColor.needsUpdate = a.aSize.needsUpdate = true;
+  s.lg.attributes.position.needsUpdate = s.lg.attributes.color.needsUpdate = true;
+}
+
+// ---------- HUD ----------
+let chainRows = [];
+function buildChainPanel(){
+  ui.chain.textContent = '';
+  chainRows = [];
+  const counts = [1, S.K1, S.K1*S.K2, S.G];
+  const rows = [...LEVEL_NAMES.map((name, L) => ({ name, n:counts[L], L })), { name:'الجسيمات', n:S.N, L:4 }];
+  for (const r of rows){
+    const lv = document.createElement('div'); lv.className='lv';
+    const mk = document.createElement('span'); mk.className='mk';
+    if (r.L===4){ mk.style.border='0'; mk.style.background='var(--dim)'; mk.style.width=mk.style.height='6px'; mk.style.margin='0 2px'; }
+    else if (r.L>0){ mk.style.borderColor = r.L===1 ? 'var(--signal)' : r.L===2 ? '#9fb4ff' : 'var(--dim)'; mk.style.transform=`scale(${[1,1,.85,.7][r.L]})`; }
+    lv.append(mk, document.createTextNode(r.name));
+    const n = document.createElement('span'); n.className='n'; n.textContent = '×' + fmt(r.n);
+    const bar = document.createElement('div'); bar.className='bar'; const fill = document.createElement('i'); bar.append(fill);
+    const st = document.createElement('span'); st.className='st';
+    ui.chain.append(lv, n, bar, st);
+    chainRows.push({ fill, st, L:r.L });
+  }
+}
+function updateChainPanel(){
+  if (!S) return;
+  const latest = S.latest;
+  for (const row of chainRows){
+    if (row.L === 0){ row.fill.style.width = latest ? '100%' : '0%'; row.st.textContent = latest ? 'تعطي الأوامر' : 'بانتظارك'; row.st.className='st'; continue; }
+    if (row.L === 4){
+      let doing = 0;
+      for (const n of S.groups) if (!S.lost[n.group] && n.order && n.order.id === latest) doing += GROUP - S.pendCount[n.group];
+      let lostN = 0; for (let g=0; g<S.G; g++) lostN += S.lost[g];
+      row.fill.style.width = (100*doing/S.N).toFixed(1)+'%';
+      row.st.textContent = lostN ? `${fmt(lostN*GROUP)} تايهين` : `ينفّذون ${fmt(doing)}`;
+      row.st.className = 'st' + (lostN ? ' bad' : doing===S.N ? ' good' : '');
+      continue;
+    }
+    const lv = S.levels[row.L]; let got=0, dead=0;
+    for (const n of lv){ if (!n.alive) dead++; else if (n.order && n.order.id === latest) got++; }
+    row.fill.style.width = (100*got/lv.length).toFixed(1)+'%';
+    row.st.textContent = dead ? `${fmt(dead)} ساقط` : `استلموا ${fmt(got)}/${fmt(lv.length)}`;
+    row.st.className = 'st' + (dead ? ' bad' : got===lv.length ? ' good' : '');
+  }
+}
+function log(msg, cls=''){
+  const d = document.createElement('div'); d.textContent = msg; if (cls) d.className = cls;
+  ui.log.insertBefore(d, ui.log.children[1] || null);
+  while (ui.log.children.length > 8) ui.log.lastChild.remove();
+  ui.last.textContent = msg; ui.last.style.color = cls==='warn' ? 'var(--danger)' : cls==='ok' ? 'var(--ok)' : 'var(--signal)';
+}
+
+// ---------- controls ----------
+for (const [k, label] of SHAPES){
+  const b = document.createElement('button'); b.type='button'; b.className='chip'; b.dataset.k=k; b.textContent=label; b.setAttribute('aria-pressed','false');
+  b.addEventListener('click', () => issue(label, gen(k, S.N), k));
+  ui.shapes.append(b);
+}
+document.getElementById('wordForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = document.getElementById('word').value.trim();
+  if (!text){ log('اكتب كلمة أول حتى يشكّلها السرب', 'warn'); return; }
+  const pts = await genWord(text, S.N);
+  if (!pts){ log('ما گدرت أرسم هالكلمة، جرّب كلمة ثانية', 'warn'); return; }
+  issue(text, pts, 'word');
+  // turn to face the word so it reads correctly
+  controls.autoRotate = false; ui.tSpin.checked = false; faceFront = true;
+});
+let faceFront = false;
+const sph = new THREE.Spherical();
+function easeToFront(dt){
+  if (!faceFront) return;
+  vA.copy(camera.position).sub(controls.target); sph.setFromVector3(vA);
+  let d = -sph.theta; d = Math.atan2(Math.sin(d), Math.cos(d));
+  if (Math.abs(d) < 0.003){ faceFront = false; return; }
+  sph.theta += d*(1-Math.exp(-dt*3));
+  camera.position.copy(controls.target).add(vA.setFromSpherical(sph));
+}
+renderer.domElement.addEventListener('pointerdown', () => { faceFront = false; });
+const showDelay = () => ui.delayOut.textContent = nf.format(+ui.delay.value) + ' ث';
+ui.delay.addEventListener('input', showDelay); showDelay();
+document.querySelectorAll('[data-kill]').forEach(b => b.addEventListener('click', () => kill(+b.dataset.kill)));
+ui.tLines.addEventListener('change', () => { S.lines.visible = ui.tLines.checked; });
+ui.tLeaders.addEventListener('change', () => {});
+ui.tSpin.addEventListener('change', () => { controls.autoRotate = ui.tSpin.checked; if (ui.tSpin.checked) faceFront = false; });
+ui.count.addEventListener('change', async () => {
+  const last = S.lastCmd; build(ui.count.value); S.booted = true;
+  log(`السرب صار ${fmt(S.N)} جسيم بـ${fmt(S.G)} قائد مجموعة`);
+  if (!last) return;
+  if (last.chipKey === 'word'){ const p = await genWord(last.label, S.N); if (p) issue(last.label, p, 'word'); }
+  else issue(last.label, gen(last.chipKey, S.N), last.chipKey);
+});
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); updateScale();
+});
+
+// ---------- boot ----------
+const small = Math.min(innerWidth, innerHeight) < 600;
+ui.count.value = small ? 'm' : 'l';
+build(ui.count.value);
+log('السرب بمعسكراته. أول أمر راح يطلع منك بعد لحظة');
+const clock = new THREE.Clock();
+let hudT = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 1/30);
+  step(dt);
+  easeToFront(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  if ((hudT += dt) > 0.15){ hudT = 0; updateChainPanel(); }
+});
+</script>
+
+</body>
+</html>
