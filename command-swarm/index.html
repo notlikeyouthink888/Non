@@ -73,6 +73,9 @@ select option{background:#101525}
 .btn[disabled]{opacity:.45;cursor:default}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--edge);font-weight:500}
 .btn.kill{background:transparent;color:var(--danger);border:1px solid rgba(255,95,109,.4);font-weight:500}
+.btn.connect{background:var(--ai);color:#0b1022}
+.btn.connect.nudge{box-shadow:0 0 0 3px rgba(159,180,255,.35)}
+@media (prefers-reduced-motion:no-preference){ .btn.connect.nudge{animation:nudge 1.4s ease-in-out 3} @keyframes nudge{50%{box-shadow:0 0 0 7px rgba(159,180,255,.12)}} }
 .ai-status{font-size:12.5px;color:var(--dim);flex:1 1 180px;min-width:0}
 .ai-status.bad{color:var(--danger)}
 .ai-live{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--dim)}
@@ -152,6 +155,7 @@ input[type=checkbox]{accent-color:var(--signal)}
       <div class="ask-row">
         <button class="btn" type="submit" id="drawBtn">ارسم بالذكاء</button>
         <button class="btn ghost" type="button" id="wordBtn">شكّلها كلمة</button>
+        <button class="btn connect" type="button" id="connectBtn" hidden>اربط حساب OpenRouter</button>
         <button class="btn kill" type="button" id="stopBtn" hidden>إيقاف</button>
         <span class="ai-status" id="aiStatus" aria-live="polite"></span>
       </div>
@@ -173,7 +177,7 @@ input[type=checkbox]{accent-color:var(--signal)}
             <label for="aiBase">رابط الـ API</label>
             <input id="aiBase" type="url" spellcheck="false" autocomplete="off" placeholder="https://…/v1">
             <label for="aiKey">المفتاح</label>
-            <div class="row"><input id="aiKey" type="password" autocomplete="off" spellcheck="false"><button class="btn ghost" type="button" id="aiSave">احفظ</button></div>
+            <div class="row"><input id="aiKey" type="password" autocomplete="off" spellcheck="false"><button class="btn ghost" type="button" id="aiSave">احفظ</button><button class="btn connect" type="button" id="aiConnect" hidden>اربط بتسجيل الدخول</button></div>
             <label for="aiModelSel">النموذج</label>
             <div class="row"><select id="aiModelSel"></select><button class="btn ghost" type="button" id="aiRefresh">حدّث القائمة</button></div>
             <label for="aiCustom">أو اكتب اسمه</label>
@@ -1116,7 +1120,7 @@ const ui = {
   aiLive:document.getElementById('aiLive'), aiPreview:document.getElementById('aiPreview'), aiModel:document.getElementById('aiModel'), aiChars:document.getElementById('aiChars'),
   aiNote:document.getElementById('aiNote'), apiRows:document.getElementById('apiRows'), aiProv:document.getElementById('aiProv'), aiBase:document.getElementById('aiBase'),
   aiKey:document.getElementById('aiKey'), aiSave:document.getElementById('aiSave'), aiModelSel:document.getElementById('aiModelSel'), aiRefresh:document.getElementById('aiRefresh'),
-  aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
+  aiCustom:document.getElementById('aiCustom'), aiKeyNote:document.getElementById('aiKeyNote'), connectBtn:document.getElementById('connectBtn'), aiConnect:document.getElementById('aiConnect'), aiRules:document.getElementById('aiRules'), aiRulesReset:document.getElementById('aiRulesReset'),
 };
 const RANK_ICON = [
   '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="10" cy="10" r="3" fill="currentColor"/></svg>',
@@ -1260,8 +1264,15 @@ function drawPrompt(prompt, mode){
 }
 // يطلّع الرسمة من رد الذكاء: SVG أو JSON
 function extractDrawing(text){
-  const t = String(text || '');
-  if (t.includes('<svg')){ const prep = prepareSvg(t); if (prep.elements < 2) throw new Error('الرسمة ناقصة'); return { kind:'svg', data:prep.str, info:`${fmt(prep.elements)} شكل` }; }
+  const t = String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
+  if (t.includes('<svg')){
+    let prep = null, err = null;
+    for (let at = t.lastIndexOf('<svg'); at >= 0 && !prep; at = at > 0 ? t.lastIndexOf('<svg', at - 1) : -1){
+      try { const p = prepareSvg(t.slice(at)); if (p.elements >= 2) prep = p; } catch (e){ err = e; }
+    }
+    if (!prep) throw err || new Error('الرسمة ناقصة');
+    return { kind:'svg', data:prep.str, info:`${fmt(prep.elements)} شكل` };
+  }
   let s = t.replace(/```(?:json)?/gi, '').trim(); const a = s.indexOf('{'), b = s.lastIndexOf('}');
   if (a < 0 || b <= a) throw new Error('الرد ما بيه رسمة مفهومة');
   s = s.slice(a, b + 1);
@@ -1296,25 +1307,27 @@ function currentProv(){ const id = store.get('provider', 'openrouter'); return p
   if (k){ if (!provAll().openrouter?.key) saveCfg('openrouter', { key:k, model:store.get('orModel', 'auto') }); store.set('orKey', null); store.set('orModel', null); }
 }
 
+const FREE_ROUTER = { id:'openrouter/free', name:'OpenRouter Free' };   // راوتر OpenRouter: يختار نموذج مجاني متوفر بنفسه
 const FREE_FALLBACK = [
-  ['qwen/qwen3-coder:free', 'Qwen3 Coder'], ['deepseek/deepseek-chat-v3.1:free', 'DeepSeek V3.1'], ['moonshotai/kimi-k2:free', 'Kimi K2'],
-  ['z-ai/glm-4.5-air:free', 'GLM 4.5 Air'], ['openai/gpt-oss-120b:free', 'GPT-OSS 120B'], ['meta-llama/llama-3.3-70b-instruct:free', 'Llama 3.3 70B'],
-  ['google/gemma-3-27b-it:free', 'Gemma 3 27B'], ['mistralai/mistral-small-3.2-24b-instruct:free', 'Mistral Small 3.2'],
+  ['nvidia/nemotron-3-ultra-550b-a55b:free', 'Nemotron 3 Ultra'], ['thinkingmachines/inkling:free', 'Inkling'], ['google/gemma-4-31b-it:free', 'Gemma 4 31B'],
+  ['nvidia/nemotron-3.5-super-vl:free', 'Nemotron 3.5 Super VL'], ['thinkingmachines/inkling-small:free', 'Inkling Small'], ['cohere/north-mini-code:free', 'North Mini Code'],
 ].map(([id, name]) => ({ id, name, maxOut:null }));
-const FAMILIES = [[/^qwen\/qwen[\w.-]*coder/, 90], [/^deepseek\/deepseek-(v\d|chat)/, 88], [/^moonshotai\/kimi-k\d/, 87], [/^z-ai\/glm-\d/, 86],
-  [/^google\/gemini/, 85], [/^openai\/gpt-oss/, 82], [/^meta-llama\/llama-(3\.3|4)/, 78], [/^qwen\/qwen/, 77], [/^mistralai\//, 74], [/^google\/gemma/, 70], [/^deepseek\/deepseek-r\d/, 64]];
+const FAMILIES = [[/^nvidia\/nemotron-3-ultra/, 92], [/^thinkingmachines\/inkling(?!-small)/, 91], [/^qwen\/qwen[\w.-]*coder/, 90], [/^deepseek\/deepseek-(v\d|chat)/, 88],
+  [/^moonshotai\/kimi-k\d/, 87], [/^z-ai\/glm-\d/, 86], [/^google\/gemini/, 85], [/^openai\/gpt-oss/, 82], [/^google\/gemma-4-31b/, 81], [/^nvidia\/nemotron-3\.5-super/, 80],
+  [/^thinkingmachines\/inkling-small/, 78], [/^meta-llama\/llama-(3\.3|4)/, 78], [/^qwen\/qwen/, 77], [/^cohere\//, 72], [/^mistralai\//, 74], [/^google\/gemma/, 70],
+  [/^deepseek\/deepseek-r\d/, 64], [/^liquid\//, 35]];
 const PAID_FAMILIES = [[/^anthropic\/claude-[\w.-]*opus/, 100], [/^anthropic\/claude-[\w.-]*sonnet/, 97], [/^openai\/gpt-5/, 95], [/^google\/gemini-[\d.]+-pro/, 93],
   [/^x-ai\/grok-\d/, 88], [/^qwen\/qwen[\w.-]*coder/, 87], [/^moonshotai\/kimi/, 86], [/^z-ai\/glm/, 85], [/^deepseek\//, 84], [/^google\/gemini/, 82],
   [/^anthropic\//, 80], [/^openai\//, 78], [/^mistralai\//, 74], [/^qwen\//, 72], [/^meta-llama\//, 70]];
-const BAD_MODEL = /(image|audio|tts|embed|guard|safety|vision-preview|nano|deep-research|transcribe)/i;
+const BAD_MODEL = /(image|audio|tts|embed|guard|safety|vision-preview|nano|deep-research|transcribe|lyria|music|song)/i;
+const textOnly = m => { const o = m.architecture?.output_modalities || ['text']; return o.length > 0 && o.every(x => x === 'text'); };
 const nfp = new Intl.NumberFormat('ar-IQ', { maximumFractionDigits:2 });
 const price = v => nfp.format(v);
 function rankFree(list){
   const now = Date.now() / 1000, out = [];
   for (const m of list || []){
     const id = String(m.id || ''), zero = Number(m.pricing?.prompt) === 0 && Number(m.pricing?.completion) === 0;
-    if (!(id.endsWith(':free') || zero) || id.startsWith('openrouter/') || BAD_MODEL.test(id)) continue;
-    if (!(m.architecture?.output_modalities || ['text']).includes('text')) continue;
+    if (!(id.endsWith(':free') || zero) || id.startsWith('openrouter/') || BAD_MODEL.test(id) || !textOnly(m)) continue;
     const ctx = m.context_length || m.top_provider?.context_length || 0; if (ctx < 16000) continue;
     const fam = FAMILIES.find(([re]) => re.test(id.replace(/:free$/, '')));
     out.push({ id, name:(m.name || id).replace(/^[^:]+:\s*/, '').replace(/\s*\(free\)\s*$/i, ''), maxOut:m.top_provider?.max_completion_tokens || null,
@@ -1327,8 +1340,7 @@ function rankPaid(list){
   const now = Date.now() / 1000, out = [];
   for (const m of list || []){
     const id = String(m.id || '');
-    if (id.endsWith(':free') || id.startsWith('openrouter/') || BAD_MODEL.test(id)) continue;
-    if (!(m.architecture?.output_modalities || ['text']).includes('text')) continue;
+    if (id.endsWith(':free') || id.startsWith('openrouter/') || BAD_MODEL.test(id) || !textOnly(m)) continue;
     const pin = Number(m.pricing?.prompt) * 1e6, pout = Number(m.pricing?.completion) * 1e6;
     if (!(pin >= 0) || !(pout > 0)) continue;
     const fam = PAID_FAMILIES.find(([re]) => re.test(id));
@@ -1365,13 +1377,13 @@ function orClassify(status, msg){
   if (status === -1) return skipErr('انقطع الاستلام', 60e3);
   if (/free-models-per-day/i.test(msg)) return fatalErr('خلصت طلباتك المجانية لليوم: حد OpenRouter ٥٠ طلب باليوم للحساب كله (أو ١٠٠٠ إذا شحنت الحساب ١٠$ ولو مرة). يتجدد منتصف الليل بتوقيت UTC. لحد ذاك الوقت جرّب مزوّد ثاني من الإعدادات.');
   if (/free-models-per-min/i.test(msg)) return skipErr('وصلت حد الدقيقة للمجانية', 60e3);
-  if (/data policy|privacy/i.test(msg)) return skipErr('محجوب بإعدادات الخصوصية', 24 * 3600e3, { policy:true });
+  if (/data policy|privacy|guardrail/i.test(msg)) return skipErr('محجوب بإعدادات الخصوصية بحسابك', 0, { policy:true });
   switch (status){
     case 401: return fatalErr('مفتاح OpenRouter غير صحيح (401). راجعه بالإعدادات.');
     case 402: return skipErr('يحتاج رصيد (402)', 24 * 3600e3);
-    case 429: return skipErr('مشغول حاليًا (429)', 3 * 60e3);
-    case 404: return skipErr('غير متوفر (404)', 24 * 3600e3);
-    case 400: return /not a valid model|no endpoints|model.*not (found|exist|available)/i.test(msg) ? skipErr('غير متوفر', 24 * 3600e3) : skipErr('رفض الطلب (400)', 10 * 60e3);
+    case 429: return skipErr('مشغول حاليًا (429)', 2 * 60e3);
+    case 404: return skipErr('غير متوفر (404)', 6 * 3600e3);
+    case 400: return /not a valid model|no endpoints|model.*not (found|exist|available)/i.test(msg) ? skipErr('غير متوفر', 6 * 3600e3) : skipErr('رفض الطلب (400)', 10 * 60e3);
     default: return skipErr(`خطأ ${status}`, 3 * 60e3);
   }
 }
@@ -1395,23 +1407,24 @@ function errText(j){
 async function apiCall(o){
   const url = o.base.replace(/\/+$/, '') + '/chat/completions';
   const headers = { 'Content-Type':'application/json', ...(o.key ? { Authorization:'Bearer ' + o.key } : {}), ...(o.extra || {}) };
-  const variants = [{ max_tokens:o.maxTokens, temperature:0.6 }, { max_completion_tokens:o.maxTokens }, {}];
+  const variants = o.variants || [{ max_tokens:o.maxTokens, temperature:0.6 }, { max_completion_tokens:o.maxTokens }, {}];
   let stream = true;
   for (let v = 0; v < variants.length; v++){
     let res;
-    try { res = await fetch(url, { method:'POST', signal:o.signal, headers, body:JSON.stringify({ model:o.model, messages:[{ role:'user', content:o.prompt }], stream, ...variants[v] }) }); }
+    const body = { model:o.model, ...(o.models ? { models:o.models } : {}), messages:[{ role:'user', content:o.prompt }], stream, ...variants[v] };
+    try { res = await fetch(url, { method:'POST', signal:o.signal, headers, body:JSON.stringify(body) }); }
     catch { if (o.signal.aborted) throw stopErr(); throw fatalErr(o.netMsg); }
     if (res.ok) return stream ? readStream(res, o) : readWhole(res, o);
     let msg = ''; try { msg = errText(await res.json()); } catch {}
     if (res.status === 400 && stream && /stream/i.test(msg)){ stream = false; v--; continue; }
-    if (res.status === 400 && v < variants.length - 1 && /max_tokens|max_completion_tokens|temperature|unsupported|not supported|unrecognized|unknown (field|param|argument)|extra inputs/i.test(msg)) continue;
+    if (res.status === 400 && v < variants.length - 1 && /max_tokens|max_completion_tokens|temperature|reasoning|unsupported|not supported|unrecognized|unknown (field|param|argument)|extra inputs/i.test(msg)) continue;
     throw o.classify(res.status, msg);
   }
   throw o.classify(400, '');
 }
 async function readStream(res, o){
   const reader = res.body.getReader(), dec = new TextDecoder();
-  let buf = '', text = '';
+  let buf = '', text = '', served = '';
   try {
     for (;;){
       const { done, value } = await reader.read(); if (done) break;
@@ -1423,52 +1436,58 @@ async function readStream(res, o){
         const data = line.slice(5).trim(); if (!data || data === '[DONE]') continue;
         let j; try { j = JSON.parse(data); } catch { continue; }
         if (j.error) throw o.classify(Number(j.error.code) || 502, errText(j));
+        if (j.model) served = j.model;
         const d = j.choices?.[0]?.delta;
         if (d?.content){ text += d.content; o.onText(text, false); }
         else if (d?.reasoning || d?.reasoning_content) o.onText(text, true);
       }
     }
   } catch (e){ if (o.signal.aborted) throw stopErr(); if (e.skip || e.fatal) throw e; throw o.classify(-1, ''); }
-  return { text };
+  return { text, served };
 }
-async function readWhole(res, o){ const j = await res.json(); const text = String(j.choices?.[0]?.message?.content || ''); o.onText(text, false); return { text }; }
+async function readWhole(res, o){ const j = await res.json(); const text = String(j.choices?.[0]?.message?.content || ''); o.onText(text, false); return { text, served:j.model || '' }; }
+// OpenRouter: تفكير قليل حتى النماذج المفكّرة ما تصرف كل الرد بالتفكير قبل ما ترسم
+const OR_VARIANTS = t => [{ max_tokens:t, temperature:0.6, reasoning:{ effort:'low' } }, { max_tokens:t }, {}];
+const POLICY_MSG = 'حسابك بـ OpenRouter مانع النماذج المجانية من إعدادات الخصوصية. افتح openrouter.ai/settings/privacy وفعّل الخيارات اللي تخص النماذج المجانية (free endpoints)، وبعدها جرّب.';
 
-// OpenRouter «تلقائي»: المجانية بالترتيب، واللي ينشغل يتوقف شوية ونتحول للي بعده
+// OpenRouter «تلقائي»: أول شي راوتر OpenRouter المجاني، وبعدين مجموعتين من أقوى المجانية.
+// كل مجموعة طلب واحد، وOpenRouter نفسه يتحول بينها إذا وحدة انشغلت، فما تنصرف طلباتك اليومية على الفاضي.
 async function openRouterChain(common, progress){
-  const cool0 = cooling(), chain = orCatalog().free.filter(m => !cool0[m.id]);
-  if (!chain.length) throw new Error('كل النماذج المجانية مشغولة أو موقوفة هسه. جرّب بعد دقائق، أو اختر نموذج مدفوع أو مزوّد ثاني من الإعدادات.');
-  let policy = false;
-  for (let i = 0; i < chain.length; i++){
-    const m = chain[i];
-    progress({ model:m.name, text:'' });
+  const free = orCatalog().free, cool0 = cooling();
+  const ranked = [...free.filter(m => !cool0[m.id]), ...free.filter(m => cool0[m.id])];
+  const groups = [[FREE_ROUTER], ranked.slice(0, 3), ranked.slice(3, 6)].filter(g => g.length);
+  let lastErr = null;
+  for (let i = 0; i < groups.length; i++){
+    const g = groups[i], name = g.map(m => m.name).join(' أو ');
+    progress({ model:name, text:'' });
     try {
-      const { text } = await apiCall({ ...common, model:m.id, maxTokens:Math.min(m.maxOut || 9000, 9000), classify:orClassify, onText:(t, th) => progress({ model:m.name, text:t, thinking:th }) });
-      return { drawing:extractDrawing(text), model:m.name };
+      const { text, served } = await apiCall({ ...common, model:g[0].id, models:g.length > 1 ? g.map(m => m.id) : null, variants:OR_VARIANTS(16000),
+        classify:orClassify, onText:(t, th) => progress({ model:name, text:t, thinking:th }) });
+      const drawing = extractDrawing(text);
+      return { drawing, model:free.find(m => m.id === served)?.name || (served && served !== FREE_ROUTER.id ? served : name) };
     } catch (e){
       if (e.stop || e.fatal) throw e;
-      policy ||= !!e.policy;
-      if (e.skip) cool(m.id, e.ms);
-      const next = chain[i + 1];
-      log(`${m.name}: ${e.message}${next ? `، أجرّب ${next.name}` : ''}`, 'warn');
+      if (e.policy) throw fatalErr(POLICY_MSG);
+      if (e.skip && e.ms && g.length === 1 && g[0] !== FREE_ROUTER) cool(g[0].id, e.ms);
+      lastErr = e;
+      log(`${name}: ${e.message}${groups[i + 1] ? '، أجرّب غيره' : ''}`, 'warn');
     }
   }
-  throw new Error(policy
-    ? 'النماذج المجانية محجوبة بإعدادات الخصوصية بحسابك. فعّل خيارات النماذج المجانية من openrouter.ai/settings/privacy وجرّب.'
-    : 'كل النماذج المجانية فشلت هالمرة. جرّب بعد دقيقة، أو اختر نموذج مدفوع أو مزوّد ثاني من الإعدادات.');
+  throw new Error(`ما ضبطت الرسمة هالمرة (${lastErr?.message || 'خطأ'}). جرّب مرة ثانية بعد دقيقة، أو اختر نموذج معيّن من الإعدادات.`);
 }
 async function drawWithApi(prompt, mode, signal, progress){
   const id = currentProv(), p = provMap[id], c = cfg(id), model = c.custom.trim() || c.model;
   const common = { base:c.base.trim(), key:c.key, signal, prompt:drawPrompt(prompt, mode),
     netMsg:`تعذر الوصول لـ ${p.name}. تأكد من الإنترنت والرابط، أو المزوّد ما يسمح بالاتصال من المتصفح.` };
   if (id === 'openrouter'){
-    common.extra = { 'HTTP-Referer':'https://github.com/notlikeyouthink888/Non', 'X-Title':'Command Swarm' };
+    common.extra = { 'HTTP-Referer':/^https?:/.test(location.protocol) ? location.origin + location.pathname : 'https://github.com/notlikeyouthink888/Non', 'X-Title':'Command Swarm' };
     if (!model || model === 'auto') return openRouterChain(common, progress);
     const cat = orCatalog(), info = [...cat.free, ...cat.paid].find(m => m.id === model), name = info?.name || model;
     progress({ model:name, text:'' });
     try {
-      const { text } = await apiCall({ ...common, model, maxTokens:Math.min(info?.maxOut || 9000, 9000), classify:orClassify, onText:(t, th) => progress({ model:name, text:t, thinking:th }) });
+      const { text } = await apiCall({ ...common, model, variants:OR_VARIANTS(Math.min(info?.maxOut || 16000, 16000)), classify:orClassify, onText:(t, th) => progress({ model:name, text:t, thinking:th }) });
       return { drawing:extractDrawing(text), model:name };
-    } catch (e){ if (e.skip) throw fatalErr(`${name}: ${e.message}`); throw e; }
+    } catch (e){ if (e.policy) throw fatalErr(POLICY_MSG); if (e.skip) throw fatalErr(`${name}: ${e.message}`); throw e; }
   }
   if (!model) throw new Error('اختر نموذج أو اكتب اسمه بالإعدادات');
   progress({ model, text:'' });
@@ -1526,6 +1545,11 @@ async function aiDraw(){
     syncFields();
     const id = currentProv(), p = provMap[id], c = cfg(id);
     if (!c.base.trim()){ ui.more.open = true; ui.aiBase.focus(); setStatus('حط رابط الـ API بالإعدادات أول.', true); return; }
+    if (id === 'openrouter' && !c.key && canConnect()){
+      store.set('pendingDraw', { prompt, mode:ui.mode.value, at:Date.now() });
+      updateConnect(); ui.connectBtn.classList.add('nudge');
+      setStatus('OpenRouter يحتاج حساب مجاني. اضغط «اربط حساب OpenRouter»، سجّل دخول (مثلاً بحساب Google) ووافق، وترجع هنا ويكمل الرسم وحده.'); return;
+    }
     if (id !== 'custom' && !c.key){
       ui.more.open = true; ui.aiKey.focus();
       setStatus(`حط مفتاح ${p.name} بالإعدادات أول${p.keys ? ` (تاخذه من ${p.keys.replace(/^https:\/\//, '')})` : ''}.`, true); return;
@@ -1558,7 +1582,7 @@ function fillModels(){
   const group = label => { const g = document.createElement('optgroup'); g.label = label; sel.append(g); return g; };
   if (id === 'openrouter'){
     const { free, paid } = orCatalog();
-    sel.append(new Option('تلقائي: يجرّب المجانية بالترتيب', 'auto'));
+    sel.append(new Option('تلقائي: OpenRouter يختار نموذج مجاني متوفر', 'auto'));
     const gf = group(`مجانية (${fmt(free.length)})`); for (const m of free) gf.append(new Option(m.name, m.id));
     for (const [label, test] of [['قوية', m => m.out >= 8], ['متوسطة', m => m.out >= 1.6 && m.out < 8], ['رخيصة', m => m.out < 1.6]]){
       const list = paid.filter(test); if (!list.length) continue;
@@ -1585,15 +1609,71 @@ function keyNote(){
   if (id === 'openrouter'){
     const sel = ui.aiModelSel.value, paid = orCatalog().paid.find(m => m.id === sel);
     if (paid) ui.aiKeyNote.append(` النموذج المختار مدفوع (${price(paid.out)}$ لكل مليون رمز يكتبه) ويخصم من رصيد حسابك.`);
-    else if (sel === 'auto') ui.aiKeyNote.append(' «تلقائي» يستخدم المجانية بس، وإذا وحدة انشغلت يتحول للي بعدها.');
+    else if (sel === 'auto') ui.aiKeyNote.append(' «تلقائي» يستخدم المجانية بس: يبدأ براوتر OpenRouter المجاني، وإذا ما ضبط يجرّب أقوى المجانية.');
+    if (keyState === 'bad') ui.aiKeyNote.append(' المفتاح المحفوظ مرفوض من OpenRouter (غلط أو انحذف). اربط حسابك من جديد.');
+    else if (keyState === 'free') ui.aiKeyNote.append(' المفتاح شغّال، وحسابك مجاني: ٥٠ طلب باليوم للنماذج المجانية.');
+    else if (keyState === 'paid') ui.aiKeyNote.append(' المفتاح شغّال، وحسابك بيه رصيد: ١٠٠٠ طلب باليوم للمجانية، والمدفوعة تخصم من رصيدك.');
   } else if (id === 'custom') ui.aiKeyNote.append(' الرابط لازم يكون متوافق مع OpenAI (ينتهي عادة بـ /v1) ويسمح بالاتصال من المتصفح.');
+}
+// ربط حساب OpenRouter بتسجيل الدخول (OAuth PKCE): المفتاح يجي وحده، بدون نسخ ولصق
+let keyState = '';
+const canConnect = () => !ai.inClaude && /^https?:$/.test(location.protocol);
+const b64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+async function connectOpenRouter(){
+  if (!canConnect()){ setStatus('الربط يشتغل من رابط الموقع (GitHub Pages). هنا الصق المفتاح يدويًا.', true); return; }
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+  store.set('orPkce', { verifier, at:Date.now() });
+  const cb = location.origin + location.pathname;
+  setStatus('أحوّلك لـ OpenRouter…');
+  location.href = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(cb)}&code_challenge=${challenge}&code_challenge_method=S256&key_label=${encodeURIComponent('سرب القيادة')}`;
+}
+async function finishOpenRouterAuth(){
+  const q = new URLSearchParams(location.search), code = q.get('code');
+  if (!code && !q.get('error')) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (!code){ setStatus('ما تم الربط بـ OpenRouter. جرّب «اربط حساب OpenRouter» مرة ثانية.', true); return; }
+  const pk = store.get('orPkce'); store.set('orPkce', null);
+  if (!pk?.verifier){ setStatus('رجعت من OpenRouter بس بيانات الربط ضاعت. اضغط «اربط حساب OpenRouter» مرة ثانية.', true); return; }
+  setStatus('أكمل ربط حسابك بـ OpenRouter…');
+  try {
+    const res = await fetch(OR + '/auth/keys', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ code, code_verifier:pk.verifier, code_challenge_method:'S256' }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.key) throw new Error(errText(j) || ('HTTP ' + res.status));
+    saveCfg('openrouter', { key:j.key }); store.set('provider', 'openrouter'); ui.aiProv.value = 'openrouter'; ui.aiProv.dataset.cur = 'openrouter';
+    renderProvider(); checkKey();
+    log('انربط حساب OpenRouter، والمفتاح انحفظ بجهازك', 'ok');
+    const pending = store.get('pendingDraw'); store.set('pendingDraw', null);
+    if (pending?.prompt && Date.now() - pending.at < 30 * 60e3){
+      ui.prompt.value = pending.prompt; ui.mode.value = pending.mode || 'auto';
+      setStatus('انربط حسابك. أكمل رسم طلبك…');
+      setTimeout(aiDraw, 400);
+    } else setStatus('انربط حسابك بـ OpenRouter. اكتب طلبك واضغط «ارسم بالذكاء».');
+  } catch (e){ setStatus(`ما گدرت أكمل الربط (${e.message}). جرّب مرة ثانية.`, true); }
+}
+async function checkKey(){
+  const key = cfg('openrouter').key; keyState = '';
+  if (!key || ai.inClaude) return;
+  try {
+    const res = await fetch(OR + '/key', { headers:{ Authorization:'Bearer ' + key } });
+    const j = await res.json().catch(() => ({}));
+    keyState = res.status === 401 ? 'bad' : res.ok ? (j.data?.is_free_tier ? 'free' : 'paid') : '';
+  } catch {}
+  if (currentProv() === 'openrouter') keyNote();
+  updateConnect();
+}
+function updateConnect(){
+  const show = canConnect() && currentProv() === 'openrouter';
+  ui.aiConnect.hidden = !show;
+  ui.aiConnect.textContent = cfg('openrouter').key ? 'اربط من جديد' : 'اربط بتسجيل الدخول';
+  ui.connectBtn.hidden = !(show && (!cfg('openrouter').key || keyState === 'bad'));
 }
 function renderProvider(){
   const id = currentProv(), c = cfg(id);
   ui.aiProv.value = id; ui.aiBase.value = c.base; ui.aiKey.value = c.key; ui.aiCustom.value = c.custom;
   ui.aiKey.placeholder = id === 'openrouter' ? 'sk-or-v1-…' : id === 'custom' ? 'إذا الرابط يحتاج مفتاح' : 'الصق المفتاح هنا';
   ui.aiCustom.placeholder = id === 'openrouter' ? 'مثلاً anthropic/claude-sonnet-4.5' : 'اسم النموذج بالضبط مثل ما يكتبه المزوّد';
-  fillModels(); keyNote();
+  fillModels(); keyNote(); updateConnect();
 }
 async function refreshModels(force, quiet){
   const id = currentProv();
@@ -1619,12 +1699,16 @@ function setupAiSettings(){
   for (const p of PROVIDERS) ui.aiProv.append(new Option(`${p.name} · ${p.tag}`, p.id));
   ui.aiProv.addEventListener('change', () => { syncFieldsFor(ui.aiProv.dataset.cur); store.set('provider', ui.aiProv.value); ui.aiProv.dataset.cur = ui.aiProv.value; renderProvider(); autoRefresh(); });
   ui.aiBase.addEventListener('change', () => saveCfg(currentProv(), { base:ui.aiBase.value.trim() }));
-  ui.aiSave.addEventListener('click', () => { const v = ui.aiKey.value.trim(); saveCfg(currentProv(), { key:v, base:ui.aiBase.value.trim() }); setStatus(v ? 'انحفظ المفتاح.' : 'انمسح المفتاح.'); if (v && currentProv() !== 'openrouter') refreshModels(true, true); });
+  ui.aiSave.addEventListener('click', () => { const v = ui.aiKey.value.trim(); saveCfg(currentProv(), { key:v, base:ui.aiBase.value.trim() }); setStatus(v ? 'انحفظ المفتاح.' : 'انمسح المفتاح.');
+    if (currentProv() === 'openrouter') checkKey(); else { if (v) refreshModels(true, true); } updateConnect(); });
   ui.aiModelSel.addEventListener('change', () => { saveCfg(currentProv(), { model:ui.aiModelSel.value }); keyNote(); });
   ui.aiCustom.addEventListener('change', () => saveCfg(currentProv(), { custom:ui.aiCustom.value.trim() }));
   ui.aiRefresh.addEventListener('click', () => refreshModels(true, false));
+  ui.connectBtn.addEventListener('click', connectOpenRouter);
+  ui.aiConnect.addEventListener('click', connectOpenRouter);
   ui.aiProv.dataset.cur = currentProv();
   renderProvider(); autoRefresh();
+  finishOpenRouterAuth().then(() => { if (cfg('openrouter').key && keyState === '') checkKey(); });
 }
 function syncFieldsFor(id){ if (!provMap[id]) return; saveCfg(id, { key:ui.aiKey.value.trim(), base:ui.aiBase.value.trim(), custom:ui.aiCustom.value.trim() }); }
 function autoRefresh(){
